@@ -1,0 +1,63 @@
+{
+    "log": {
+        "loglevel": "debug",
+        "access": "/var/log/xray/access.log",
+        "error": "/var/log/xray/error.log"
+    },
+    "inbounds": [
+        {
+            "listen": "0.0.0.0",
+            "port": 443,
+            "protocol": "vless",
+            "settings": {
+                "clients": [
+                    {
+                        "id": "ab77af6d-58fa-48eb-87ad-0e3925e8775d",
+                        "flow": ""
+                    }
+                ],
+                "decryption": "none"
+            },
+            "streamSettings": {
+                "network": "xhttp",
+                "xhttpSettings": {
+                    "path": "/vless"
+                },
+                "security": "reality",
+                "realitySettings": {
+                    "show": false,
+                    "target": "1.1.1.1:443",
+                    "serverNames": [
+                        "",
+                        "1.1.1.1",
+                        "76t05pyu.ikill.baby"
+                    ],
+                    "privateKey": "aGd92LnG7GGAkFq-n23apez8SG_bRJlDfn75yTlK6Wc",
+                    "shortIds": [
+                        "2e30b986cabb4bca",
+                        ""
+                    ]
+                }
+            },
+            "sniffing": {
+                "enabled": true,
+                "destOverride": [
+                    "http",
+                    "tls",
+                    "quic"
+                ],
+                "routeOnly": true
+            }
+        }
+    ],
+    "outbounds": [
+        {
+            "protocol": "freedom",
+            "tag": "direct"
+        },
+        {
+            "protocol": "blackhole",
+            "tag": "block"
+        }
+    ]
+}

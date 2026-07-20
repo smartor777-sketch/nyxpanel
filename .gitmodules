@@ -1,0 +1,6 @@
+[submodule "android/olcbox"]
+	path = android/olcbox
+	url = https://github.com/smartor777-sketch/olcbox.git
+[submodule "server/olcrtc-users"]
+	path = server/olcrtc-users
+	url = https://github.com/smartor777-sketch/olcrtc-users.git
