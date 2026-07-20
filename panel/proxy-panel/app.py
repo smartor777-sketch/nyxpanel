@@ -7,7 +7,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("PANEL_SECRET", os.urandom(16).hex())
-PANEL_VERSION = "1.02"
+PANEL_VERSION = "1.03"
 
 class PrefixMiddleware:
     def __init__(self, app, prefix='/panel'):
@@ -178,7 +178,8 @@ def index():
     if not is_admin():
         return redirect("/self/login")
     db_users = get_db_users()
-    return render_template("index.html", users=db_users, protocols=PROTOCOLS, version=PANEL_VERSION)
+    admin_name = session.get("self_user") or request.headers.get("REMOTE_USER") or "Admin"
+    return render_template("index.html", users=db_users, protocols=PROTOCOLS, version=PANEL_VERSION, admin_name=admin_name)
 
 @app.route("/user/add", methods=["POST"])
 def user_add():

@@ -6,8 +6,8 @@
 <title>NYX Panel — Admin</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
-  :root { --bg: #0d1117; --fg: #c9d1d9; --card: #161b22; --border: #30363d; --input-bg: #21262d; --heading: #58a6ff; --muted: #8b949e; --accent: #238636; --accent-hover: #2ea043; --danger: #da3633; --danger-hover: #f85149; --proto-yes: #3fb950; --proto-no: #484f58; --user-name: #58a6ff; --user-disabled: #484f58; --status-active-bg: #1b3a2d; --status-active-fg: #7ee787; --status-expired-bg: #3a1b1b; --status-expired-fg: #ff7b72; --flash-ok-bg: #1b3a2d; --flash-ok-border: #2ea043; --flash-ok-fg: #7ee787; --flash-err-bg: #3a1b1b; --flash-err-border: #da3633; --flash-err-fg: #ff7b72; --btn-active: #1f6feb; --dropdown-bg: #161b22; --dropdown-hover: #21262d; --chart-grid: #21262d; }
-  [data-theme="light"] { --bg: #f6f8fa; --fg: #24292f; --card: #ffffff; --border: #d0d7de; --input-bg: #f6f8fa; --heading: #0550ae; --muted: #656d76; --accent: #2da44e; --accent-hover: #2c974b; --danger: #cf222e; --danger-hover: #a40e26; --proto-yes: #1a7f37; --proto-no: #afb8c1; --user-name: #0550ae; --user-disabled: #afb8c1; --status-active-bg: #dafbe1; --status-active-fg: #1a7f37; --status-expired-bg: #ffebe9; --status-expired-fg: #cf222e; --flash-ok-bg: #dafbe1; --flash-ok-border: #2da44e; --flash-ok-fg: #1a7f37; --flash-err-bg: #ffebe9; --flash-err-border: #cf222e; --flash-err-fg: #cf222e; --btn-active: #0969da; --dropdown-bg: #ffffff; --dropdown-hover: #f6f8fa; --chart-grid: #d0d7de; }
+  :root { --bg: #0d1117; --fg: #c9d1d9; --card: #161b22; --border: #30363d; --input-bg: #21262d; --heading: #58a6ff; --muted: #8b949e; --accent: #238636; --accent-hover: #2ea043; --danger: #da3633; --danger-hover: #f85149; --proto-yes: #3fb950; --proto-no: #484f58; --user-name: #58a6ff; --user-disabled: #484f58; --status-active-bg: #1b3a2d; --status-active-fg: #7ee787; --status-expired-bg: #3a1b1b; --status-expired-fg: #ff7b72; --flash-ok-bg: #1b3a2d; --flash-ok-border: #2ea043; --flash-ok-fg: #7ee787; --flash-err-bg: #3a1b1b; --flash-err-border: #da3633; --flash-err-fg: #ff7b72; --btn-active: #1f6feb; --dropdown-bg: #161b22; --dropdown-hover: #21262d; --chart-grid: #21262d; --chart-up: #58a6ff; --chart-down: #3fb950; }
+  [data-theme="light"] { --bg: #eef1f5; --fg: #1e293b; --card: #ffffff; --border: #d1d9e6; --input-bg: #f4f6f9; --heading: #1e40af; --muted: #64748b; --accent: #2563eb; --accent-hover: #1d4ed8; --danger: #dc2626; --danger-hover: #b91c1c; --proto-yes: #16a34a; --proto-no: #94a3b8; --user-name: #1e40af; --user-disabled: #94a3b8; --status-active-bg: #dcfce7; --status-active-fg: #16a34a; --status-expired-bg: #fee2e2; --status-expired-fg: #dc2626; --flash-ok-bg: #dcfce7; --flash-ok-border: #86efac; --flash-ok-fg: #16a34a; --flash-err-bg: #fee2e2; --flash-err-border: #fca5a5; --flash-err-fg: #dc2626; --btn-active: #2563eb; --dropdown-bg: #ffffff; --dropdown-hover: #f1f5f9; --chart-grid: #e2e8f0; --chart-up: #1e40af; --chart-down: #16a34a; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--fg); padding: 2rem; }
   .container { max-width: 1200px; margin: 0 auto; }
@@ -158,11 +158,21 @@
 <script>
 const themeKey = 'nyx_theme';
 function getTheme() { return localStorage.getItem(themeKey) || 'dark'; }
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 function setTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
   localStorage.setItem(themeKey, t);
   document.getElementById('themeBtn').textContent = t === 'dark' ? '\u{1F319}' : '\u{2600}\u{FE0F}';
-  if (trafficChart) trafficChart.update();
+  if (trafficChart) {
+    trafficChart.data.datasets[0].backgroundColor = cssVar('--chart-up');
+    trafficChart.data.datasets[1].backgroundColor = cssVar('--chart-down');
+    trafficChart.options.plugins.legend.labels.color = cssVar('--muted');
+    trafficChart.options.scales.x.ticks.color = cssVar('--muted');
+    trafficChart.options.scales.y.ticks.color = cssVar('--muted');
+    trafficChart.options.scales.x.grid.color = cssVar('--chart-grid');
+    trafficChart.options.scales.y.grid.color = cssVar('--chart-grid');
+    trafficChart.update();
+  }
 }
 function toggleTheme() { setTheme(getTheme() === 'dark' ? 'light' : 'dark'); }
 setTheme(getTheme());
@@ -307,22 +317,21 @@ async function loadTraffic() {
       return { date, up: day.reduce((s, d) => s + d.bytes_up, 0), down: day.reduce((s, d) => s + d.bytes_down, 0) };
     });
     if (trafficChart) trafficChart.destroy();
-    const isLight = getTheme() === 'light';
     trafficChart = new Chart(document.getElementById('trafficChart'), {
       type: 'bar',
       data: {
         labels: dates,
         datasets: [
-          { label: 'Upload', data: aggregated.map(d => d.up), backgroundColor: isLight ? '#0969da' : '#58a6ff' },
-          { label: 'Download', data: aggregated.map(d => d.down), backgroundColor: isLight ? '#1a7f37' : '#3fb950' },
+          { label: 'Upload', data: aggregated.map(d => d.up), backgroundColor: cssVar('--chart-up') },
+          { label: 'Download', data: aggregated.map(d => d.down), backgroundColor: cssVar('--chart-down') },
         ]
       },
       options: {
         responsive: true,
-        plugins: { legend: { labels: { color: 'var(--muted)' } } },
+        plugins: { legend: { labels: { color: cssVar('--muted') } } },
         scales: {
-          x: { ticks: { color: 'var(--muted)' }, grid: { color: 'var(--chart-grid)' } },
-          y: { ticks: { color: 'var(--muted)', callback: v => fmtBytes(v) }, grid: { color: 'var(--chart-grid)' } }
+          x: { ticks: { color: cssVar('--muted') }, grid: { color: cssVar('--chart-grid') } },
+          y: { ticks: { color: cssVar('--muted'), callback: v => fmtBytes(v) }, grid: { color: cssVar('--chart-grid') } }
         }
       }
     });
