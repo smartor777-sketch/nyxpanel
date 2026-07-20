@@ -5,22 +5,34 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NYX Panel — Login</title>
 <style>
+  :root { --bg: #0d1117; --fg: #c9d1d9; --card: #161b22; --border: #30363d; --input-bg: #21262d; --heading: #58a6ff; --accent: #238636; --accent-hover: #2ea043; --flash-err-bg: #3a1b1b; --flash-err-border: #da3633; --flash-err-fg: #ff7b72; }
+  [data-theme="light"] { --bg: #f6f8fa; --fg: #24292f; --card: #ffffff; --border: #d0d7de; --input-bg: #f6f8fa; --heading: #0550ae; --accent: #2da44e; --accent-hover: #2c974b; --flash-err-bg: #ffebe9; --flash-err-border: #cf222e; --flash-err-fg: #cf222e; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, system-ui, sans-serif; background: #0d1117; color: #c9d1d9; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-  .card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 2.5rem; width: 360px; }
-  h1 { color: #58a6ff; margin-bottom: 1.5rem; text-align: center; font-size: 1.4rem; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--fg); display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 2.5rem; width: 360px; position: relative; }
+  .theme-btn { position: absolute; top: 0.75rem; right: 0.75rem; background: none; border: 1px solid var(--border); padding: 0.2rem 0.5rem; font-size: 1rem; cursor: pointer; border-radius: 6px; color: var(--fg); }
+  .theme-btn:hover { background: var(--input-bg); }
+  h1 { color: var(--heading); margin-bottom: 1.5rem; text-align: center; font-size: 1.4rem; }
   form { display: flex; flex-direction: column; gap: 1rem; }
-  input { padding: 0.7rem 1rem; border-radius: 8px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; font-size: 1rem; }
-  input:focus { outline: none; border-color: #58a6ff; }
-  button { padding: 0.7rem; border-radius: 8px; border: none; background: #238636; color: #fff; font-size: 1rem; font-weight: 600; cursor: pointer; }
-  button:hover { background: #2ea043; }
+  input { padding: 0.7rem 1rem; border-radius: 8px; border: 1px solid var(--border); background: var(--input-bg); color: var(--fg); font-size: 1rem; }
+  input:focus { outline: none; border-color: var(--heading); }
+  button { padding: 0.7rem; border-radius: 8px; border: none; background: var(--accent); color: #fff; font-size: 1rem; font-weight: 600; cursor: pointer; }
+  button:hover { background: var(--accent-hover); }
   .flash { padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.9rem; }
-  .flash.error { background: #3a1b1b; border: 1px solid #da3633; color: #ff7b72; }
+  .flash.error { background: var(--flash-err-bg); border: 1px solid var(--flash-err-border); color: var(--flash-err-fg); }
 </style>
+<script>
+const themeKey = 'nyx_theme';
+function getTheme() { return localStorage.getItem(themeKey) || 'dark'; }
+function setTheme(t) { document.documentElement.setAttribute('data-theme',t); localStorage.setItem(themeKey,t); document.getElementById('themeBtn').textContent = t==='dark'?'\u{1F319}':'\u{2600}\u{FE0F}'; }
+function toggleTheme() { setTheme(getTheme()==='dark'?'light':'dark'); }
+setTheme(getTheme());
+</script>
 </head>
 <body>
 <div class="card">
-  <h1>NYX Panel <span style="font-size:0.7rem;color:#8b949e;font-weight:normal">v{{ version }}</span></h1>
+  <button class="theme-btn" id="themeBtn">🌙</button>
+  <h1>NYX Panel <span style="font-size:0.7rem;color:var(--muted, #8b949e);font-weight:normal">v{{ version }}</span></h1>
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
       {% for category, msg in messages %}
