@@ -2,18 +2,22 @@
 """NYX Panel — Flask + SQLite"""
 import subprocess, os, json, re, sqlite3, datetime
 from pathlib import Path
-from flask import Flask, render_template, request, redirect, url_for, send_file, flash
+from flask import Flask, render_template, request, redirect, url_for, send_file, flash, session
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-app.secret_key = os.urandom(16).hex()
+app.secret_key = os.environ.get("PANEL_SECRET", os.urandom(16).hex())
 
 class PrefixMiddleware:
     def __init__(self, app, prefix='/panel'):
         self.app = app
         self.prefix = prefix
     def __call__(self, environ, start_response):
-        if environ['PATH_INFO'].startswith(self.prefix):
-            environ['PATH_INFO'] = environ['PATH_INFO'][len(self.prefix):]
+        path = environ['PATH_INFO']
+        if path.startswith('/self'):
+            return self.app(environ, start_response)
+        if path.startswith(self.prefix):
+            environ['PATH_INFO'] = path[len(self.prefix):]
             environ['SCRIPT_NAME'] = self.prefix
             return self.app(environ, start_response)
         start_response('404', [('Content-Type', 'text/plain')])
@@ -64,6 +68,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
+            password_hash TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             expires_at TIMESTAMP,
             traffic_limit_bytes INTEGER DEFAULT 0,
@@ -88,6 +93,10 @@ def init_db():
             UNIQUE(username, protocol, date)
         );
     """)
+    try:
+        db.execute("ALTER TABLE users ADD COLUMN password_hash TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
     db.commit()
     migrate_from_registry(db)
     db.close()
@@ -257,6 +266,93 @@ def toggle_user(name):
         db.commit()
     db.close()
     return redirect(url_for("index"))
+
+@app.route("/user/<name>/password", methods=["POST"])
+def set_password(name):
+    pwd = request.form.get("password", "").strip()
+    if not pwd:
+        flash("Password cannot be empty", "error")
+        return redirect(url_for("index"))
+    db = get_db()
+    db.execute("UPDATE users SET password_hash = ? WHERE username = ?",
+               (generate_password_hash(pwd), name))
+    db.commit()
+    db.close()
+    flash(f"Password set for {name}", "ok")
+    return redirect(url_for("index"))
+
+# --- Self-service dashboard ---
+@app.route("/self/login", methods=["GET", "POST"])
+def self_login():
+    if request.method == "POST":
+        name = request.form.get("username", "").strip()
+        pwd = request.form.get("password", "")
+        db = get_db()
+        row = db.execute("SELECT username, password_hash, active FROM users WHERE username = ?", (name,)).fetchone()
+        db.close()
+        if row and row["active"] and row["password_hash"] and check_password_hash(row["password_hash"], pwd):
+            session["self_user"] = row["username"]
+            return redirect(url_for("self_dashboard"))
+        flash("Invalid credentials or user inactive", "error")
+        return redirect(url_for("self_login"))
+    return render_template("self_login.html")
+
+@app.route("/self/logout")
+def self_logout():
+    session.pop("self_user", None)
+    return redirect(url_for("self_login"))
+
+@app.route("/self/")
+def self_dashboard():
+    name = session.get("self_user")
+    if not name:
+        return redirect(url_for("self_login"))
+    db = get_db()
+    row = db.execute("SELECT username, expires_at, active, created_at, traffic_limit_bytes FROM users WHERE username = ?", (name,)).fetchone()
+    if not row or not row["active"]:
+        session.pop("self_user", None)
+        return redirect(url_for("self_login"))
+    protos = {}
+    for key, pname, cfg, qr in PROTOCOLS:
+        f = BASE_DIR / name / f"{name}{cfg}"
+        protos[key] = {"active": f.exists(), "name": pname, "cfg": cfg, "qr": qr}
+    traffic = db.execute(
+        "SELECT SUM(bytes_up) as up, SUM(bytes_down) as down FROM daily_traffic WHERE username = ?",
+        (name,)
+    ).fetchone()
+    db.close()
+    limit = row["traffic_limit_bytes"] or 0
+    total = (traffic["up"] or 0) + (traffic["down"] or 0)
+    percent = round(total / limit * 100, 1) if limit > 0 else None
+    return render_template("self.html", user=row, protocols=protos, traffic=total, percent=percent)
+
+@app.route("/self/config/<proto>")
+def self_config(proto):
+    name = session.get("self_user")
+    if not name:
+        return redirect(url_for("self_login"))
+    suffix_map = dict((p[0], p[2]) for p in PROTOCOLS)
+    suffix = suffix_map.get(proto)
+    if not suffix:
+        return "Not found", 404
+    path = BASE_DIR / name / f"{name}{suffix}"
+    if not path.exists():
+        return "Not found", 404
+    return send_file(str(path), as_attachment=True, download_name=f"{name}_{proto}{suffix}")
+
+@app.route("/self/qr/<proto>")
+def self_qr(proto):
+    name = session.get("self_user")
+    if not name:
+        return redirect(url_for("self_login"))
+    suffix_map = dict((p[0], p[3]) for p in PROTOCOLS)
+    suffix = suffix_map.get(proto)
+    if not suffix:
+        return "Not found", 404
+    path = BASE_DIR / name / f"{name}{suffix}"
+    if not path.exists():
+        return "Not found", 404
+    return send_file(str(path), mimetype="image/png")
 
 # --- API v1 ---
 @app.route("/api/v1/users")
