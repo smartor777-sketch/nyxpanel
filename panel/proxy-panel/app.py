@@ -7,6 +7,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("PANEL_SECRET", os.urandom(16).hex())
+PANEL_VERSION = "1.01"
 
 class PrefixMiddleware:
     def __init__(self, app, prefix='/panel'):
@@ -177,7 +178,7 @@ def index():
     if not is_admin():
         return redirect("/self/login")
     db_users = get_db_users()
-    return render_template("index.html", users=db_users, protocols=PROTOCOLS)
+    return render_template("index.html", users=db_users, protocols=PROTOCOLS, version=PANEL_VERSION)
 
 @app.route("/user/add", methods=["POST"])
 def user_add():
@@ -323,7 +324,7 @@ def self_login():
             return redirect(url_for("self_dashboard"))
         flash("Invalid credentials or user inactive", "error")
         return redirect(url_for("self_login"))
-    return render_template("self_login.html")
+    return render_template("self_login.html", version=PANEL_VERSION)
 
 @app.route("/self/logout")
 def self_logout():
@@ -340,7 +341,7 @@ def self_dashboard():
     if role == "admin":
         db_users = get_db_users()
         db.close()
-        return render_template("self_admin.html", users=db_users, protocols=PROTOCOLS, admin_name=name)
+        return render_template("self_admin.html", users=db_users, protocols=PROTOCOLS, admin_name=name, version=PANEL_VERSION)
     row = db.execute("SELECT username, expires_at, active, created_at, traffic_limit_bytes FROM users WHERE username = ?", (name,)).fetchone()
     if not row or not row["active"]:
         session.pop("self_user", None)
@@ -357,7 +358,7 @@ def self_dashboard():
     total = (traffic["up"] or 0) + (traffic["down"] or 0)
     limit = row["traffic_limit_bytes"] or 0
     percent = round(total / limit * 100, 1) if limit > 0 else None
-    return render_template("self.html", user=row, protocols=protos, traffic=total, percent=percent)
+    return render_template("self.html", user=row, protocols=protos, traffic=total, percent=percent, version=PANEL_VERSION)
 
 @app.route("/self/config/<proto>")
 @app.route("/self/config/<name>/<proto>")

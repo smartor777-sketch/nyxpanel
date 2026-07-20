@@ -20,7 +20,7 @@
 </head>
 <body>
 <div class="card">
-  <h1>NYX Panel</h1>
+  <h1>NYX Panel <span style="font-size:0.7rem;color:#8b949e;font-weight:normal">v{{ version }}</span></h1>
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
       {% for category, msg in messages %}
