@@ -1,0 +1,22 @@
+mode: cnc
+auth:
+  provider: jitsi
+claims:
+  user: "Katya"
+  pass: "<пароль_katya>"
+room:
+  id: "https://meet.egovm.ru/pxy-76t05pyu.ikill.baby"
+crypto:
+  key: "<olrtc_crypto_key>"
+net:
+  transport: datachannel
+  dns: "8.8.8.8:53"
+socks:
+  host: "127.0.0.1"
+  port: 10880
+liveness:
+  interval: 10s
+  timeout: 5s
+  failures: 3
+data: /tmp/olcrtc_client_data
+debug: true

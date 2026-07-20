@@ -1,0 +1,19 @@
+mode: cnc
+auth:
+  provider: jitsi
+net:
+  transport: datachannel
+  dns: 8.8.8.8:53
+  ice: ws://76t05pyu.ikill.baby:30001/ice
+server: ws://76t05pyu.ikill.baby:30001
+room:
+  id: https://meet.egovm.ru/pxy-76t05pyu.ikill.baby
+crypto:
+  key: "<olrtc_crypto_key>"
+socks:
+  host: 127.0.0.1
+  port: 1082
+data: C:\olcrtc_data
+claims:
+  user: Merlin
+  pass: <пароль_olcrtc_2>
