@@ -44,3 +44,20 @@
 ### Изменения v1.05
 
 - **Версия панели**: `PANEL_VERSION = "1.05"` (app.py), отображается как `v1.05` на всех страницах
+
+- **Self-host Chart.js**: убран внешний CDN (`cdn.jsdelivr.net/npm/chart.js@4`), график грузится из
+  локального `/static/chart.js` (файл `panel/proxy-panel/static/chart.js`, v4.5.1) — отдаётся Caddy
+  через `handle /static/* { root * /opt/proxy-panel; file_server }`. Актуально для обоих макетов
+  (`index.html`, `self_admin.html`, `self.html`).
+
+- **Редирект после добавления сервиса**: 10 редиректов `redirect(url_for("index"))` заменены на
+  `redirect(request.referrer or url_for("index"))` — после add/delete протокола или юзера возврат
+  на ту же страницу (без «прыжка» между `/panel/` и `/self/`).
+
+- **Caddy: доступ к API трафика без basicauth** (прод): добавлен блок
+  `handle /panel/api/* { reverse_proxy 127.0.0.1:5000 }` перед `handle /panel* { basicauth ... }`,
+  иначе session-авторизованный админ получал 401 на `/panel/api/v1/traffic` и график не рисовался.
+  `/panel/` остаётся под basicauth.
+
+- **Панель под systemd**: на проде запуск через `panel.service` (`/etc/systemd/system/panel.service`,
+  `Restart=always`), перезапуск — `systemctl restart panel`.
