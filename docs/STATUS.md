@@ -35,8 +35,12 @@
 
 ### Prod (31.76.8.29, 76t05pyu.ikill.baby)
 
-- **Panel**: обновлена на новую версию (SQLite + API + collector + subscription)
+- **Panel**: v1.05 (SQLite + API + collector + subscription), обновлена
 - **Collector**: cron `*/5 * * * *`, сбор Xray (gRPC) + Hy2 (trafficStats) + AWG (awg show)
 - **База**: SQLite с мигрированными пользователями (Alexander, Katya, Merlin, Silky, test)
 - **Caddy**: `/panel*` reverse_proxy на Flask 127.0.0.1:5000, basicauth
 - **Старая панель**: сохранена как `/opt/proxy-panel/app.py.bak`
+
+### Изменения v1.05
+
+- **Версия панели**: `PANEL_VERSION = "1.05"` (app.py), отображается как `v1.05` на всех страницах
