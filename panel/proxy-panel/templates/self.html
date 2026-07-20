@@ -8,7 +8,7 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, system-ui, sans-serif; background: #0d1117; color: #c9d1d9; padding: 2rem; }
-  .container { max-width: 800px; margin: 0 auto; }
+  .container { max-width: 900px; margin: 0 auto; }
   h1 { color: #58a6ff; margin-bottom: 0.5rem; }
   .subtitle { color: #8b949e; margin-bottom: 2rem; font-size: 0.9rem; }
   .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; }
@@ -24,7 +24,7 @@
   .proto-actions a { text-decoration: none; }
   .proto-actions button { padding: 0.3rem 0.7rem; border-radius: 6px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; font-size: 0.8rem; cursor: pointer; }
   .proto-actions button:hover { background: #30363d; }
-  .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+  .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 0.5rem; }
   .logout-btn { padding: 0.4rem 1rem; border-radius: 6px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; font-size: 0.85rem; cursor: pointer; text-decoration: none; }
   .logout-btn:hover { background: #30363d; }
   .status-badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; }
@@ -32,6 +32,14 @@
   .status-expired { background: #3a1b1b; color: #ff7b72; }
   .progress-bar { height: 8px; background: #21262d; border-radius: 4px; overflow: hidden; margin-top: 0.5rem; }
   .progress-fill { height: 100%; background: #58a6ff; border-radius: 4px; transition: width 0.3s; }
+  select, button { padding: 0.4rem 0.8rem; border-radius: 6px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; font-size: 0.85rem; cursor: pointer; }
+  .chart-container { max-width: 100%; margin: 1rem 0; }
+  .btn-group { display: flex; gap: 2px; }
+  .btn-group button { border-radius: 0; border-right: 1px solid #30363d; }
+  .btn-group button:first-child { border-radius: 6px 0 0 6px; }
+  .btn-group button:last-child { border-radius: 0 6px 6px 0; border-right: none; }
+  .btn-group .active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+  .toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
 </style>
 </head>
 <body>
@@ -40,6 +48,7 @@
     <div>
       <h1>Welcome, {{ user.username }}</h1>
       <div class="subtitle">
+        {% if role == 'admin' %}<span class="status-badge status-active">Admin</span> &middot; {% endif %}
         {% if user.active %}
           <span class="status-badge status-active">Active</span>
         {% else %}
@@ -47,32 +56,63 @@
         {% endif %}
         {% if user.expires_at %}
           &middot; Expires: {{ user.expires_at[:10] }}
+        {% else %}
+          &middot; No expiry
         {% endif %}
-        &middot; Since {{ user.created_at[:10] if user.created_at else '?' }}
       </div>
     </div>
     <a href="logout" class="logout-btn">Sign Out</a>
   </div>
 
+  {% if role == 'admin' %}
+  <div class="card">
+    <h2>Users</h2>
+    <div class="proto-list">
+      {% for uname in user_list %}
+        {% if uname != user.username %}
+        <div class="proto-item">
+          <span class="proto-name">{{ uname }}</span>
+          <a href="/self/config/{{ uname }}/vless" style="text-decoration:none;font-size:0.8rem;color:#8b949e">configs</a>
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   <div class="card">
     <h2>Usage</h2>
     <div class="grid">
+      {% if role == 'admin' %}
+      <div class="stat">
+        <div class="val">{{ user_list|length }}</div>
+        <div class="lbl">Active Users</div>
+      </div>
+      <div class="stat">
+        <div class="val">Admin</div>
+        <div class="lbl">Role</div>
+      </div>
+      {% else %}
       <div class="stat">
         <div class="val">{{ (traffic / 1073741824)|round(2) }} GB</div>
         <div class="lbl">Total Traffic</div>
       </div>
       <div class="stat">
-        <div class="val">{{ user.traffic_limit_bytes|round if user.traffic_limit_bytes > 0 else '∞' }}</div>
+        <div class="val">{{ (user.traffic_limit_bytes / 1073741824)|round(1) if user.traffic_limit_bytes > 0 else '∞' }} GB</div>
         <div class="lbl">Limit{% if user.traffic_limit_bytes > 0 and percent %} ({{ percent }}%){% endif %}</div>
       </div>
+      {% if user.traffic_limit_bytes > 0 %}
+      <div style="grid-column:1/-1">
+        <div class="progress-bar">
+          <div class="progress-fill" style="width:{{ percent|default(0)|round }}%"></div>
+        </div>
+      </div>
+      {% endif %}
+      {% endif %}
     </div>
-    {% if user.traffic_limit_bytes > 0 %}
-    <div class="progress-bar">
-      <div class="progress-fill" style="width:{{ percent|default(0)|round }}%"></div>
-    </div>
-    {% endif %}
   </div>
 
+  {% if role != 'admin' %}
   <div class="card">
     <h2>Configurations</h2>
     <div class="proto-list">
@@ -94,9 +134,85 @@
       {% endif %}
     </div>
   </div>
+  {% endif %}
+
+  <div class="card">
+    <h2>Traffic</h2>
+    <div class="toolbar">
+      <select id="userSelect">
+        <option value="">All Users</option>
+        {% if role == 'admin' %}
+          {% for uname in user_list %}
+          <option value="{{ uname }}">{{ uname }}</option>
+          {% endfor %}
+        {% else %}
+          <option value="{{ user.username }}">{{ user.username }}</option>
+        {% endif %}
+      </select>
+      <div class="btn-group">
+        <button class="period-btn active" data-days="1">Today</button>
+        <button class="period-btn" data-days="7">Week</button>
+        <button class="period-btn" data-days="30">Month</button>
+        <button class="period-btn" data-days="0">All</button>
+      </div>
+    </div>
+    <div class="chart-container">
+      <canvas id="trafficChart"></canvas>
+    </div>
+  </div>
 </div>
 
 <script>
+let trafficChart = null;
+const fmtBytes = v => v >= 1073741824 ? (v/1073741824).toFixed(1)+' GB' : v >= 1048576 ? (v/1048576).toFixed(1)+' MB' : (v/1024).toFixed(1)+' KB';
+
+async function loadTraffic() {
+  const user = document.getElementById('userSelect').value;
+  const days = document.querySelector('.period-btn.active')?.dataset.days || '7';
+  try {
+    const url = user
+      ? '/panel/api/v1/traffic/' + encodeURIComponent(user) + '?days=' + days
+      : '/panel/api/v1/traffic?days=' + days;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+    const dates = [...new Set(data.map(d => d.date))].sort();
+    const aggregated = dates.map(date => {
+      const day = data.filter(d => d.date === date);
+      return { date, up: day.reduce((s, d) => s + d.bytes_up, 0), down: day.reduce((s, d) => s + d.bytes_down, 0) };
+    });
+    if (trafficChart) trafficChart.destroy();
+    trafficChart = new Chart(document.getElementById('trafficChart'), {
+      type: 'bar',
+      data: {
+        labels: dates,
+        datasets: [
+          { label: 'Upload', data: aggregated.map(d => d.up), backgroundColor: '#58a6ff' },
+          { label: 'Download', data: aggregated.map(d => d.down), backgroundColor: '#3fb950' },
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { labels: { color: '#c9d1d9' } } },
+        scales: {
+          x: { ticks: { color: '#8b949e' }, grid: { color: '#21262d' } },
+          y: { ticks: { color: '#8b949e', callback: v => fmtBytes(v) }, grid: { color: '#21262d' } }
+        }
+      }
+    });
+  } catch(e) { console.log('Traffic chart error:', e); }
+}
+
+document.getElementById('userSelect').addEventListener('change', loadTraffic);
+document.querySelectorAll('.period-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadTraffic();
+  });
+});
+loadTraffic();
+
 function copyLink(url) {
   fetch(url).then(r => r.blob()).then(blob => {
     const reader = new FileReader();
