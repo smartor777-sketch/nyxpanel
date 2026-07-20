@@ -325,7 +325,7 @@ def api_subscription(name):
                 except:
                     pass
     import base64
-    base_url = f"https://nyx.kuban-forum.ru:8443/panel"
+    base_url = request.url_root.rstrip("/")
     standalone_path = base / f"{name}_mieru_standalone.json"
     if standalone_path.exists():
         links.append(f"mieru config: {base_url}/user/{name}/config/mieru")
