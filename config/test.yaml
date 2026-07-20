@@ -1,0 +1,5 @@
+data: C:\olcrtc\data
+server: wss://example.com
+claims:
+  user: testuser
+  pass: testpass
