@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NYX Panel — {{ user.username }}</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  :root { --bg: #0c1a2d; --fg: #d4e5f7; --card: #132640; --border: #1e3a5f; --input-bg: #132640; --heading: #7dd3fc; --muted: #93c5fd; --accent: #38bdf8; --accent-hover: #0ea599; --proto-yes: #34d399; --proto-no: #64748b; --status-active-bg: #064e3b; --status-active-fg: #34d399; --status-expired-bg: #450a0a; --status-expired-fg: #f87171; --btn-active: #0ea599; --chart-grid: #132640; --chart-up: #7dd3fc; --chart-down: #34d399; --btn-config-bg: #1e3a5f; --btn-config-fg: #93c5fd; --btn-config-border: #2563eb; --btn-qr-bg: #1e3a5f; --btn-qr-fg: #7dd3fc; --btn-qr-border: #38bdf8; --btn-copy-bg: #064e3b; --btn-copy-fg: #6ee7b7; --btn-copy-border: #10b981; --btn-period-bg: #1e293b; --btn-period-fg: #93c5fd; --btn-period-border: #334155; --btn-period-active-bg: #6366f1; --btn-logout-bg: #1e293b; --btn-logout-fg: #94a3b8; --btn-logout-border: #334155; --btn-theme-bg: #1e293b; --btn-theme-fg: #94a3b8; --btn-theme-border: #334155; }
+  [data-theme="light"] { --bg: #eaf2fb; --fg: #1e3a5f; --card: #ffffff; --border: #c5ddf0; --input-bg: #dceaf7; --heading: #0358a8; --muted: #5a7fa0; --accent: #0284c7; --accent-hover: #0369a1; --proto-yes: #059669; --proto-no: #94a3b8; --status-active-bg: #ecfdf5; --status-active-fg: #059669; --status-expired-bg: #fef2f2; --status-expired-fg: #dc2626; --btn-active: #0284c7; --chart-grid: #c5ddf0; --chart-up: #0284c7; --chart-down: #059669; --btn-config-bg: #e8eef6; --btn-config-fg: #334155; --btn-config-border: #b8c9dc; --btn-qr-bg: #dbeafe; --btn-qr-fg: #1e40af; --btn-qr-border: #93c5fd; --btn-copy-bg: #d1fae5; --btn-copy-fg: #065f46; --btn-copy-border: #6ee7b7; --btn-period-bg: #e0e7ff; --btn-period-fg: #3730a3; --btn-period-border: #a5b4fc; --btn-period-active-bg: #6366f1; --btn-logout-bg: #f1f5f9; --btn-logout-fg: #475569; --btn-logout-border: #cbd5e1; --btn-theme-bg: #f1f5f9; --btn-theme-fg: #475569; --btn-theme-border: #cbd5e1; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--fg); padding: 2rem; }
+  .container { max-width: 900px; margin: 0 auto; }
+  h1 { color: var(--heading); margin-bottom: 0.5rem; }
+  .subtitle { color: var(--muted); margin-bottom: 2rem; font-size: 0.9rem; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; }
+  .card h2 { color: var(--muted); margin-bottom: 1rem; font-size: 1.1rem; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .stat { text-align: center; padding: 1rem; background: var(--bg); border-radius: 8px; }
+  .stat .val { font-size: 1.5rem; font-weight: 700; color: var(--heading); }
+  .stat .lbl { font-size: 0.8rem; color: var(--muted); margin-top: 0.3rem; }
+  .proto-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .proto-item { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; background: var(--bg); border-radius: 8px; }
+  .proto-name { font-weight: 600; color: var(--fg); }
+  .proto-actions { display: flex; gap: 0.5rem; }
+  .proto-actions a { text-decoration: none; }
+  .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 0.5rem; }
+  .status-badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; }
+  .status-active { background: var(--status-active-bg); color: var(--status-active-fg); }
+  .status-expired { background: var(--status-expired-bg); color: var(--status-expired-fg); }
+  .progress-bar { height: 8px; background: var(--input-bg); border-radius: 4px; overflow: hidden; margin-top: 0.5rem; }
+  .progress-fill { height: 100%; background: var(--heading); border-radius: 4px; transition: width 0.3s; }
+  select, button { padding: 0.4rem 0.8rem; border-radius: 6px; border: 1px solid var(--border); background: var(--input-bg); color: var(--fg); font-size: 0.85rem; cursor: pointer; }
+  .chart-container { max-width: 100%; margin: 1rem 0; }
+  .btn-group { display: flex; gap: 2px; }
+  .btn-group button { border-radius: 0; border-right: 1px solid var(--border); }
+  .btn-group button:first-child { border-radius: 6px 0 0 6px; }
+  .btn-group button:last-child { border-radius: 0 6px 6px 0; border-right: none; }
+  .btn-group .active { background: var(--btn-active); border-color: var(--btn-active); color: #fff; }
+  .toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
+  .btn-config { background: var(--btn-config-bg); color: var(--btn-config-fg); border: 1px solid var(--btn-config-border); padding: 0.35rem 0.8rem; border-radius: 6px; font-size: 0.8rem; font-weight: 500; cursor: pointer; text-decoration: none; display: inline-block; }
+  .btn-config:hover { filter: brightness(0.95); }
+  .btn-qr { background: var(--btn-qr-bg); color: var(--btn-qr-fg); border: 1px solid var(--btn-qr-border); padding: 0.35rem 0.8rem; border-radius: 6px; font-size: 0.8rem; font-weight: 500; cursor: pointer; text-decoration: none; display: inline-block; }
+  .btn-qr:hover { filter: brightness(0.95); }
+  .btn-copy { background: var(--btn-copy-bg); color: var(--btn-copy-fg); border: 1px solid var(--btn-copy-border); padding: 0.35rem 0.8rem; border-radius: 6px; font-size: 0.8rem; font-weight: 500; cursor: pointer; text-decoration: none; display: inline-block; }
+  .btn-copy:hover { filter: brightness(0.95); }
+  .btn-logout { background: var(--btn-logout-bg); color: var(--btn-logout-fg); border: 1px solid var(--btn-logout-border); padding: 0.4rem 1rem; border-radius: 6px; font-size: 0.85rem; cursor: pointer; text-decoration: none; }
+  .btn-logout:hover { filter: brightness(0.95); }
+  .theme-btn { background: var(--btn-theme-bg); color: var(--btn-theme-fg); border: 1px solid var(--btn-theme-border); padding: 0.3rem 0.6rem; font-size: 1rem; cursor: pointer; border-radius: 6px; }
+  .theme-btn:hover { filter: brightness(0.95); }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header-bar">
+    <div>
+      <h1>NYX Panel <span style="font-size:0.6rem;color:var(--muted);font-weight:normal">v{{ version }}</span></h1>
+      <div class="subtitle" style="font-size:1.1rem;margin-bottom:0.5rem"><span style="color:var(--accent);font-weight:600;font-size:1.3rem">{{ user.username }}</span> &middot;
+        {% if user.active %}
+          <span class="status-badge status-active">Active</span>
+        {% else %}
+          <span class="status-badge status-expired">Disabled</span>
+        {% endif %}
+        {% if user.expires_at %}
+          &middot; Expires: {{ user.expires_at[:10] }}
+        {% else %}
+          &middot; No expiry
+        {% endif %}
+      </div>
+    </div>
+    <div style="display:flex;gap:0.5rem;align-items:center">
+      <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
+      <a href="/self/logout" class="btn-logout">Sign Out</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Usage</h2>
+    <div class="grid">
+      <div class="stat">
+        <div class="val">{{ (traffic / 1073741824)|round(2) }} GB</div>
+        <div class="lbl">Total Traffic</div>
+      </div>
+      <div class="stat">
+        <div class="val">{{ (user.traffic_limit_bytes / 1073741824)|round(1) if user.traffic_limit_bytes > 0 else '∞' }} GB</div>
+        <div class="lbl">Limit{% if user.traffic_limit_bytes > 0 and percent %} ({{ percent }}%){% endif %}</div>
+      </div>
+      {% if user.traffic_limit_bytes > 0 %}
+      <div style="grid-column:1/-1">
+        <div class="progress-bar">
+          <div class="progress-fill" style="width:{{ percent|default(0)|round }}%"></div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Configurations</h2>
+    <div class="proto-list">
+      {% for key, p in protocols.items() %}
+        {% if p.active %}
+        <div class="proto-item">
+          <span class="proto-name">{{ p.name }}</span>
+          <div class="proto-actions">
+            <a href="/self/config/{{ key }}" class="btn-config">Config</a>
+            <a href="/self/qr/{{ key }}" target="_blank" class="btn-qr">QR</a>
+          </div>
+        </div>
+        {% endif %}
+      {% endfor %}
+      <div class="proto-item">
+        <span class="proto-name">Subscription</span>
+        <div class="proto-actions">
+          <button class="btn-copy" onclick="copySub()">🔗 Copy URL</button>
+        </div>
+      </div>
+      {% set has_any = protocols.values() | selectattr('active') | list | length %}
+      {% if not has_any %}
+        <p style="color:var(--proto-no);text-align:center;padding:1rem">No configurations available</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Traffic</h2>
+    <div class="toolbar">
+      <div class="btn-group">
+        <button class="period-btn active" data-days="2">Today</button>
+        <button class="period-btn" data-days="14">Week</button>
+        <button class="period-btn" data-days="60">Month</button>
+        <button class="period-btn" data-days="0">All</button>
+      </div>
+    </div>
+    <div class="chart-container">
+      <canvas id="trafficChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+const themeKey = 'nyx_theme';
+let trafficChart = null;
+function getTheme() { return localStorage.getItem(themeKey) || 'dark'; }
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem(themeKey, t);
+  document.getElementById('themeBtn').textContent = t === 'dark' ? '\u{1F319}' : '\u{2600}\u{FE0F}';
+  if (trafficChart) {
+    trafficChart.data.datasets[0].backgroundColor = cssVar('--chart-up');
+    trafficChart.data.datasets[1].backgroundColor = cssVar('--chart-down');
+    trafficChart.options.plugins.legend.labels.color = cssVar('--muted');
+    trafficChart.options.scales.x.ticks.color = cssVar('--muted');
+    trafficChart.options.scales.y.ticks.color = cssVar('--muted');
+    trafficChart.options.scales.x.grid.color = cssVar('--chart-grid');
+    trafficChart.options.scales.y.grid.color = cssVar('--chart-grid');
+    trafficChart.update();
+  }
+}
+function toggleTheme() { setTheme(getTheme() === 'dark' ? 'light' : 'dark'); }
+setTheme(getTheme());
+
+const fmtBytes = v => v >= 1073741824 ? (v/1073741824).toFixed(1)+' GB' : v >= 1048576 ? (v/1048576).toFixed(1)+' MB' : (v/1024).toFixed(1)+' KB';
+const currentUser = '{{ user.username }}';
+
+async function loadTraffic() {
+  const reqDays = document.querySelector('.period-btn.active')?.dataset.days || '14';
+  try {
+    const url = '/panel/api/v1/traffic/' + encodeURIComponent(currentUser) + '?days=' + reqDays;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    if (trafficChart) trafficChart.destroy();
+
+    const allDates = [...new Set(data.map(d => d.date))].sort();
+    const actualDays = allDates.length;
+    const needDays = parseInt(reqDays) || 0;
+
+    if (reqDays === '0' || (needDays > 0 && actualDays < needDays / 2)) {
+      var totalUp = data.reduce((s, d) => s + d.bytes_up, 0);
+      var totalDown = data.reduce((s, d) => s + d.bytes_down, 0);
+      var label = allDates.length > 0 ? allDates[0].slice(5) + ' \u2014 ' + allDates[allDates.length-1].slice(5) : 'Total';
+      trafficChart = new Chart(document.getElementById('trafficChart'), {
+        type: 'bar',
+        data: {
+          labels: [label],
+          datasets: [
+            { label: 'Upload', data: [totalUp], backgroundColor: cssVar('--chart-up'), borderRadius: 6 },
+            { label: 'Download', data: [totalDown], backgroundColor: cssVar('--chart-down'), borderRadius: 6 }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { labels: { color: cssVar('--muted') } } },
+          scales: {
+            x: { ticks: { color: cssVar('--muted') }, grid: { color: cssVar('--chart-grid') } },
+            y: { ticks: { color: cssVar('--muted'), callback: function(v) { return fmtBytes(v); } }, grid: { color: cssVar('--chart-grid') } }
+          }
+        }
+      });
+    } else {
+      var aggregated = allDates.map(function(date) {
+        var day = data.filter(d => d.date === date);
+        return { date: date, up: day.reduce((s, d) => s + d.bytes_up, 0), down: day.reduce((s, d) => s + d.bytes_down, 0) };
+      });
+      trafficChart = new Chart(document.getElementById('trafficChart'), {
+        type: 'bar',
+        data: {
+          labels: aggregated.map(d => d.date.slice(5)),
+          datasets: [
+            { label: 'Upload', data: aggregated.map(d => d.up), backgroundColor: cssVar('--chart-up'), borderRadius: 4 },
+            { label: 'Download', data: aggregated.map(d => d.down), backgroundColor: cssVar('--chart-down'), borderRadius: 4 }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { labels: { color: cssVar('--muted') } } },
+          scales: {
+            x: { ticks: { color: cssVar('--muted'), maxRotation: 45 }, grid: { color: cssVar('--chart-grid') } },
+            y: { ticks: { color: cssVar('--muted'), callback: function(v) { return fmtBytes(v); } }, grid: { color: cssVar('--chart-grid') } }
+          }
+        }
+      });
+    }
+  } catch(e) { console.log('Traffic chart error:', e); }
+}
+
+document.querySelectorAll('.period-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.period-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    loadTraffic();
+  });
+});
+loadTraffic();
+
+function copySub() {
+  var url = window.location.origin + '/panel/api/v1/sub/' + encodeURIComponent(currentUser);
+  navigator.clipboard.writeText(url).then(function() {
+    var btn = document.querySelector('.btn-copy');
+    var orig = btn.textContent;
+    btn.textContent = '\u2705 Copied!';
+    setTimeout(function() { btn.textContent = orig; }, 2000);
+  }).catch(function() {
+    prompt('Copy this URL:', url);
+  });
+}
+</script>
+</body>
+</html>

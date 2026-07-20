@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NYX Panel</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  :root { --bg: #0c1a2d; --fg: #d4e5f7; --card: #132640; --border: #1e3a5f; --input-bg: #132640; --heading: #7dd3fc; --muted: #93c5fd; --accent: #38bdf8; --accent-hover: #0ea599; --proto-yes: #34d399; --proto-no: #64748b; --status-active-bg: #064e3b; --status-active-fg: #34d399; --status-expired-bg: #450a0a; --status-expired-fg: #f87171; --btn-active: #0ea599; --chart-grid: #132640; --chart-up: #7dd3fc; --chart-down: #34d399; }
+  [data-theme="light"] { --bg: #eaf2fb; --fg: #1e3a5f; --card: #ffffff; --border: #c5ddf0; --input-bg: #dceaf7; --heading: #0358a8; --muted: #5a7fa0; --accent: #0284c7; --accent-hover: #0369a1; --proto-yes: #059669; --proto-no: #94a3b8; --status-active-bg: #ecfdf5; --status-active-fg: #059669; --status-expired-bg: #fef2f2; --status-expired-fg: #dc2626; --btn-active: #0284c7; --chart-grid: #c5ddf0; --chart-up: #0284c7; --chart-down: #059669; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--fg); padding: 2rem; }
+  .container { max-width: 1200px; margin: 0 auto; }
+  h1 { color: var(--heading); margin-bottom: 1.5rem; }
+  h2 { color: var(--muted); margin: 1rem 0; font-size: 1.2rem; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; }
+  .flash { padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; }
+  .flash.ok { background: var(--flash-ok-bg); border: 1px solid var(--flash-ok-border); color: var(--flash-ok-fg); }
+  .flash.error { background: var(--flash-err-bg); border: 1px solid var(--flash-err-border); color: var(--flash-err-fg); }
+  form { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+  input, select, button { padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid var(--border); background: var(--input-bg); color: var(--fg); font-size: 0.9rem; }
+  input:focus { outline: none; border-color: var(--heading); }
+  button { cursor: pointer; background: var(--accent); border-color: var(--accent); font-weight: 600; }
+  button:hover { background: var(--accent-hover); }
+  button.danger { background: var(--danger); border-color: var(--danger); }
+  button.danger:hover { background: var(--danger-hover); }
+  button.small { padding: 0.25rem 0.75rem; font-size: 0.8rem; }
+  button.secondary { background: var(--input-bg); border-color: var(--border); }
+  button.secondary:hover { background: var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { text-align: left; padding: 0.5rem 0.4rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; }
+  .user-name { font-weight: 600; color: var(--user-name); }
+  .user-inactive .user-name { color: var(--user-disabled); }
+  .proto-yes { color: var(--proto-yes); }
+  .proto-no { color: var(--proto-no); }
+  .actions { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+  .actions form { display: inline; }
+  .expiry-input { width: 110px; padding: 0.25rem 0.5rem; font-size: 0.8rem; }
+  .status-badge { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.75rem; }
+  .status-active { background: var(--status-active-bg); color: var(--status-active-fg); }
+  .status-expired { background: var(--status-expired-bg); color: var(--status-expired-fg); }
+  .chart-container { max-width: 600px; margin: 1rem 0; }
+  .theme-btn { background: none; border: 1px solid var(--border); padding: 0.3rem 0.6rem; font-size: 1rem; cursor: pointer; border-radius: 6px; color: var(--fg); }
+  .theme-btn:hover { background: var(--input-bg); }
+  .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem; }
+  .header-left h1 { margin-bottom: 0; }
+  .subtitle { color: var(--muted); font-size: 0.85rem; margin-top: 0.15rem; }
+  .header-actions { display: flex; gap: 0.5rem; align-items: center; }
+  .logout-btn { padding: 0.4rem 1rem; border-radius: 6px; border: 1px solid var(--border); background: var(--input-bg); color: var(--fg); font-size: 0.85rem; cursor: pointer; text-decoration: none; }
+  .logout-btn:hover { background: var(--border); }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header-row">
+    <div class="header-left">
+      <h1>NYX Panel <span style="font-size:0.8rem;color:var(--muted);font-weight:normal">v{{ version }}</span></h1>
+      <div class="subtitle">{{ admin_name }}</div>
+    </div>
+    <div class="header-actions">
+      <button class="theme-btn" onclick="toggleTheme()" id="themeBtn">🌙</button>
+      <a href="/self/logout" class="logout-btn">Sign Out</a>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, msg in messages %}
+        <div class="flash {{ category }}">{{ msg }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="card">
+    <h2>Add User</h2>
+    <form method="POST" action="{{ url_for('user_add') }}">
+      <input name="username" placeholder="Username" pattern="[a-zA-Z0-9_-]+" required>
+      <button type="submit">Add</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Users <span id="userCount" style="color:var(--muted);font-size:0.9rem;font-weight:normal"></span></h2>
+    {% if users %}
+    <div class="pagination-top" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+      <select id="perPage" style="padding:0.25rem 0.5rem;border-radius:4px;border:1px solid var(--border);background:var(--input-bg);color:var(--fg);font-size:0.8rem">
+        <option value="10">10 per page</option>
+        <option value="25">25 per page</option>
+        <option value="50">50 per page</option>
+      </select>
+      <div id="pagination" class="pagination"></div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>User</th>
+          <th>Status</th>
+          {% for key, name, _, _ in protocols %}
+            <th>{{ name.split('+')[0] }}</th>
+          {% endfor %}
+          <th>Expiry</th>
+          <th>Pass</th>
+          <th>Act.</th>
+          <th>Export</th>
+        </tr>
+      </thead>
+      <tbody id="userTableBody">
+      </tbody>
+    </table>
+    <div class="pagination-bottom" style="display:flex;justify-content:center;margin-top:0.5rem">
+      <div id="paginationBottom" class="pagination"></div>
+    </div>
+    {% else %}
+      <p style="color:var(--muted);">No users yet</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Traffic</h2>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center">
+      <select id="userSelect" style="padding:0.4rem 0.8rem;border-radius:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--fg)">
+        <option value="">All Users</option>
+        {% for u in users %}
+        <option value="{{ u.name }}">{{ u.name }}</option>
+        {% endfor %}
+      </select>
+      <div class="btn-group" style="display:flex;gap:2px">
+        <button class="small secondary period-btn active" data-days="1">Today</button>
+        <button class="small secondary period-btn" data-days="7">Week</button>
+        <button class="small secondary period-btn" data-days="30">Month</button>
+        <button class="small secondary period-btn" data-days="0">All</button>
+      </div>
+    </div>
+    <div class="chart-container">
+      <canvas id="trafficChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+const themeKey = 'nyx_theme';
+function getTheme() { return localStorage.getItem(themeKey) || 'dark'; }
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem(themeKey, t);
+  document.getElementById('themeBtn').textContent = t === 'dark' ? '\u{1F319}' : '\u{2600}\u{FE0F}';
+  if (trafficChart) {
+    const upColor = cssVar('--chart-up');
+    const downColor = cssVar('--chart-down');
+    trafficChart.data.datasets[0].backgroundColor = upColor;
+    trafficChart.data.datasets[1].backgroundColor = downColor;
+    trafficChart.options.plugins.legend.labels.color = cssVar('--muted');
+    trafficChart.options.scales.x.ticks.color = cssVar('--muted');
+    trafficChart.options.scales.y.ticks.color = cssVar('--muted');
+    trafficChart.options.scales.x.grid.color = cssVar('--chart-grid');
+    trafficChart.options.scales.y.grid.color = cssVar('--chart-grid');
+    trafficChart.update();
+  }
+}
+function toggleTheme() { setTheme(getTheme() === 'dark' ? 'light' : 'dark'); }
+setTheme(getTheme());
+
+const fmtBytes = v => v >= 1073741824 ? (v/1073741824).toFixed(1)+' GB' : v >= 1048576 ? (v/1048576).toFixed(1)+' MB' : (v/1024).toFixed(1)+' KB';
+
+async function loadTraffic() {
+  const user = document.getElementById('userSelect').value;
+  const days = document.querySelector('.period-btn.active')?.dataset.days || '7';
+  try {
+    const url = user
+      ? '/panel/api/v1/traffic/' + encodeURIComponent(user) + '?days=' + days
+      : '/panel/api/v1/traffic?days=' + days;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const dates = [...new Set(data.map(d => d.date))].sort();
+    const aggregated = dates.map(date => {
+      const day = data.filter(d => d.date === date);
+      return { date, up: day.reduce((s, d) => s + d.bytes_up, 0), down: day.reduce((s, d) => s + d.bytes_down, 0) };
+    });
+
+    if (trafficChart) trafficChart.destroy();
+    trafficChart = new Chart(document.getElementById('trafficChart'), {
+      type: 'bar',
+      data: {
+        labels: dates,
+        datasets: [
+          { label: 'Upload', data: aggregated.map(d => d.up), backgroundColor: cssVar('--chart-up') },
+          { label: 'Download', data: aggregated.map(d => d.down), backgroundColor: cssVar('--chart-down') },
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { labels: { color: cssVar('--muted') } } },
+        scales: {
+          x: { ticks: { color: cssVar('--muted') }, grid: { color: cssVar('--chart-grid') } },
+          y: { ticks: { color: cssVar('--muted'), callback: v => fmtBytes(v) }, grid: { color: cssVar('--chart-grid') } }
+        }
+      }
+    });
+  } catch(e) { console.log('Traffic chart error:', e); }
+}
+
+document.getElementById('userSelect').addEventListener('change', loadTraffic);
+document.querySelectorAll('.period-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadTraffic();
+  });
+});
+loadTraffic();
+</script>
+<style>
+.btn-group .period-btn { border-radius:0; border-right:1px solid var(--border); }
+.btn-group .period-btn:first-child { border-radius:6px 0 0 6px; }
+.btn-group .period-btn:last-child { border-radius:0 6px 6px 0; border-right:none; }
+.btn-group .period-btn.active { background:var(--btn-active); border-color:var(--btn-active); color:#fff; }
+.pagination { display:flex;gap:2px;flex-wrap:wrap; }
+.pagination button { padding:0.2rem 0.5rem;border-radius:4px;border:1px solid var(--border);background:var(--input-bg);color:var(--fg);font-size:0.75rem;cursor:pointer; }
+.pagination button:hover { background:var(--border); }
+.pagination button.active { background:var(--btn-active);border-color:var(--btn-active);color:#fff; }
+.pagination button:disabled { opacity:0.4;cursor:default; }
+.dropdown { position:relative; display:inline-block; }
+.dropdown-menu { position:absolute; right:0; top:100%; z-index:100; background:var(--dropdown-bg); border:1px solid var(--border); border-radius:8px; min-width:200px; padding:0.25rem 0; box-shadow:0 4px 12px rgba(0,0,0,0.15); }
+.dropdown-item { display:block; padding:0.4rem 1rem; color:var(--fg); text-decoration:none; font-size:0.8rem; white-space:nowrap; }
+.dropdown-item:hover { background:var(--dropdown-hover); }
+.dropdown-divider { border-top:1px solid var(--border); margin:0.25rem 0; }
+</style>
+<script>
+const usersData = {{ users | tojson }};
+const PER_PAGE_KEY = 'nyx_per_page';
+let currentPage = 1;
+let perPage = parseInt(localStorage.getItem(PER_PAGE_KEY)) || 10;
+
+function renderUsers() {
+  const start = (currentPage - 1) * perPage;
+  const end = Math.min(start + perPage, usersData.length);
+  const pageUsers = usersData.slice(start, end);
+  const totalPages = Math.ceil(usersData.length / perPage) || 1;
+
+  document.getElementById('userCount').textContent = '(' + usersData.length + ' total)';
+  document.getElementById('perPage').value = perPage;
+
+  const tbody = document.getElementById('userTableBody');
+  tbody.innerHTML = pageUsers.map((u, i) => {
+    const idx = start + i + 1;
+    const protoHTML = {{ protocols | tojson }}.map(p => {
+      const key = p[0];
+      const active = u.protocols[key];
+      return '<td>' + (active ? '<span class="proto-yes">+</span>' : '<span class="proto-no">-</span>') + '</td>';
+    }).join('');
+
+    const protocolsList = {{ protocols | tojson }};
+    const actions = protocolsList.map(p => {
+      const key = p[0], pname = p[1];
+      if (u.protocols[key]) {
+        return '<form method="POST" action="/panel/user/' + u.name + '/protocol/' + key + '/delete" onsubmit="return confirm(\'Remove ' + pname + ' from ' + u.name + '?\')" style="display:inline">' +
+          '<button class="small danger" title="Remove">-' + pname.slice(0,4) + '</button></form>';
+      }
+      return '<form method="POST" action="/panel/user/' + u.name + '/protocol/' + key + '/add" style="display:inline">' +
+        '<button class="small" title="Add">+' + pname.slice(0,4) + '</button></form>';
+    }).join('');
+
+    const exportItems = protocolsList.filter(p => u.protocols[p[0]]).map(p => {
+      const key = p[0], pname = p[1];
+      return '<a href="/panel/user/' + u.name + '/config/' + key + '" class="dropdown-item">\u{1F4C4} ' + pname + '</a>' +
+        '<a href="/panel/user/' + u.name + '/qr/' + key + '" target="_blank" class="dropdown-item">\u{1F4F1} ' + pname + ' QR</a>';
+    }).join('');
+    const hasExport = exportItems.length > 0;
+
+    return '<tr class="' + (!u.active ? 'user-inactive' : '') + '">' +
+      '<td style="color:var(--muted);font-size:0.8rem">' + idx + '</td>' +
+      '<td class="user-name">' + u.name + '</td>' +
+      '<td>' + (!u.active ? '<span class="status-badge status-expired">disabled</span>' : '<span class="status-badge status-active">active</span>') + '</td>' +
+      protoHTML +
+      '<td><form method="POST" action="/panel/user/' + u.name + '/expiry" style="display:flex;gap:2px">' +
+        '<input class="expiry-input" name="expires" type="date" value="' + (u.expires_at ? u.expires_at.slice(0,10) : '') + '" placeholder="never">' +
+        '<button class="small secondary" type="submit">set</button></form></td>' +
+      '<td><form method="POST" action="/panel/user/' + u.name + '/password" style="display:flex;gap:2px" onsubmit="return confirm(\'Set dashboard password for ' + u.name + '?\')">' +
+        '<input class="expiry-input" name="password" type="text" placeholder="set pwd">' +
+        '<button class="small secondary" type="submit">set</button></form></td>' +
+      '<td class="actions">' + actions +
+        '<form method="POST" action="/panel/user/' + u.name + '/toggle" style="display:inline">' +
+          '<button class="small secondary" title="' + (u.active ? 'Disable' : 'Enable') + '">' + (u.active ? 'off' : 'on') + '</button></form>' +
+        '<form method="POST" action="/panel/user/' + u.name + '/delete" onsubmit="return confirm(\'Delete user ' + u.name + '?\')" style="display:inline">' +
+          '<button class="small danger">del</button></form>' +
+      '</td>' +
+      '<td>' + (hasExport ? '<div class="dropdown"><button class="small secondary" onclick="toggleDropdown(event, \'dd-' + u.name + '\')">\u{25BE} Export</button><div id="dd-' + u.name + '" class="dropdown-menu" style="display:none">' +
+        '<a href="#" onclick="copySub(\'' + u.name + '\');return false" class="dropdown-item">\u{1F517} Copy Subscription URL</a>' +
+        '<div class="dropdown-divider"></div>' + exportItems + '</div></div>' : '') +
+      '</td></tr>';
+  }).join('');
+
+  renderPagination(totalPages, currentPage);
+}
+
+function renderPagination(totalPages, page) {
+  const render = containerId => {
+    const el = document.getElementById(containerId);
+    let html = '<button ' + (page <= 1 ? 'disabled' : '') + ' onclick="goPage(' + (page-1) + ')">\u2039</button>';
+    for (let i = 1; i <= totalPages; i++) {
+      if (i === 1 || i === totalPages || Math.abs(i - page) <= 2) {
+        html += '<button class="' + (i === page ? 'active' : '') + '" onclick="goPage(' + i + ')">' + i + '</button>';
+      } else if (html.slice(-8) !== '...</div>') {
+        html += '<button disabled>\u2026</button>';
+      }
+    }
+    html += '<button ' + (page >= totalPages ? 'disabled' : '') + ' onclick="goPage(' + (page+1) + ')">\u203A</button>';
+    el.innerHTML = html;
+  };
+  render('pagination');
+  render('paginationBottom');
+}
+
+function goPage(p) {
+  currentPage = p;
+  renderUsers();
+}
+
+document.getElementById('perPage').addEventListener('change', function() {
+  perPage = parseInt(this.value);
+  localStorage.setItem(PER_PAGE_KEY, perPage);
+  currentPage = 1;
+  renderUsers();
+});
+
+renderUsers();
+
+function toggleDropdown(e, id) {
+  e.stopPropagation();
+  const menu = document.getElementById(id);
+  const isVisible = menu.style.display === 'block';
+  document.querySelectorAll('.dropdown-menu').forEach(m => m.style.display = 'none');
+  menu.style.display = isVisible ? 'none' : 'block';
+}
+document.addEventListener('click', () => {
+  document.querySelectorAll('.dropdown-menu').forEach(m => m.style.display = 'none');
+});
+
+function copySub(name) {
+  const url = window.location.origin + '/panel/api/v1/sub/' + encodeURIComponent(name);
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = '\u2705 Copied!';
+    setTimeout(() => btn.textContent = orig, 2000);
+  }).catch(() => {
+    prompt('Copy this URL:', url);
+  });
+}
+</script>
+</body>
+</html>
