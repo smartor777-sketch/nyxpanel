@@ -188,7 +188,7 @@ def user_add():
     name = request.form.get("username", "").strip()
     if not re.match(r'^[a-zA-Z0-9_-]+$', name):
         flash("Invalid username", "error")
-        return redirect(url_for("index"))
+        return redirect(request.referrer or url_for("index"))
     ok, msg = call_script("add_user", name)
     if ok:
         db = get_db()
@@ -196,7 +196,7 @@ def user_add():
         db.commit()
         db.close()
     flash(msg[:300], "ok" if ok else "error")
-    return redirect(url_for("index"))
+    return redirect(request.referrer or url_for("index"))
 
 @app.route("/user/<name>/delete", methods=["POST"])
 def user_delete(name):
@@ -209,7 +209,7 @@ def user_delete(name):
         db.commit()
         db.close()
     flash(msg[:300], "ok" if ok else "error")
-    return redirect(url_for("index"))
+    return redirect(request.referrer or url_for("index"))
 
 @app.route("/user/<name>/protocol/<proto>/add", methods=["POST"])
 def proto_add(name, proto):
@@ -222,10 +222,10 @@ def proto_add(name, proto):
     sname = script_map.get(proto)
     if not sname:
         flash("Unknown protocol", "error")
-        return redirect(url_for("index"))
+        return redirect(request.referrer or url_for("index"))
     ok, msg = call_script(sname, name)
     flash(msg[:300], "ok" if ok else "error")
-    return redirect(url_for("index"))
+    return redirect(request.referrer or url_for("index"))
 
 @app.route("/user/<name>/protocol/<proto>/delete", methods=["POST"])
 def proto_delete(name, proto):
@@ -233,7 +233,7 @@ def proto_delete(name, proto):
         return redirect("/self/login")
     ok, msg = call_script(f"del_{proto}", name)
     flash(msg[:300], "ok" if ok else "error")
-    return redirect(url_for("index"))
+    return redirect(request.referrer or url_for("index"))
 
 @app.route("/user/<name>/config/<proto>")
 def get_config(name, proto):
@@ -279,7 +279,7 @@ def set_expiry(name):
         flash("Expiry cleared", "ok")
     db.commit()
     db.close()
-    return redirect(url_for("index"))
+    return redirect(request.referrer or url_for("index"))
 
 @app.route("/user/<name>/toggle", methods=["POST"])
 def toggle_user(name):
@@ -292,7 +292,7 @@ def toggle_user(name):
         db.execute("UPDATE users SET active = ? WHERE username = ?", (new, name))
         db.commit()
     db.close()
-    return redirect(url_for("index"))
+    return redirect(request.referrer or url_for("index"))
 
 @app.route("/user/<name>/password", methods=["POST"])
 def set_password(name):
@@ -301,14 +301,14 @@ def set_password(name):
     pwd = request.form.get("password", "").strip()
     if not pwd:
         flash("Password cannot be empty", "error")
-        return redirect(url_for("index"))
+        return redirect(request.referrer or url_for("index"))
     db = get_db()
     db.execute("UPDATE users SET password_hash = ? WHERE username = ?",
                (generate_password_hash(pwd), name))
     db.commit()
     db.close()
     flash(f"Password set for {name}", "ok")
-    return redirect(url_for("index"))
+    return redirect(request.referrer or url_for("index"))
 
 # --- Self-service dashboard ---
 @app.route("/self/login", methods=["GET", "POST"])
