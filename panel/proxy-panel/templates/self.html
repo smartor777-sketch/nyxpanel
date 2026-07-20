@@ -6,47 +6,51 @@
 <title>NYX Panel — {{ user.username }}</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
+  :root { --bg: #0d1117; --fg: #c9d1d9; --card: #161b22; --border: #30363d; --input-bg: #21262d; --heading: #58a6ff; --muted: #8b949e; --accent: #238636; --accent-hover: #2ea043; --proto-yes: #3fb950; --proto-no: #484f58; --status-active-bg: #1b3a2d; --status-active-fg: #7ee787; --status-expired-bg: #3a1b1b; --status-expired-fg: #ff7b72; --btn-active: #1f6feb; --chart-grid: #21262d; }
+  [data-theme="light"] { --bg: #f6f8fa; --fg: #24292f; --card: #ffffff; --border: #d0d7de; --input-bg: #f6f8fa; --heading: #0550ae; --muted: #656d76; --accent: #2da44e; --accent-hover: #2c974b; --proto-yes: #1a7f37; --proto-no: #afb8c1; --status-active-bg: #dafbe1; --status-active-fg: #1a7f37; --status-expired-bg: #ffebe9; --status-expired-fg: #cf222e; --btn-active: #0969da; --chart-grid: #d0d7de; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, system-ui, sans-serif; background: #0d1117; color: #c9d1d9; padding: 2rem; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--fg); padding: 2rem; }
   .container { max-width: 900px; margin: 0 auto; }
-  h1 { color: #58a6ff; margin-bottom: 0.5rem; }
-  .subtitle { color: #8b949e; margin-bottom: 2rem; font-size: 0.9rem; }
-  .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; }
-  .card h2 { color: #8b949e; margin-bottom: 1rem; font-size: 1.1rem; }
+  h1 { color: var(--heading); margin-bottom: 0.5rem; }
+  .subtitle { color: var(--muted); margin-bottom: 2rem; font-size: 0.9rem; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; }
+  .card h2 { color: var(--muted); margin-bottom: 1rem; font-size: 1.1rem; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-  .stat { text-align: center; padding: 1rem; background: #0d1117; border-radius: 8px; }
-  .stat .val { font-size: 1.5rem; font-weight: 700; color: #58a6ff; }
-  .stat .lbl { font-size: 0.8rem; color: #8b949e; margin-top: 0.3rem; }
+  .stat { text-align: center; padding: 1rem; background: var(--bg); border-radius: 8px; }
+  .stat .val { font-size: 1.5rem; font-weight: 700; color: var(--heading); }
+  .stat .lbl { font-size: 0.8rem; color: var(--muted); margin-top: 0.3rem; }
   .proto-list { display: flex; flex-direction: column; gap: 0.5rem; }
-  .proto-item { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; background: #0d1117; border-radius: 8px; }
-  .proto-name { font-weight: 600; color: #c9d1d9; }
+  .proto-item { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; background: var(--bg); border-radius: 8px; }
+  .proto-name { font-weight: 600; color: var(--fg); }
   .proto-actions { display: flex; gap: 0.5rem; }
   .proto-actions a { text-decoration: none; }
-  .proto-actions button { padding: 0.3rem 0.7rem; border-radius: 6px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; font-size: 0.8rem; cursor: pointer; }
-  .proto-actions button:hover { background: #30363d; }
+  .proto-actions button { padding: 0.3rem 0.7rem; border-radius: 6px; border: 1px solid var(--border); background: var(--input-bg); color: var(--fg); font-size: 0.8rem; cursor: pointer; }
+  .proto-actions button:hover { background: var(--border); }
   .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 0.5rem; }
-  .logout-btn { padding: 0.4rem 1rem; border-radius: 6px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; font-size: 0.85rem; cursor: pointer; text-decoration: none; }
-  .logout-btn:hover { background: #30363d; }
+  .logout-btn { padding: 0.4rem 1rem; border-radius: 6px; border: 1px solid var(--border); background: var(--input-bg); color: var(--fg); font-size: 0.85rem; cursor: pointer; text-decoration: none; }
+  .logout-btn:hover { background: var(--border); }
   .status-badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; }
-  .status-active { background: #1b3a2d; color: #7ee787; }
-  .status-expired { background: #3a1b1b; color: #ff7b72; }
-  .progress-bar { height: 8px; background: #21262d; border-radius: 4px; overflow: hidden; margin-top: 0.5rem; }
-  .progress-fill { height: 100%; background: #58a6ff; border-radius: 4px; transition: width 0.3s; }
-  select, button { padding: 0.4rem 0.8rem; border-radius: 6px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; font-size: 0.85rem; cursor: pointer; }
+  .status-active { background: var(--status-active-bg); color: var(--status-active-fg); }
+  .status-expired { background: var(--status-expired-bg); color: var(--status-expired-fg); }
+  .progress-bar { height: 8px; background: var(--input-bg); border-radius: 4px; overflow: hidden; margin-top: 0.5rem; }
+  .progress-fill { height: 100%; background: var(--heading); border-radius: 4px; transition: width 0.3s; }
+  select, button { padding: 0.4rem 0.8rem; border-radius: 6px; border: 1px solid var(--border); background: var(--input-bg); color: var(--fg); font-size: 0.85rem; cursor: pointer; }
   .chart-container { max-width: 100%; margin: 1rem 0; }
   .btn-group { display: flex; gap: 2px; }
-  .btn-group button { border-radius: 0; border-right: 1px solid #30363d; }
+  .btn-group button { border-radius: 0; border-right: 1px solid var(--border); }
   .btn-group button:first-child { border-radius: 6px 0 0 6px; }
   .btn-group button:last-child { border-radius: 0 6px 6px 0; border-right: none; }
-  .btn-group .active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+  .btn-group .active { background: var(--btn-active); border-color: var(--btn-active); color: #fff; }
   .toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
+  .theme-btn { background: none; border: 1px solid var(--border); padding: 0.3rem 0.6rem; font-size: 1rem; cursor: pointer; border-radius: 6px; color: var(--fg); }
+  .theme-btn:hover { background: var(--input-bg); }
 </style>
 </head>
 <body>
 <div class="container">
   <div class="header-bar">
     <div>
-      <h1>NYX Panel <span style="font-size:0.6rem;color:#8b949e;font-weight:normal">v{{ version }}</span></h1>
+      <h1>NYX Panel <span style="font-size:0.6rem;color:var(--muted);font-weight:normal">v{{ version }}</span></h1>
       <div class="subtitle">
         {% if user.active %}
           <span class="status-badge status-active">Active</span>
@@ -60,7 +64,10 @@
         {% endif %}
       </div>
     </div>
-    <a href="logout" class="logout-btn">Sign Out</a>
+    <div style="display:flex;gap:0.5rem;align-items:center">
+      <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
+      <a href="logout" class="logout-btn">Sign Out</a>
+    </div>
   </div>
 
   <div class="card">
@@ -106,7 +113,7 @@
       </div>
       {% set has_any = protocols.values() | selectattr('active') | list | length %}
       {% if not has_any %}
-        <p style="color:#484f58;text-align:center;padding:1rem">No configurations available</p>
+        <p style="color:var(--proto-no);text-align:center;padding:1rem">No configurations available</p>
       {% endif %}
     </div>
   </div>
@@ -128,6 +135,17 @@
 </div>
 
 <script>
+const themeKey = 'nyx_theme';
+function getTheme() { return localStorage.getItem(themeKey) || 'dark'; }
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem(themeKey, t);
+  document.getElementById('themeBtn').textContent = t === 'dark' ? '\u{1F319}' : '\u{2600}\u{FE0F}';
+  if (trafficChart) trafficChart.update();
+}
+function toggleTheme() { setTheme(getTheme() === 'dark' ? 'light' : 'dark'); }
+setTheme(getTheme());
+
 let trafficChart = null;
 const fmtBytes = v => v >= 1073741824 ? (v/1073741824).toFixed(1)+' GB' : v >= 1048576 ? (v/1048576).toFixed(1)+' MB' : (v/1024).toFixed(1)+' KB';
 const currentUser = '{{ user.username }}';
@@ -145,21 +163,22 @@ async function loadTraffic() {
       return { date, up: day.reduce((s, d) => s + d.bytes_up, 0), down: day.reduce((s, d) => s + d.bytes_down, 0) };
     });
     if (trafficChart) trafficChart.destroy();
+    const isLight = getTheme() === 'light';
     trafficChart = new Chart(document.getElementById('trafficChart'), {
       type: 'bar',
       data: {
         labels: dates,
         datasets: [
-          { label: 'Upload', data: aggregated.map(d => d.up), backgroundColor: '#58a6ff' },
-          { label: 'Download', data: aggregated.map(d => d.down), backgroundColor: '#3fb950' },
+          { label: 'Upload', data: aggregated.map(d => d.up), backgroundColor: isLight ? '#0969da' : '#58a6ff' },
+          { label: 'Download', data: aggregated.map(d => d.down), backgroundColor: isLight ? '#1a7f37' : '#3fb950' },
         ]
       },
       options: {
         responsive: true,
-        plugins: { legend: { labels: { color: '#c9d1d9' } } },
+        plugins: { legend: { labels: { color: 'var(--muted)' } } },
         scales: {
-          x: { ticks: { color: '#8b949e' }, grid: { color: '#21262d' } },
-          y: { ticks: { color: '#8b949e', callback: v => fmtBytes(v) }, grid: { color: '#21262d' } }
+          x: { ticks: { color: 'var(--muted)' }, grid: { color: 'var(--chart-grid)' } },
+          y: { ticks: { color: 'var(--muted)', callback: v => fmtBytes(v) }, grid: { color: 'var(--chart-grid)' } }
         }
       }
     });

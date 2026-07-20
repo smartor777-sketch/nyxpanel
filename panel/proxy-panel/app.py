@@ -7,7 +7,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("PANEL_SECRET", os.urandom(16).hex())
-PANEL_VERSION = "1.01"
+PANEL_VERSION = "1.02"
 
 class PrefixMiddleware:
     def __init__(self, app, prefix='/panel'):
@@ -127,7 +127,7 @@ def get_file_users():
     users = []
     for line in REGISTRY.read_text().strip().splitlines():
         line = line.strip()
-        if not line:
+        if not line or line == "admin":
             continue
         protos = {}
         for key, name, cfg, qr in PROTOCOLS:
@@ -138,7 +138,7 @@ def get_file_users():
 
 def get_db_users():
     db = get_db()
-    rows = db.execute("SELECT username, expires_at, active FROM users ORDER BY username").fetchall()
+    rows = db.execute("SELECT username, expires_at, active FROM users WHERE username != 'admin' ORDER BY username").fetchall()
     db.close()
     users = []
     for row in rows:
