@@ -83,9 +83,43 @@
   Полностью не-root Hopper поднять нельзя.
 
 - **Ограниченный доступ (реализовано на стенде)**: создан отдельный не-root юзер `hopper` со своим
-  паролем (НЕ root). `hopperctl` обёрнут — если запущен не от root, делает `sudo -n` только на
-  `/home/hopper/hopper/hopperctl.bin`; `/etc/sudoers.d/hopper`:
-  `hopper ALL=(root) NOPASSWD: /home/hopper/hopper/hopperctl.bin` (+ `env_keep HOME`).
-  Приложение коннектится как `hopper` (не-root shell, свой пароль) и получает root только на один
-  бинарь управления Hopper, не на shell/файлы. Проверено: `start` под `hopper` → `ready:true,
-  nat:true`. Root-деплой (`user root`) остаётся запасным вариантом.
+  паролем (НЕ root). Приложение коннектится как `hopper` (не-root shell) и получает root только на
+  один бинарь управления Hopper через sudo, не на shell/файлы. Root-деплой (`user root`) остаётся
+  запасным вариантом.
+
+- **ВАЖНО — первая версия sudo была небезопасна (security theater)**: изначально код Hopper лежал в
+  `/home/hopper/hopper` под владельцем `hopper`, а sudo указывал на файл там же. Юзер `hopper` мог
+  перезаписать сам sudo-таргет / python-код / бинарь `hopperd` (всё выполняется как root) →
+  тривиальная эскалация в полный root (классическая дыра sudo: writable target). Проверено фактически.
+
+- **Hardening (применён и проверен на стенде)**: весь исполняемый как root код вынесен в root-owned
+  `/opt/hopper` (`chown -R root:root`, `chmod -R go-w`), домашняя папка `hopper` больше не содержит
+  кода. Схема:
+  - `/opt/hopper/hopperctl.bin` — root-owned launcher: `cd /opt/hopper`, `HOPPER_DIR/PYTHONPATH=/opt/hopper`,
+    `PYTHONSAFEPATH=1` (блокирует import-hijack через `os.py` в cwd), `exec /usr/bin/python3 -m hopper.cli`.
+  - `/usr/local/bin/hopperctl` (root-owned, в PATH) — если не root, делает `sudo -n /opt/hopper/hopperctl.bin`.
+  - `/etc/sudoers.d/hopper`: `hopper ALL=(root) NOPASSWD: /opt/hopper/hopperctl.bin` (+ `env_keep HOME`,
+    чтобы данные писались в `/home/hopper/.hopper`).
+  - `setcap cap_net_admin+ep` на `/opt/hopper/dist/hopperd-linux-amd64` (per-file, системные `ip`/`iptables`
+    НЕ трогаются).
+  - Зависимости stdlib-only (`requirements.txt` пустой) → venv не нужен, используется системный `python3`.
+
+- **Разделение код/данные**: код = `/opt/hopper` (root, ro для hopper). Данные (ключи, чейны,
+  `hopper.json`, `registry.json`) = `/home/hopper/.hopper` (hopper-owned). `hopperd` запускается как root,
+  но читает конфиг-данные — это сетевые параметры (addr/overlay/port/next-host), не команды.
+
+- **Верификация hardening (стенд)**: `hopper` НЕ может писать `hopperctl.bin` / `cli.py` / `hopperd` /
+  `/usr/local/bin/hopperctl` (all `ro`); НЕ может подменить папки (`/opt`, `/opt/hopper` — `ro-dir`);
+  import-hijack через cwd `os.py` заблокирован (`PYTHONSAFEPATH`); при этом `hopperctl status` и
+  `start` под `hopper` работают (`ready:true, nat:true`), `hopperd` бежит от root из `/opt/hopper`,
+  ключи/конфиг остаются в `/home/hopper/.hopper`.
+
+### Hopper — multi-user (как раздать нескольким людям)
+
+- **Per-user конфигов/подписок/лимитов трафика НЕТ** (это не VLESS). «Юзеры» реализуются двумя путями:
+  - **Multi-device на одну цепочку**: overlay `/24` → пул `10.64.{octet}.2–.254` → до ~250 клиентов
+    одновременно; каждому уникальный адрес по lease (обновляется, пока подключён; протухает ~1 час).
+    На практике — раздать один профиль сервера (JSON/QR) нескольким людям.
+  - **Multi-chain**: несколько независимых цепочек, у каждой свой UUID → свой overlay/порт/TUN
+    (`hopper_<chain>`); один VPS может быть entry в одной и exit в другой. Изоляция групп. Лимит —
+    число TUN-интерфейсов хоста.
