@@ -61,3 +61,31 @@
 
 - **Панель под systemd**: на проде запуск через `panel.service` (`/etc/systemd/system/panel.service`,
   `Restart=always`), перезапуск — `systemctl restart panel`.
+
+### Hopper (тест на стенде, только dev — НЕ в панели)
+
+- **Что это**: `ZonD80/hopper` — multi-hop L3-VPN поверх SSH (`hopperd`), управляется мобильным
+  приложением (iOS/App Store, Android/Google Play). Не прокси-протокол: нет per-user QR/подписки,
+  трафик считает сам демон (`~/.hopper/.../hopper.log`), поэтому в панель NYX **не интегрируется**
+  (архитектурно не ложится в модель «юзер+протокол»). Поставлен на стенд как отдельная нода.
+
+- **Установка**: штатный `install.sh --configure` → бинарь `hopperd-linux-amd64` (~4.2 МБ, из
+  GitHub-релиза, версия 2.0.0), Python-venv, CLI `hopperctl`. Go для сборки не нужен (качается
+  готовый бинарь). Предпосылки стенда: `x86_64`, `/dev/net/tun`, `ip`/`iptables`/`python3`, SSH:22.
+
+- **Управление**: `hopperctl` (Python) — `status` / `start --chain-id UUID --role exit|relay --addr
+  A.B.C.D --index N [--stop-only]`. Overlay/порт/TUN выводятся из chain UUID (`10.64.{octet}.0/24`,
+  `listen_port 7400+octet`, iface `hopper_<chain>`). `hopperd` слушает только loopback, доступен
+  через SSH-форвардинг; поднимается приложением при коннекте (systemd-сервиса нет by design).
+
+- **Root vs не-root**: TUN требует root — `ip tuntap add` даёт `ioctl(TUNSETIFF): Operation not
+  permitted` даже с `setcap cap_net_admin` на `ip` (file-cap не наследуется не-root процессом).
+  Полностью не-root Hopper поднять нельзя.
+
+- **Ограниченный доступ (реализовано на стенде)**: создан отдельный не-root юзер `hopper` со своим
+  паролем (НЕ root). `hopperctl` обёрнут — если запущен не от root, делает `sudo -n` только на
+  `/home/hopper/hopper/hopperctl.bin`; `/etc/sudoers.d/hopper`:
+  `hopper ALL=(root) NOPASSWD: /home/hopper/hopper/hopperctl.bin` (+ `env_keep HOME`).
+  Приложение коннектится как `hopper` (не-root shell, свой пароль) и получает root только на один
+  бинарь управления Hopper, не на shell/файлы. Проверено: `start` под `hopper` → `ready:true,
+  nat:true`. Root-деплой (`user root`) остаётся запасным вариантом.
