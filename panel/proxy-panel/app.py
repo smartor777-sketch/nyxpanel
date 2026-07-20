@@ -29,6 +29,9 @@ BASE_DIR = Path("/root/proxy_users")
 REGISTRY = BASE_DIR / ".registry"
 DB_PATH = "/opt/proxy-panel/panel.db"
 
+def is_admin():
+    return session.get("self_role") == "admin" or request.headers.get("REMOTE_USER")
+
 PROTOCOLS = [
     ("hy2",    "Hysteria 2",      "_hy2.json",    "_hy2.png"),
     ("awg",    "AmneziaWG",       "_awg.conf",    "_awg.png"),
@@ -171,11 +174,15 @@ def call_script(name, username):
 
 @app.route("/")
 def index():
+    if not is_admin():
+        return redirect("/self/login")
     db_users = get_db_users()
     return render_template("index.html", users=db_users, protocols=PROTOCOLS)
 
 @app.route("/user/add", methods=["POST"])
 def user_add():
+    if not is_admin():
+        return redirect("/self/login")
     name = request.form.get("username", "").strip()
     if not re.match(r'^[a-zA-Z0-9_-]+$', name):
         flash("Invalid username", "error")
@@ -191,6 +198,8 @@ def user_add():
 
 @app.route("/user/<name>/delete", methods=["POST"])
 def user_delete(name):
+    if not is_admin():
+        return redirect("/self/login")
     ok, msg = call_script("del_user", name)
     if ok:
         db = get_db()
@@ -202,6 +211,8 @@ def user_delete(name):
 
 @app.route("/user/<name>/protocol/<proto>/add", methods=["POST"])
 def proto_add(name, proto):
+    if not is_admin():
+        return redirect("/self/login")
     script_map = {
         "hy2": "add_hy2", "awg": "add_awg", "naive": "add_naive",
         "mieru": "add_mieru", "olcrtc": "add_olcrtc", "vless": "add_vless",
@@ -216,12 +227,16 @@ def proto_add(name, proto):
 
 @app.route("/user/<name>/protocol/<proto>/delete", methods=["POST"])
 def proto_delete(name, proto):
+    if not is_admin():
+        return redirect("/self/login")
     ok, msg = call_script(f"del_{proto}", name)
     flash(msg[:300], "ok" if ok else "error")
     return redirect(url_for("index"))
 
 @app.route("/user/<name>/config/<proto>")
 def get_config(name, proto):
+    if not is_admin():
+        return redirect("/self/login")
     suffix_map = dict((p[0], p[2]) for p in PROTOCOLS)
     suffix = suffix_map.get(proto)
     if not suffix:
@@ -233,6 +248,8 @@ def get_config(name, proto):
 
 @app.route("/user/<name>/qr/<proto>")
 def get_qr(name, proto):
+    if not is_admin():
+        return redirect("/self/login")
     suffix_map = dict((p[0], p[3]) for p in PROTOCOLS)
     suffix = suffix_map.get(proto)
     if not suffix:
@@ -244,6 +261,8 @@ def get_qr(name, proto):
 
 @app.route("/user/<name>/expiry", methods=["POST"])
 def set_expiry(name):
+    if not is_admin():
+        return redirect("/self/login")
     expires = request.form.get("expires", "").strip()
     db = get_db()
     if expires:
@@ -262,6 +281,8 @@ def set_expiry(name):
 
 @app.route("/user/<name>/toggle", methods=["POST"])
 def toggle_user(name):
+    if not is_admin():
+        return redirect("/self/login")
     db = get_db()
     row = db.execute("SELECT active FROM users WHERE username = ?", (name,)).fetchone()
     if row:
@@ -273,6 +294,8 @@ def toggle_user(name):
 
 @app.route("/user/<name>/password", methods=["POST"])
 def set_password(name):
+    if not is_admin():
+        return redirect("/self/login")
     pwd = request.form.get("password", "").strip()
     if not pwd:
         flash("Password cannot be empty", "error")
@@ -313,15 +336,13 @@ def self_dashboard():
     if not name:
         return redirect(url_for("self_login"))
     role = session.get("self_role", "user")
+    if role == "admin":
+        return redirect("/panel/")
     db = get_db()
     row = db.execute("SELECT username, expires_at, active, created_at, traffic_limit_bytes FROM users WHERE username = ?", (name,)).fetchone()
     if not row or not row["active"]:
         session.pop("self_user", None)
         return redirect(url_for("self_login"))
-
-    all_users = db.execute("SELECT username FROM users WHERE active=1 ORDER BY username").fetchall()
-    user_list = [r["username"] for r in all_users]
-
     protos = {}
     for key, pname, cfg, qr in PROTOCOLS:
         f = BASE_DIR / name / f"{name}{cfg}"
@@ -334,7 +355,7 @@ def self_dashboard():
     total = (traffic["up"] or 0) + (traffic["down"] or 0)
     limit = row["traffic_limit_bytes"] or 0
     percent = round(total / limit * 100, 1) if limit > 0 else None
-    return render_template("self.html", user=row, protocols=protos, traffic=total, percent=percent, role=role, user_list=user_list)
+    return render_template("self.html", user=row, protocols=protos, traffic=total, percent=percent, role="user")
 
 @app.route("/self/config/<proto>")
 @app.route("/self/config/<name>/<proto>")

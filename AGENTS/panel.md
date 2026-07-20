@@ -17,7 +17,7 @@ Flask-панель управления. Исходники: `panel/proxy-panel.
 | 2 | REST API (Flask blueprint `/api/v1/`) |
 | 3 | Subscription links (V2Ray, Sing-box, Clash, Hiddify) |
 | 4 | Telegram bot (python-telegram-bot v21+) |
-| 5 | User-side self-service dashboard |
+| 5 | User-side self-service dashboard | ✅ Traffic chart (Today/Week/Month/All), expiry/limit, admin role with user list |
 | 6 | Device/IP connection limits |
 | 7 | User plan templates |
 | 8 | Bulk operations |
