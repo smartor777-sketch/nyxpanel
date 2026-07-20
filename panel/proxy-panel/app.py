@@ -97,6 +97,10 @@ def init_db():
         db.execute("ALTER TABLE users ADD COLUMN password_hash TEXT DEFAULT ''")
     except sqlite3.OperationalError:
         pass
+    try:
+        db.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'")
+    except sqlite3.OperationalError:
+        pass
     db.commit()
     migrate_from_registry(db)
     db.close()
@@ -288,10 +292,11 @@ def self_login():
         name = request.form.get("username", "").strip()
         pwd = request.form.get("password", "")
         db = get_db()
-        row = db.execute("SELECT username, password_hash, active FROM users WHERE username = ?", (name,)).fetchone()
+        row = db.execute("SELECT username, password_hash, active, role FROM users WHERE username = ?", (name,)).fetchone()
         db.close()
         if row and row["active"] and row["password_hash"] and check_password_hash(row["password_hash"], pwd):
             session["self_user"] = row["username"]
+            session["self_role"] = row["role"]
             return redirect(url_for("self_dashboard"))
         flash("Invalid credentials or user inactive", "error")
         return redirect(url_for("self_login"))
@@ -307,11 +312,16 @@ def self_dashboard():
     name = session.get("self_user")
     if not name:
         return redirect(url_for("self_login"))
+    role = session.get("self_role", "user")
     db = get_db()
     row = db.execute("SELECT username, expires_at, active, created_at, traffic_limit_bytes FROM users WHERE username = ?", (name,)).fetchone()
     if not row or not row["active"]:
         session.pop("self_user", None)
         return redirect(url_for("self_login"))
+
+    all_users = db.execute("SELECT username FROM users WHERE active=1 ORDER BY username").fetchall()
+    user_list = [r["username"] for r in all_users]
+
     protos = {}
     for key, pname, cfg, qr in PROTOCOLS:
         f = BASE_DIR / name / f"{name}{cfg}"
@@ -321,35 +331,45 @@ def self_dashboard():
         (name,)
     ).fetchone()
     db.close()
-    limit = row["traffic_limit_bytes"] or 0
     total = (traffic["up"] or 0) + (traffic["down"] or 0)
+    limit = row["traffic_limit_bytes"] or 0
     percent = round(total / limit * 100, 1) if limit > 0 else None
-    return render_template("self.html", user=row, protocols=protos, traffic=total, percent=percent)
+    return render_template("self.html", user=row, protocols=protos, traffic=total, percent=percent, role=role, user_list=user_list)
 
 @app.route("/self/config/<proto>")
-def self_config(proto):
-    name = session.get("self_user")
-    if not name:
+@app.route("/self/config/<name>/<proto>")
+def self_config(proto, name=None):
+    self_user = session.get("self_user")
+    if not self_user:
         return redirect(url_for("self_login"))
+    role = session.get("self_role", "user")
+    if name and role != "admin":
+        return "Forbidden", 403
+    target = name or self_user
     suffix_map = dict((p[0], p[2]) for p in PROTOCOLS)
     suffix = suffix_map.get(proto)
     if not suffix:
         return "Not found", 404
-    path = BASE_DIR / name / f"{name}{suffix}"
+    path = BASE_DIR / target / f"{target}{suffix}"
     if not path.exists():
         return "Not found", 404
-    return send_file(str(path), as_attachment=True, download_name=f"{name}_{proto}{suffix}")
+    return send_file(str(path), as_attachment=True, download_name=f"{target}_{proto}{suffix}")
 
 @app.route("/self/qr/<proto>")
-def self_qr(proto):
-    name = session.get("self_user")
-    if not name:
+@app.route("/self/qr/<name>/<proto>")
+def self_qr(proto, name=None):
+    self_user = session.get("self_user")
+    if not self_user:
         return redirect(url_for("self_login"))
+    role = session.get("self_role", "user")
+    if name and role != "admin":
+        return "Forbidden", 403
+    target = name or self_user
     suffix_map = dict((p[0], p[3]) for p in PROTOCOLS)
     suffix = suffix_map.get(proto)
     if not suffix:
         return "Not found", 404
-    path = BASE_DIR / name / f"{name}{suffix}"
+    path = BASE_DIR / target / f"{target}{suffix}"
     if not path.exists():
         return "Not found", 404
     return send_file(str(path), mimetype="image/png")
