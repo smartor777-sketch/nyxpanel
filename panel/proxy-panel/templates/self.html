@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NYX Panel — {{ user.username }}</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: #0d1117; color: #c9d1d9; padding: 2rem; }
+  .container { max-width: 800px; margin: 0 auto; }
+  h1 { color: #58a6ff; margin-bottom: 0.5rem; }
+  .subtitle { color: #8b949e; margin-bottom: 2rem; font-size: 0.9rem; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; }
+  .card h2 { color: #8b949e; margin-bottom: 1rem; font-size: 1.1rem; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .stat { text-align: center; padding: 1rem; background: #0d1117; border-radius: 8px; }
+  .stat .val { font-size: 1.5rem; font-weight: 700; color: #58a6ff; }
+  .stat .lbl { font-size: 0.8rem; color: #8b949e; margin-top: 0.3rem; }
+  .proto-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .proto-item { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; background: #0d1117; border-radius: 8px; }
+  .proto-name { font-weight: 600; color: #c9d1d9; }
+  .proto-actions { display: flex; gap: 0.5rem; }
+  .proto-actions a { text-decoration: none; }
+  .proto-actions button { padding: 0.3rem 0.7rem; border-radius: 6px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; font-size: 0.8rem; cursor: pointer; }
+  .proto-actions button:hover { background: #30363d; }
+  .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+  .logout-btn { padding: 0.4rem 1rem; border-radius: 6px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; font-size: 0.85rem; cursor: pointer; text-decoration: none; }
+  .logout-btn:hover { background: #30363d; }
+  .status-badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; }
+  .status-active { background: #1b3a2d; color: #7ee787; }
+  .status-expired { background: #3a1b1b; color: #ff7b72; }
+  .progress-bar { height: 8px; background: #21262d; border-radius: 4px; overflow: hidden; margin-top: 0.5rem; }
+  .progress-fill { height: 100%; background: #58a6ff; border-radius: 4px; transition: width 0.3s; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header-bar">
+    <div>
+      <h1>Welcome, {{ user.username }}</h1>
+      <div class="subtitle">
+        {% if user.active %}
+          <span class="status-badge status-active">Active</span>
+        {% else %}
+          <span class="status-badge status-expired">Disabled</span>
+        {% endif %}
+        {% if user.expires_at %}
+          &middot; Expires: {{ user.expires_at[:10] }}
+        {% endif %}
+        &middot; Since {{ user.created_at[:10] if user.created_at else '?' }}
+      </div>
+    </div>
+    <a href="logout" class="logout-btn">Sign Out</a>
+  </div>
+
+  <div class="card">
+    <h2>Usage</h2>
+    <div class="grid">
+      <div class="stat">
+        <div class="val">{{ (traffic / 1073741824)|round(2) }} GB</div>
+        <div class="lbl">Total Traffic</div>
+      </div>
+      <div class="stat">
+        <div class="val">{{ user.traffic_limit_bytes|round if user.traffic_limit_bytes > 0 else '∞' }}</div>
+        <div class="lbl">Limit{% if user.traffic_limit_bytes > 0 and percent %} ({{ percent }}%){% endif %}</div>
+      </div>
+    </div>
+    {% if user.traffic_limit_bytes > 0 %}
+    <div class="progress-bar">
+      <div class="progress-fill" style="width:{{ percent|default(0)|round }}%"></div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Configurations</h2>
+    <div class="proto-list">
+      {% for key, p in protocols.items() %}
+        {% if p.active %}
+        <div class="proto-item">
+          <span class="proto-name">{{ p.name }}</span>
+          <div class="proto-actions">
+            <a href="/self/config/{{ key }}"><button>Config</button></a>
+            <a href="/self/qr/{{ key }}" target="_blank"><button>QR</button></a>
+            <button onclick="copyLink('/self/config/{{ key }}')">Copy</button>
+          </div>
+        </div>
+        {% endif %}
+      {% endfor %}
+      {% set has_any = protocols.values() | selectattr('active') | list | length %}
+      {% if not has_any %}
+        <p style="color:#484f58;text-align:center;padding:1rem">No configurations available</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+function copyLink(url) {
+  fetch(url).then(r => r.blob()).then(blob => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      navigator.clipboard.writeText(reader.result).then(() => {
+        const btn = event.target;
+        const orig = btn.textContent;
+        btn.textContent = '\u2705 Copied!';
+        setTimeout(() => btn.textContent = orig, 2000);
+      });
+    };
+    reader.readAsText(blob);
+  }).catch(() => {});
+}
+</script>
+</body>
+</html>

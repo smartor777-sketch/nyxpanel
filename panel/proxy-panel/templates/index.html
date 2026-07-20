@@ -82,6 +82,7 @@
             <th>{{ name.split('+')[0] }}</th>
           {% endfor %}
           <th>Expiry</th>
+          <th>Pass</th>
           <th>Act.</th>
           <th>Export</th>
         </tr>
@@ -237,6 +238,9 @@ function renderUsers() {
       protoHTML +
       '<td><form method="POST" action="/panel/user/' + u.name + '/expiry" style="display:flex;gap:2px">' +
         '<input class="expiry-input" name="expires" type="date" value="' + (u.expires_at ? u.expires_at.slice(0,10) : '') + '" placeholder="never">' +
+        '<button class="small secondary" type="submit">set</button></form></td>' +
+      '<td><form method="POST" action="/panel/user/' + u.name + '/password" style="display:flex;gap:2px" onsubmit="return confirm(\'Set dashboard password for ' + u.name + '?\')">' +
+        '<input class="expiry-input" name="password" type="text" placeholder="set pwd">' +
         '<button class="small secondary" type="submit">set</button></form></td>' +
       '<td class="actions">' + actions +
         '<form method="POST" action="/panel/user/' + u.name + '/toggle" style="display:inline">' +
