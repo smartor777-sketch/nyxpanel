@@ -336,9 +336,11 @@ def self_dashboard():
     if not name:
         return redirect(url_for("self_login"))
     role = session.get("self_role", "user")
-    if role == "admin":
-        return redirect("/panel/")
     db = get_db()
+    if role == "admin":
+        db_users = get_db_users()
+        db.close()
+        return render_template("self_admin.html", users=db_users, protocols=PROTOCOLS, admin_name=name)
     row = db.execute("SELECT username, expires_at, active, created_at, traffic_limit_bytes FROM users WHERE username = ?", (name,)).fetchone()
     if not row or not row["active"]:
         session.pop("self_user", None)
@@ -355,7 +357,7 @@ def self_dashboard():
     total = (traffic["up"] or 0) + (traffic["down"] or 0)
     limit = row["traffic_limit_bytes"] or 0
     percent = round(total / limit * 100, 1) if limit > 0 else None
-    return render_template("self.html", user=row, protocols=protos, traffic=total, percent=percent, role="user")
+    return render_template("self.html", user=row, protocols=protos, traffic=total, percent=percent)
 
 @app.route("/self/config/<proto>")
 @app.route("/self/config/<name>/<proto>")
