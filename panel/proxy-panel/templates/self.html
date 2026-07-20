@@ -48,7 +48,6 @@
     <div>
       <h1>Welcome, {{ user.username }}</h1>
       <div class="subtitle">
-        {% if role == 'admin' %}<span class="status-badge status-active">Admin</span> &middot; {% endif %}
         {% if user.active %}
           <span class="status-badge status-active">Active</span>
         {% else %}
@@ -64,35 +63,9 @@
     <a href="logout" class="logout-btn">Sign Out</a>
   </div>
 
-  {% if role == 'admin' %}
-  <div class="card">
-    <h2>Users</h2>
-    <div class="proto-list">
-      {% for uname in user_list %}
-        {% if uname != user.username %}
-        <div class="proto-item">
-          <span class="proto-name">{{ uname }}</span>
-          <a href="/self/config/{{ uname }}/vless" style="text-decoration:none;font-size:0.8rem;color:#8b949e">configs</a>
-        </div>
-        {% endif %}
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
-
   <div class="card">
     <h2>Usage</h2>
     <div class="grid">
-      {% if role == 'admin' %}
-      <div class="stat">
-        <div class="val">{{ user_list|length }}</div>
-        <div class="lbl">Active Users</div>
-      </div>
-      <div class="stat">
-        <div class="val">Admin</div>
-        <div class="lbl">Role</div>
-      </div>
-      {% else %}
       <div class="stat">
         <div class="val">{{ (traffic / 1073741824)|round(2) }} GB</div>
         <div class="lbl">Total Traffic</div>
@@ -108,11 +81,9 @@
         </div>
       </div>
       {% endif %}
-      {% endif %}
     </div>
   </div>
 
-  {% if role != 'admin' %}
   <div class="card">
     <h2>Configurations</h2>
     <div class="proto-list">
@@ -123,32 +94,26 @@
           <div class="proto-actions">
             <a href="/self/config/{{ key }}"><button>Config</button></a>
             <a href="/self/qr/{{ key }}" target="_blank"><button>QR</button></a>
-            <button onclick="copyLink('/self/config/{{ key }}')">Copy</button>
           </div>
         </div>
         {% endif %}
       {% endfor %}
+      <div class="proto-item">
+        <span class="proto-name">Subscription</span>
+        <div class="proto-actions">
+          <button onclick="copySub()">🔗 Copy URL</button>
+        </div>
+      </div>
       {% set has_any = protocols.values() | selectattr('active') | list | length %}
       {% if not has_any %}
         <p style="color:#484f58;text-align:center;padding:1rem">No configurations available</p>
       {% endif %}
     </div>
   </div>
-  {% endif %}
 
   <div class="card">
     <h2>Traffic</h2>
     <div class="toolbar">
-      <select id="userSelect">
-        <option value="">All Users</option>
-        {% if role == 'admin' %}
-          {% for uname in user_list %}
-          <option value="{{ uname }}">{{ uname }}</option>
-          {% endfor %}
-        {% else %}
-          <option value="{{ user.username }}">{{ user.username }}</option>
-        {% endif %}
-      </select>
       <div class="btn-group">
         <button class="period-btn active" data-days="1">Today</button>
         <button class="period-btn" data-days="7">Week</button>
@@ -165,14 +130,12 @@
 <script>
 let trafficChart = null;
 const fmtBytes = v => v >= 1073741824 ? (v/1073741824).toFixed(1)+' GB' : v >= 1048576 ? (v/1048576).toFixed(1)+' MB' : (v/1024).toFixed(1)+' KB';
+const currentUser = '{{ user.username }}';
 
 async function loadTraffic() {
-  const user = document.getElementById('userSelect').value;
   const days = document.querySelector('.period-btn.active')?.dataset.days || '7';
   try {
-    const url = user
-      ? '/panel/api/v1/traffic/' + encodeURIComponent(user) + '?days=' + days
-      : '/panel/api/v1/traffic?days=' + days;
+    const url = '/panel/api/v1/traffic/' + encodeURIComponent(currentUser) + '?days=' + days;
     const res = await fetch(url);
     if (!res.ok) return;
     const data = await res.json();
@@ -203,7 +166,6 @@ async function loadTraffic() {
   } catch(e) { console.log('Traffic chart error:', e); }
 }
 
-document.getElementById('userSelect').addEventListener('change', loadTraffic);
 document.querySelectorAll('.period-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
@@ -213,19 +175,16 @@ document.querySelectorAll('.period-btn').forEach(btn => {
 });
 loadTraffic();
 
-function copyLink(url) {
-  fetch(url).then(r => r.blob()).then(blob => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      navigator.clipboard.writeText(reader.result).then(() => {
-        const btn = event.target;
-        const orig = btn.textContent;
-        btn.textContent = '\u2705 Copied!';
-        setTimeout(() => btn.textContent = orig, 2000);
-      });
-    };
-    reader.readAsText(blob);
-  }).catch(() => {});
+function copySub() {
+  const url = window.location.origin + '/panel/api/v1/sub/' + encodeURIComponent(currentUser);
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = '\u2705 Copied!';
+    setTimeout(() => btn.textContent = orig, 2000);
+  }).catch(() => {
+    prompt('Copy this URL:', url);
+  });
 }
 </script>
 </body>
