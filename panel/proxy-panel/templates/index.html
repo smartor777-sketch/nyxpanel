@@ -6,44 +6,52 @@
 <title>NYX Panel</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
+  :root { --bg: #0d1117; --fg: #c9d1d9; --card: #161b22; --border: #30363d; --input-bg: #21262d; --heading: #58a6ff; --muted: #8b949e; --accent: #238636; --accent-hover: #2ea043; --danger: #da3633; --danger-hover: #f85149; --proto-yes: #3fb950; --proto-no: #484f58; --user-name: #58a6ff; --user-disabled: #484f58; --status-active-bg: #1b3a2d; --status-active-fg: #7ee787; --status-expired-bg: #3a1b1b; --status-expired-fg: #ff7b72; --flash-ok-bg: #1b3a2d; --flash-ok-border: #2ea043; --flash-ok-fg: #7ee787; --flash-err-bg: #3a1b1b; --flash-err-border: #da3633; --flash-err-fg: #ff7b72; --btn-active: #1f6feb; --dropdown-bg: #161b22; --dropdown-hover: #21262d; --chart-grid: #21262d; }
+  [data-theme="light"] { --bg: #f6f8fa; --fg: #24292f; --card: #ffffff; --border: #d0d7de; --input-bg: #f6f8fa; --heading: #0550ae; --muted: #656d76; --accent: #2da44e; --accent-hover: #2c974b; --danger: #cf222e; --danger-hover: #a40e26; --proto-yes: #1a7f37; --proto-no: #afb8c1; --user-name: #0550ae; --user-disabled: #afb8c1; --status-active-bg: #dafbe1; --status-active-fg: #1a7f37; --status-expired-bg: #ffebe9; --status-expired-fg: #cf222e; --flash-ok-bg: #dafbe1; --flash-ok-border: #2da44e; --flash-ok-fg: #1a7f37; --flash-err-bg: #ffebe9; --flash-err-border: #cf222e; --flash-err-fg: #cf222e; --btn-active: #0969da; --dropdown-bg: #ffffff; --dropdown-hover: #f6f8fa; --chart-grid: #d0d7de; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, system-ui, sans-serif; background: #0d1117; color: #c9d1d9; padding: 2rem; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--fg); padding: 2rem; }
   .container { max-width: 1200px; margin: 0 auto; }
-  h1 { color: #58a6ff; margin-bottom: 1.5rem; }
-  h2 { color: #8b949e; margin: 1rem 0; font-size: 1.2rem; }
-  .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; }
+  h1 { color: var(--heading); margin-bottom: 1.5rem; }
+  h2 { color: var(--muted); margin: 1rem 0; font-size: 1.2rem; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; }
   .flash { padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; }
-  .flash.ok { background: #1b3a2d; border: 1px solid #2ea043; color: #7ee787; }
-  .flash.error { background: #3a1b1b; border: 1px solid #da3633; color: #ff7b72; }
+  .flash.ok { background: var(--flash-ok-bg); border: 1px solid var(--flash-ok-border); color: var(--flash-ok-fg); }
+  .flash.error { background: var(--flash-err-bg); border: 1px solid var(--flash-err-border); color: var(--flash-err-fg); }
   form { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
-  input, select, button { padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; font-size: 0.9rem; }
-  input:focus { outline: none; border-color: #58a6ff; }
-  button { cursor: pointer; background: #238636; border-color: #2ea043; font-weight: 600; }
-  button:hover { background: #2ea043; }
-  button.danger { background: #da3633; border-color: #f85149; }
-  button.danger:hover { background: #f85149; }
+  input, select, button { padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid var(--border); background: var(--input-bg); color: var(--fg); font-size: 0.9rem; }
+  input:focus { outline: none; border-color: var(--heading); }
+  button { cursor: pointer; background: var(--accent); border-color: var(--accent); font-weight: 600; }
+  button:hover { background: var(--accent-hover); }
+  button.danger { background: var(--danger); border-color: var(--danger); }
+  button.danger:hover { background: var(--danger-hover); }
   button.small { padding: 0.25rem 0.75rem; font-size: 0.8rem; }
-  button.secondary { background: #21262d; border-color: #30363d; }
-  button.secondary:hover { background: #30363d; }
+  button.secondary { background: var(--input-bg); border-color: var(--border); }
+  button.secondary:hover { background: var(--border); }
   table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-  th, td { text-align: left; padding: 0.5rem 0.4rem; border-bottom: 1px solid #21262d; white-space: nowrap; }
-  th { color: #8b949e; font-weight: 600; }
-  .user-name { font-weight: 600; color: #58a6ff; }
-  .user-inactive .user-name { color: #484f58; }
-  .proto-yes { color: #3fb950; }
-  .proto-no { color: #484f58; }
+  th, td { text-align: left; padding: 0.5rem 0.4rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; }
+  .user-name { font-weight: 600; color: var(--user-name); }
+  .user-inactive .user-name { color: var(--user-disabled); }
+  .proto-yes { color: var(--proto-yes); }
+  .proto-no { color: var(--proto-no); }
   .actions { display: flex; gap: 0.25rem; flex-wrap: wrap; }
   .actions form { display: inline; }
   .expiry-input { width: 110px; padding: 0.25rem 0.5rem; font-size: 0.8rem; }
   .status-badge { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.75rem; }
-  .status-active { background: #1b3a2d; color: #7ee787; }
-  .status-expired { background: #3a1b1b; color: #ff7b72; }
+  .status-active { background: var(--status-active-bg); color: var(--status-active-fg); }
+  .status-expired { background: var(--status-expired-bg); color: var(--status-expired-fg); }
   .chart-container { max-width: 600px; margin: 1rem 0; }
+  .theme-btn { background: none; border: 1px solid var(--border); padding: 0.3rem 0.6rem; font-size: 1rem; cursor: pointer; border-radius: 6px; color: var(--fg); }
+  .theme-btn:hover { background: var(--input-bg); }
+  .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
 </style>
 </head>
 <body>
 <div class="container">
-  <h1>NYX Panel <span style="font-size:0.8rem;color:#8b949e;font-weight:normal">v{{ version }}</span></h1>
+  <div class="header-row">
+    <h1>NYX Panel <span style="font-size:0.8rem;color:var(--muted);font-weight:normal">v{{ version }}</span></h1>
+    <button class="theme-btn" onclick="toggleTheme()" id="themeBtn">🌙</button>
+  </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
@@ -62,10 +70,10 @@
   </div>
 
   <div class="card">
-    <h2>Users <span id="userCount" style="color:#8b949e;font-size:0.9rem;font-weight:normal"></span></h2>
+    <h2>Users <span id="userCount" style="color:var(--muted);font-size:0.9rem;font-weight:normal"></span></h2>
     {% if users %}
     <div class="pagination-top" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
-      <select id="perPage" style="padding:0.25rem 0.5rem;border-radius:4px;border:1px solid #30363d;background:#21262d;color:#c9d1d9;font-size:0.8rem">
+      <select id="perPage" style="padding:0.25rem 0.5rem;border-radius:4px;border:1px solid var(--border);background:var(--input-bg);color:var(--fg);font-size:0.8rem">
         <option value="10">10 per page</option>
         <option value="25">25 per page</option>
         <option value="50">50 per page</option>
@@ -94,14 +102,14 @@
       <div id="paginationBottom" class="pagination"></div>
     </div>
     {% else %}
-      <p style="color:#8b949e;">No users yet</p>
+      <p style="color:var(--muted);">No users yet</p>
     {% endif %}
   </div>
 
   <div class="card">
     <h2>Traffic</h2>
     <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center">
-      <select id="userSelect" style="padding:0.4rem 0.8rem;border-radius:6px;border:1px solid #30363d;background:#21262d;color:#c9d1d9">
+      <select id="userSelect" style="padding:0.4rem 0.8rem;border-radius:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--fg)">
         <option value="">All Users</option>
         {% for u in users %}
         <option value="{{ u.name }}">{{ u.name }}</option>
@@ -121,6 +129,17 @@
 </div>
 
 <script>
+const themeKey = 'nyx_theme';
+function getTheme() { return localStorage.getItem(themeKey) || 'dark'; }
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem(themeKey, t);
+  document.getElementById('themeBtn').textContent = t === 'dark' ? '🌙' : '☀️';
+  if (trafficChart) trafficChart.update();
+}
+function toggleTheme() { setTheme(getTheme() === 'dark' ? 'light' : 'dark'); }
+setTheme(getTheme());
+
 let trafficChart = null;
 const fmtBytes = v => v >= 1073741824 ? (v/1073741824).toFixed(1)+' GB' : v >= 1048576 ? (v/1048576).toFixed(1)+' MB' : (v/1024).toFixed(1)+' KB';
 
@@ -142,21 +161,22 @@ async function loadTraffic() {
     });
 
     if (trafficChart) trafficChart.destroy();
+    const isLight = getTheme() === 'light';
     trafficChart = new Chart(document.getElementById('trafficChart'), {
       type: 'bar',
       data: {
         labels: dates,
         datasets: [
-          { label: 'Upload', data: aggregated.map(d => d.up), backgroundColor: '#58a6ff' },
-          { label: 'Download', data: aggregated.map(d => d.down), backgroundColor: '#3fb950' },
+          { label: 'Upload', data: aggregated.map(d => d.up), backgroundColor: isLight ? '#0969da' : '#58a6ff' },
+          { label: 'Download', data: aggregated.map(d => d.down), backgroundColor: isLight ? '#1a7f37' : '#3fb950' },
         ]
       },
       options: {
         responsive: true,
-        plugins: { legend: { labels: { color: '#c9d1d9' } } },
+        plugins: { legend: { labels: { color: 'var(--muted)' } } },
         scales: {
-          x: { ticks: { color: '#8b949e' }, grid: { color: '#21262d' } },
-          y: { ticks: { color: '#8b949e', callback: v => fmtBytes(v) }, grid: { color: '#21262d' } }
+          x: { ticks: { color: 'var(--muted)' }, grid: { color: 'var(--chart-grid)' } },
+          y: { ticks: { color: 'var(--muted)', callback: v => fmtBytes(v) }, grid: { color: 'var(--chart-grid)' } }
         }
       }
     });
@@ -174,20 +194,20 @@ document.querySelectorAll('.period-btn').forEach(btn => {
 loadTraffic();
 </script>
 <style>
-.btn-group .period-btn { border-radius:0; border-right:1px solid #30363d; }
+.btn-group .period-btn { border-radius:0; border-right:1px solid var(--border); }
 .btn-group .period-btn:first-child { border-radius:6px 0 0 6px; }
 .btn-group .period-btn:last-child { border-radius:0 6px 6px 0; border-right:none; }
-.btn-group .period-btn.active { background:#1f6feb; border-color:#1f6feb; color:#fff; }
+.btn-group .period-btn.active { background:var(--btn-active); border-color:var(--btn-active); color:#fff; }
 .pagination { display:flex;gap:2px;flex-wrap:wrap; }
-.pagination button { padding:0.2rem 0.5rem;border-radius:4px;border:1px solid #30363d;background:#21262d;color:#c9d1d9;font-size:0.75rem;cursor:pointer; }
-.pagination button:hover { background:#30363d; }
-.pagination button.active { background:#1f6feb;border-color:#1f6feb;color:#fff; }
+.pagination button { padding:0.2rem 0.5rem;border-radius:4px;border:1px solid var(--border);background:var(--input-bg);color:var(--fg);font-size:0.75rem;cursor:pointer; }
+.pagination button:hover { background:var(--border); }
+.pagination button.active { background:var(--btn-active);border-color:var(--btn-active);color:#fff; }
 .pagination button:disabled { opacity:0.4;cursor:default; }
 .dropdown { position:relative; display:inline-block; }
-.dropdown-menu { position:absolute; right:0; top:100%; z-index:100; background:#161b22; border:1px solid #30363d; border-radius:8px; min-width:200px; padding:0.25rem 0; box-shadow:0 8px 24px rgba(0,0,0,0.4); }
-.dropdown-item { display:block; padding:0.4rem 1rem; color:#c9d1d9; text-decoration:none; font-size:0.8rem; white-space:nowrap; }
-.dropdown-item:hover { background:#21262d; }
-.dropdown-divider { border-top:1px solid #30363d; margin:0.25rem 0; }
+.dropdown-menu { position:absolute; right:0; top:100%; z-index:100; background:var(--dropdown-bg); border:1px solid var(--border); border-radius:8px; min-width:200px; padding:0.25rem 0; box-shadow:0 8px 24px rgba(0,0,0,0.4); }
+.dropdown-item { display:block; padding:0.4rem 1rem; color:var(--fg); text-decoration:none; font-size:0.8rem; white-space:nowrap; }
+.dropdown-item:hover { background:var(--dropdown-hover); }
+.dropdown-divider { border-top:1px solid var(--border); margin:0.25rem 0; }
 </style>
 <script>
 const usersData = {{ users | tojson }};
@@ -232,7 +252,7 @@ function renderUsers() {
     const hasExport = exportItems.length > 0;
 
     return '<tr class="' + (!u.active ? 'user-inactive' : '') + '">' +
-      '<td style="color:#8b949e;font-size:0.8rem">' + idx + '</td>' +
+      '<td style="color:var(--muted);font-size:0.8rem">' + idx + '</td>' +
       '<td class="user-name">' + u.name + '</td>' +
       '<td>' + (!u.active ? '<span class="status-badge status-expired">disabled</span>' : '<span class="status-badge status-active">active</span>') + '</td>' +
       protoHTML +
@@ -260,15 +280,15 @@ function renderUsers() {
 function renderPagination(totalPages, page) {
   const render = containerId => {
     const el = document.getElementById(containerId);
-    let html = '<button ' + (page <= 1 ? 'disabled' : '') + ' onclick="goPage(' + (page-1) + ')">‹</button>';
+    let html = '<button ' + (page <= 1 ? 'disabled' : '') + ' onclick="goPage(' + (page-1) + ')">\u2039</button>';
     for (let i = 1; i <= totalPages; i++) {
       if (i === 1 || i === totalPages || Math.abs(i - page) <= 2) {
         html += '<button class="' + (i === page ? 'active' : '') + '" onclick="goPage(' + i + ')">' + i + '</button>';
       } else if (html.slice(-8) !== '...</div>') {
-        html += '<button disabled>…</button>';
+        html += '<button disabled>\u2026</button>';
       }
     }
-    html += '<button ' + (page >= totalPages ? 'disabled' : '') + ' onclick="goPage(' + (page+1) + ')">›</button>';
+    html += '<button ' + (page >= totalPages ? 'disabled' : '') + ' onclick="goPage(' + (page+1) + ')">\u203A</button>';
     el.innerHTML = html;
   };
   render('pagination');
