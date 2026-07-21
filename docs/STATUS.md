@@ -162,3 +162,63 @@ iptables nat POSTROUTING: MASQUERADE только «-s <overlay> -o <ens3>» (и
   Держим как исследовательскую ноду на стенде. Подробности настройки — `docs/HOPPER.md`.
 - Стенд после тестов **очищен**: все `hopper_*` FORWARD-правила и `10.64.*` MASQUERADE удалены, TUN сняты,
   процессы `hopperd` остановлены, `registry.json` обнулён, тестовые чейны (вкл. `42edbf5c`) удалены.
+
+### Логи и ротация (оба сервера)
+
+Настроена единая политика хранения логов для всех сервисов. Файлы ротируются по размеру/времени,
+старые архивы удаляются автоматически. **Время на серверах — UTC** (новые сутки в 00:00 UTC = 03:00 МСК).
+
+| Что | Механизм | Период | Хранение | Подробнее |
+|-----|----------|--------|----------|-----------|
+| `journald` (все systemd-сервисы) | `SystemMaxUse=500M` | — | до 500 MB | `/etc/systemd/journald.conf.d/limit-size.conf` |
+| `panel-collector.log` | logrotate weekly | неделя | 4 недели | `/etc/logrotate.d/panel-collector` |
+| Xray `access.log` | logrotate daily × copytruncate | день | 7 дней | `/etc/logrotate.d/xray` |
+| Xray `error.log` | logrotate weekly × copytruncate | неделя | 8 недель | `/etc/logrotate.d/xray` |
+| Остальное (dpkg, apt, wtmp, btmp) | logrotate (штатный) | monthly | 12 месяцев | `/etc/logrotate.d/` — as-is |
+
+Конфигурация logrotate (созданы файлы `/etc/logrotate.d/panel-collector` и `/etc/logrotate.d/xray`):
+
+```text
+# /etc/logrotate.d/panel-collector
+/var/log/panel-collector.log {
+    weekly
+    rotate 4
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0644 root root
+}
+
+# /etc/logrotate.d/xray — access (daily × 7)
+/var/log/xray/access.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}
+
+# /etc/logrotate.d/xray — error (weekly × 8)
+/var/log/xray/error.log {
+    weekly
+    rotate 8
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}
+```
+
+Примечания:
+- `copytruncate` для Xray: демон держит файловый дескриптор лога; без `copytruncate` пришлось бы
+  слать сигнал (SIGUSR1) на переоткрытие. `copytruncate` копирует файл и обнуляет оригинал — атомарно,
+  без сигнала.
+- `panel-collector.log` открывается заново при каждом запуске cron (раз в 5 мин), поэтому используется
+  `create` — файл воссоздаётся сразу после ротации.
+- `delaycompress`: предыдущий архив остаётся несжатым один цикл (удобно для `tail -f` старых логов).
+- journald до 500 MB — запас с учётом 4-6 systemd-сервисов (Caddy, Xray, Hy2, AWG, panel, Mita);
+  при достижении лимита journald удаляет самые старые записи.
