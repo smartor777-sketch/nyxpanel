@@ -47,6 +47,12 @@
   .theme-btn { background: var(--btn-theme-bg); color: var(--btn-theme-fg); border: 1px solid var(--btn-theme-border); padding: 0.3rem 0.6rem; font-size: 1rem; cursor: pointer; border-radius: 6px; }
   .theme-btn:hover { filter: brightness(0.95); }
 .footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 1.5rem 0 0.5rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+.pwd-toggle-btn { background: var(--btn-logout-bg); color: var(--btn-logout-fg); border: 1px solid var(--btn-logout-border); padding: 0.2rem 0.6rem; border-radius: 5px; font-size: 0.75rem; cursor: pointer; white-space: nowrap; }
+.pwd-toggle-btn:hover { filter: brightness(0.95); }
+.pwd-save-btn { background: var(--btn-active); color: #fff; border: 1px solid var(--btn-active); padding: 0.35rem 0.7rem; border-radius: 5px; font-size: 0.82rem; cursor: pointer; }
+.pwd-save-btn:hover { filter: brightness(0.95); }
+.pwd-cancel-btn { background: var(--btn-logout-bg); color: var(--btn-logout-fg); border: 1px solid var(--btn-logout-border); padding: 0.35rem 0.7rem; border-radius: 5px; font-size: 0.82rem; cursor: pointer; }
+.pwd-cancel-btn:hover { filter: brightness(0.95); }
 </style>
 </head>
 <body>
@@ -55,19 +61,31 @@
     <div>
       <h1>NYX Panel <span style="font-size:0.6rem;color:var(--muted);font-weight:normal">v{{ version }}</span></h1>
       <div style="font-size:1rem;color:var(--highlight);font-weight:600;margin-top:0.15rem">{{ user.username }}</div>
-      <div class="subtitle">
-        <span class="status-badge status-active" id="statusActive" data-i18n="active" style="display:none">Active</span>
-        <span class="status-badge status-expired" id="statusDisabled" data-i18n="disabled" style="display:none">Disabled</span>
-        {% if user.active %}
-        <span class="status-badge status-active" data-i18n="active">Active</span>
-        {% else %}
-        <span class="status-badge status-expired" data-i18n="disabled">Disabled</span>
-        {% endif %}
-        {% if user.expires_at %}
-        &middot; <span data-i18n="expires">Expires</span>: {{ user.expires_at[:10] }}
-        {% else %}
-        &middot; <span data-i18n="noExpiry">No expiry</span>
-        {% endif %}
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.3rem">
+        <div class="subtitle" style="margin:0">
+          <span class="status-badge status-active" id="statusActive" data-i18n="active" style="display:none">Active</span>
+          <span class="status-badge status-expired" id="statusDisabled" data-i18n="disabled" style="display:none">Disabled</span>
+          {% if user.active %}
+          <span class="status-badge status-active" data-i18n="active">Active</span>
+          {% else %}
+          <span class="status-badge status-expired" data-i18n="disabled">Disabled</span>
+          {% endif %}
+          {% if user.expires_at %}
+          &middot; <span data-i18n="expires">Expires</span>: {{ user.expires_at[:10] }}
+          {% else %}
+          &middot; <span data-i18n="noExpiry">No expiry</span>
+          {% endif %}
+        </div>
+        <button class="pwd-toggle-btn" onclick="togglePwdForm()" id="pwdToggleBtn" data-i18n="changePwd">🔐 Изм. пароль</button>
+      </div>
+      <div id="pwdForm" style="display:none;margin-top:0.75rem">
+        <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+          <input id="pwdCurrent" type="password" style="padding:0.35rem 0.6rem;border-radius:5px;border:1px solid var(--border);background:var(--input-bg);color:var(--fg);font-size:0.82rem;width:140px" data-i18n-placeholder="pwdCurrentPH" placeholder="Текущий пароль">
+          <input id="pwdNew" type="password" style="padding:0.35rem 0.6rem;border-radius:5px;border:1px solid var(--border);background:var(--input-bg);color:var(--fg);font-size:0.82rem;width:140px" data-i18n-placeholder="pwdNewPH" placeholder="Новый пароль">
+          <button class="pwd-save-btn" onclick="changePwd()" data-i18n="pwdSave">Сохранить</button>
+          <button class="pwd-cancel-btn" onclick="togglePwdForm()" data-i18n="cancel">Отмена</button>
+        </div>
+        <div id="pwdMsg" style="font-size:0.78rem;margin-top:0.3rem"></div>
       </div>
     </div>
     <div style="display:flex;gap:0.5rem;align-items:center">
@@ -170,7 +188,10 @@ const _t = {
     ru: {
     active: 'Активен', disabled: 'Отключён', expires: 'Истекает', noExpiry: 'Без срока',
     guide: 'Гайд', support: 'Поддержка',
-    signOut: 'Выйти',
+    signOut: 'Выйти', changePwd: '\uD83D\uDD10 Изм. пароль',
+    pwdCurrentPH: 'Текущий пароль', pwdNewPH: 'Новый пароль',
+    pwdSave: 'Сохранить', cancel: 'Отмена',
+    pwdOk: '\u2705 Пароль изменён!', pwdErr: 'Ошибка', pwdShort: 'Мин. 4 символа', pwdWrong: 'Неверный текущий пароль',
     usage: 'Использование', totalTraffic: 'Всего трафика', limit: 'Лимит',
     configs: 'Конфигурации', config: 'Config', subscription: 'Подписка',
     copyUrl: '\u{1F517} Скопировать URL', noConfigs: 'Нет доступных конфигураций',
@@ -180,7 +201,10 @@ const _t = {
   },en: {
     active: 'Active', disabled: 'Disabled', expires: 'Expires', noExpiry: 'No expiry',
     guide: 'Guide', support: 'Support',
-    signOut: 'Sign Out',
+    signOut: 'Sign Out', changePwd: '\uD83D\uDD10 Change password',
+    pwdCurrentPH: 'Current password', pwdNewPH: 'New password',
+    pwdSave: 'Save', cancel: 'Cancel',
+    pwdOk: '\u2705 Password changed!', pwdErr: 'Error', pwdShort: 'Min 4 chars', pwdWrong: 'Wrong current password',
     usage: 'Usage', totalTraffic: 'Total Traffic', limit: 'Limit',
     configs: 'Configurations', config: 'Config', subscription: 'Subscription',
     copyUrl: '\u{1F517} Copy URL', noConfigs: 'No configurations available',
@@ -294,6 +318,36 @@ function copySub() {
   }).catch(() => {
     prompt('Copy this URL:', url);
   });
+}
+
+function togglePwdForm() {
+  const f = document.getElementById('pwdForm');
+  const show = f.style.display === 'none';
+  f.style.display = show ? 'block' : 'none';
+  if (show) { document.getElementById('pwdCurrent').value = ''; document.getElementById('pwdNew').value = ''; document.getElementById('pwdMsg').textContent = ''; }
+}
+
+async function changePwd() {
+  const cur = document.getElementById('pwdCurrent').value;
+  const nw = document.getElementById('pwdNew').value;
+  const msg = document.getElementById('pwdMsg');
+  if (!cur || !nw) { msg.style.color = 'var(--status-expired-fg)'; msg.textContent = _('pwdErr'); return; }
+  if (nw.length < 4) { msg.style.color = 'var(--status-expired-fg)'; msg.textContent = _('pwdShort'); return; }
+  try {
+    const res = await fetch('/self/change-password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current_password: cur, new_password: nw })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      msg.style.color = 'var(--status-active-fg)'; msg.textContent = _('pwdOk');
+      document.getElementById('pwdCurrent').value = ''; document.getElementById('pwdNew').value = '';
+      setTimeout(() => { document.getElementById('pwdForm').style.display = 'none'; }, 1500);
+    } else {
+      msg.style.color = 'var(--status-expired-fg)';
+      msg.textContent = data.error === 'wrong current password' ? _('pwdWrong') : _('pwdErr');
+    }
+  } catch(e) { msg.style.color = 'var(--status-expired-fg)'; msg.textContent = _('pwdErr'); }
 }
 </script>
 <div class="footer">

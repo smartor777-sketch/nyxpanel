@@ -2,12 +2,12 @@
 """NYX Panel — Flask + SQLite"""
 import subprocess, os, json, re, sqlite3, datetime
 from pathlib import Path
-from flask import Flask, render_template, request, redirect, url_for, send_file, flash, session
+from flask import Flask, render_template, request, redirect, url_for, send_file, flash, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("PANEL_SECRET", os.urandom(16).hex())
-PANEL_VERSION = "1.05"
+PANEL_VERSION = "1.06"
 
 class PrefixMiddleware:
     def __init__(self, app, prefix='/panel'):
@@ -332,6 +332,28 @@ def self_login():
 def self_logout():
     session.pop("self_user", None)
     return redirect(url_for("self_login"))
+
+@app.route("/self/change-password", methods=["POST"])
+def self_change_password():
+    name = session.get("self_user")
+    if not name:
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
+    current = data.get("current_password", "")
+    new = data.get("new_password", "")
+    if not current or not new:
+        return jsonify({"error": "missing fields"}), 400
+    if len(new) < 4:
+        return jsonify({"error": "password too short"}), 400
+    db = get_db()
+    row = db.execute("SELECT password_hash FROM users WHERE username = ?", (name,)).fetchone()
+    if not row or not row["password_hash"] or not check_password_hash(row["password_hash"], current):
+        db.close()
+        return jsonify({"error": "wrong current password"}), 403
+    db.execute("UPDATE users SET password_hash = ? WHERE username = ?", (generate_password_hash(new), name))
+    db.commit()
+    db.close()
+    return jsonify({"ok": True})
 
 @app.route("/self/manual")
 def self_manual():
