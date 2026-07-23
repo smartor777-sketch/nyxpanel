@@ -87,7 +87,7 @@
         <div class="lbl" data-i18n="totalTraffic">Total Traffic</div>
       </div>
       <div class="stat">
-        <div class="val">{{ (user.traffic_limit_bytes / 1073741824)|round(1) if user.traffic_limit_bytes > 0 else 'тИЮ' }} GB</div>
+        <div class="val">{{ (user.traffic_limit_bytes / 1073741824)|round(1) if user.traffic_limit_bytes > 0 else '∞' }} GB</div>
         <div class="lbl"><span data-i18n="limit">Limit</span>{% if user.traffic_limit_bytes > 0 and percent %} ({{ percent }}%){% endif %}</div>
       </div>
       {% if user.traffic_limit_bytes > 0 %}
@@ -129,6 +129,7 @@
 
   <div class="card">
     <h2 data-i18n="traffic">Traffic</h2>
+        <p style="font-size:0.78rem;color:var(--muted);margin-bottom:0.8rem" data-i18n="trafficNote">Считается трафик: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG.</p>
     <div class="toolbar">
       <div class="btn-group">
         <button class="period-btn active" data-days="2" data-i18n="today">Today</button>
@@ -166,24 +167,24 @@ function setTheme(t) {
 function toggleTheme() { setTheme(getTheme() === 'dark' ? 'light' : 'dark'); }
 
 const _t = {
-  ru: {
-    active: '╨Р╨║╤В╨╕╨▓╨╡╨╜', disabled: '╨Ю╤В╨║╨╗╤О╤З╤С╨╜', expires: '╨Ш╤Б╤В╨╡╨║╨░╨╡╤В', noExpiry: '╨С╨╡╨╖ ╤Б╤А╨╛╨║╨░',
-    guide: '╨У╨░╨╣╨┤', support: '╨Я╨╛╨┤╨┤╨╡╤А╨╢╨║╨░',
-    signOut: '╨Т╤Л╨╣╤В╨╕',
-    usage: '╨Ш╤Б╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╨╜╨╕╨╡', totalTraffic: '╨Т╤Б╨╡╨│╨╛ ╤В╤А╨░╤Д╨╕╨║╨░', limit: '╨Ы╨╕╨╝╨╕╤В',
-    configs: '╨Ъ╨╛╨╜╤Д╨╕╨│╤Г╤А╨░╤Ж╨╕╨╕', config: 'Config', subscription: '╨Я╨╛╨┤╨┐╨╕╤Б╨║╨░',
-    copyUrl: '\u{1F517} ╨б╨║╨╛╨┐╨╕╤А╨╛╨▓╨░╤В╤М URL', noConfigs: '╨Э╨╡╤В ╨┤╨╛╤Б╤В╤Г╨┐╨╜╤Л╤Е ╨║╨╛╨╜╤Д╨╕╨│╤Г╤А╨░╤Ж╨╕╨╣',
-    traffic: '╨в╤А╨░╤Д╨╕╨║', today: '╨б╨╡╨│╨╛╨┤╨╜╤П', week: '╨Э╨╡╨┤╨╡╨╗╤П', month: '╨Ь╨╡╤Б╤П╤Ж', all: '╨Т╤Б╤С',
-    upload: '╨Ч╨░╨│╤А╤Г╨╖╨║╨░', download: '╨б╨║╨░╤З╨╕╨▓╨░╨╜╨╕╨╡', copied: '\u2705 ╨б╨║╨╛╨┐╨╕╤А╨╛╨▓╨░╨╜╨╛!'
-  },
-  en: {
+    ru: {
+    active: 'Активен', disabled: 'Отключён', expires: 'Истекает', noExpiry: 'Без срока',
+    guide: 'Гайд', support: 'Поддержка',
+    signOut: 'Выйти',
+    usage: 'Использование', totalTraffic: 'Всего трафика', limit: 'Лимит',
+    configs: 'Конфигурации', config: 'Config', subscription: 'Подписка',
+    copyUrl: '\u{1F517} Скопировать URL', noConfigs: 'Нет доступных конфигураций',
+    traffic: 'Трафик', trafficNote: 'Считается трафик: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG.', today: 'Сегодня', week: 'Неделя', month: 'Месяц', all: 'Всё',
+    upload: 'Загрузка', download: 'Скачивание', copied: '\u2705 Скопировано!',
+    currentPeriod: 'Текущий', prevPeriod: 'Прошлый'
+  },en: {
     active: 'Active', disabled: 'Disabled', expires: 'Expires', noExpiry: 'No expiry',
     guide: 'Guide', support: 'Support',
     signOut: 'Sign Out',
     usage: 'Usage', totalTraffic: 'Total Traffic', limit: 'Limit',
     configs: 'Configurations', config: 'Config', subscription: 'Subscription',
     copyUrl: '\u{1F517} Copy URL', noConfigs: 'No configurations available',
-    traffic: 'Traffic', today: 'Today', week: 'Week', month: 'Month', all: 'All',
+    traffic: 'Traffic', trafficNote: 'Traffic is tracked for: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG.', today: 'Today', week: 'Week', month: 'Month', all: 'All',
     upload: 'Upload', download: 'Download', copied: '\u2705 Copied!',
     currentPeriod: 'Current', prevPeriod: 'Previous'
   }
