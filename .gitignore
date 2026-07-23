@@ -10,3 +10,19 @@ venv/
 *.db-wal
 .DS_Store
 node_modules/
+
+# Build artifacts
+*.apk
+*.exe
+*.ps1
+*.b64
+olcbox_err.txt
+olcbox_out.txt
+build-android.sh
+build_*.ps1
+build_*.py
+build_remote.sh
+deploy.ps1
+*.pyc
+__pycache__/
+nyxpanel-git/
