@@ -138,7 +138,7 @@ def get_file_users():
 
 def get_db_users():
     db = get_db()
-    rows = db.execute("SELECT username, expires_at, active FROM users WHERE username != 'admin' ORDER BY username").fetchall()
+    rows = db.execute("SELECT username, expires_at, active, password_hash FROM users WHERE username != 'admin' ORDER BY username").fetchall()
     db.close()
     users = []
     for row in rows:
@@ -151,6 +151,7 @@ def get_db_users():
             "protocols": protos,
             "active": bool(row["active"]),
             "expires_at": row["expires_at"],
+            "has_password": bool(row["password_hash"]),
         })
     return users
 
