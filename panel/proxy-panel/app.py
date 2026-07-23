@@ -449,9 +449,15 @@ def api_traffic(name=None):
     days = request.args.get("days", 30, type=int)
     db = get_db()
     if days == 0:
-        rows = db.execute(
-            "SELECT username, date, protocol, bytes_up, bytes_down FROM daily_traffic ORDER BY date, username"
-        ).fetchall()
+        if name:
+            rows = db.execute(
+                "SELECT username, date, protocol, bytes_up, bytes_down FROM daily_traffic WHERE username = ? ORDER BY date",
+                (name,)
+            ).fetchall()
+        else:
+            rows = db.execute(
+                "SELECT username, date, protocol, bytes_up, bytes_down FROM daily_traffic ORDER BY date, username"
+            ).fetchall()
     elif name:
         rows = db.execute(
             "SELECT username, date, protocol, bytes_up, bytes_down FROM daily_traffic WHERE username = ? AND date >= date('now', ?) ORDER BY date",

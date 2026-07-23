@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NYX Panel — {{ user.username }}</title>
+<title>NYX Panel тАФ {{ user.username }}</title>
 <script src="/static/chart.js"></script>
 <style>
   :root { --bg: #0c1a2d; --fg: #d4e5f7; --card: #132640; --border: #1e3a5f; --input-bg: #132640; --heading: #7dd3fc; --muted: #93c5fd; --accent: #38bdf8; --accent-hover: #0ea599; --proto-yes: #34d399; --proto-no: #64748b; --status-active-bg: #064e3b; --status-active-fg: #34d399; --status-expired-bg: #450a0a; --status-expired-fg: #f87171; --btn-active: #0ea599; --chart-grid: #132640; --chart-up: #7dd3fc; --chart-down: #34d399; --btn-secondary-bg: #1e3a5f; --btn-secondary-fg: #93c5fd; --btn-secondary-border: #2563eb; --btn-logout-bg: #1e293b; --btn-logout-fg: #94a3b8; --btn-logout-border: #334155; --btn-theme-bg: #1e293b; --btn-theme-fg: #94a3b8; --btn-theme-border: #334155; --btn-lang-bg: #1e293b; --btn-lang-fg: #94a3b8; --btn-lang-border: #334155; }
@@ -74,7 +74,7 @@
       <a href="/self/manual" class="btn-logout" data-i18n="guide">Guide</a>
       <a href="https://t.me/nyx_panel" target="_blank" class="btn-logout" data-i18n="support">Support</a>
       <button class="lang-btn" id="langBtn" onclick="toggleLang()"></button>
-      <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">ЁЯМЩ</button>
+      <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">╨Б╨п╨Ь╨й</button>
       <a href="logout" class="btn-logout" data-i18n="signOut">Sign Out</a>
     </div>
   </div>
@@ -87,7 +87,7 @@
         <div class="lbl" data-i18n="totalTraffic">Total Traffic</div>
       </div>
       <div class="stat">
-        <div class="val">{{ (user.traffic_limit_bytes / 1073741824)|round(1) if user.traffic_limit_bytes > 0 else '∞' }} GB</div>
+        <div class="val">{{ (user.traffic_limit_bytes / 1073741824)|round(1) if user.traffic_limit_bytes > 0 else 'тИЮ' }} GB</div>
         <div class="lbl"><span data-i18n="limit">Limit</span>{% if user.traffic_limit_bytes > 0 and percent %} ({{ percent }}%){% endif %}</div>
       </div>
       {% if user.traffic_limit_bytes > 0 %}
@@ -117,7 +117,7 @@
       <div class="proto-item">
         <span class="proto-name" data-i18n="subscription">Subscription</span>
         <div class="proto-actions">
-          <button id="copySubBtn" onclick="copySub()" data-i18n="copyUrl">ЁЯФЧ Copy URL</button>
+          <button id="copySubBtn" onclick="copySub()" data-i18n="copyUrl">╨Б╨п╨д╨з Copy URL</button>
         </div>
       </div>
       {% set has_any = protocols.values() | selectattr('active') | list | length %}
@@ -131,9 +131,9 @@
     <h2 data-i18n="traffic">Traffic</h2>
     <div class="toolbar">
       <div class="btn-group">
-        <button class="period-btn active" data-days="1" data-i18n="today">Today</button>
-        <button class="period-btn" data-days="7" data-i18n="week">Week</button>
-        <button class="period-btn" data-days="30" data-i18n="month">Month</button>
+        <button class="period-btn active" data-days="2" data-i18n="today">Today</button>
+        <button class="period-btn" data-days="14" data-i18n="week">Week</button>
+        <button class="period-btn" data-days="60" data-i18n="month">Month</button>
         <button class="period-btn" data-days="0" data-i18n="all">All</button>
       </div>
     </div>
@@ -167,14 +167,14 @@ function toggleTheme() { setTheme(getTheme() === 'dark' ? 'light' : 'dark'); }
 
 const _t = {
   ru: {
-    active: 'Активен', disabled: 'Отключён', expires: 'Истекает', noExpiry: 'Без срока',
-    guide: 'Гайд', support: 'Поддержка',
-    signOut: 'Выйти',
-    usage: 'Использование', totalTraffic: 'Всего трафика', limit: 'Лимит',
-    configs: 'Конфигурации', config: 'Config', subscription: 'Подписка',
-    copyUrl: '\u{1F517} Скопировать URL', noConfigs: 'Нет доступных конфигураций',
-    traffic: 'Трафик', today: 'Сегодня', week: 'Неделя', month: 'Месяц', all: 'Всё',
-    upload: 'Загрузка', download: 'Скачивание', copied: '\u2705 Скопировано!'
+    active: '╨Р╨║╤В╨╕╨▓╨╡╨╜', disabled: '╨Ю╤В╨║╨╗╤О╤З╤С╨╜', expires: '╨Ш╤Б╤В╨╡╨║╨░╨╡╤В', noExpiry: '╨С╨╡╨╖ ╤Б╤А╨╛╨║╨░',
+    guide: '╨У╨░╨╣╨┤', support: '╨Я╨╛╨┤╨┤╨╡╤А╨╢╨║╨░',
+    signOut: '╨Т╤Л╨╣╤В╨╕',
+    usage: '╨Ш╤Б╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╨╜╨╕╨╡', totalTraffic: '╨Т╤Б╨╡╨│╨╛ ╤В╤А╨░╤Д╨╕╨║╨░', limit: '╨Ы╨╕╨╝╨╕╤В',
+    configs: '╨Ъ╨╛╨╜╤Д╨╕╨│╤Г╤А╨░╤Ж╨╕╨╕', config: 'Config', subscription: '╨Я╨╛╨┤╨┐╨╕╤Б╨║╨░',
+    copyUrl: '\u{1F517} ╨б╨║╨╛╨┐╨╕╤А╨╛╨▓╨░╤В╤М URL', noConfigs: '╨Э╨╡╤В ╨┤╨╛╤Б╤В╤Г╨┐╨╜╤Л╤Е ╨║╨╛╨╜╤Д╨╕╨│╤Г╤А╨░╤Ж╨╕╨╣',
+    traffic: '╨в╤А╨░╤Д╨╕╨║', today: '╨б╨╡╨│╨╛╨┤╨╜╤П', week: '╨Э╨╡╨┤╨╡╨╗╤П', month: '╨Ь╨╡╤Б╤П╤Ж', all: '╨Т╤Б╤С',
+    upload: '╨Ч╨░╨│╤А╤Г╨╖╨║╨░', download: '╨б╨║╨░╤З╨╕╨▓╨░╨╜╨╕╨╡', copied: '\u2705 ╨б╨║╨╛╨┐╨╕╤А╨╛╨▓╨░╨╜╨╛!'
   },
   en: {
     active: 'Active', disabled: 'Disabled', expires: 'Expires', noExpiry: 'No expiry',
@@ -184,7 +184,8 @@ const _t = {
     configs: 'Configurations', config: 'Config', subscription: 'Subscription',
     copyUrl: '\u{1F517} Copy URL', noConfigs: 'No configurations available',
     traffic: 'Traffic', today: 'Today', week: 'Week', month: 'Month', all: 'All',
-    upload: 'Upload', download: 'Download', copied: '\u2705 Copied!'
+    upload: 'Upload', download: 'Download', copied: '\u2705 Copied!',
+    currentPeriod: 'Current', prevPeriod: 'Previous'
   }
 };
 function getLang() { return localStorage.getItem(langKey) || 'ru'; }
@@ -208,39 +209,69 @@ const fmtBytes = v => !v ? '0 B' : v >= 1073741824 ? (v/1073741824).toFixed(1)+'
 const currentUser = '{{ user.username }}';
 
 async function loadTraffic() {
-  const days = document.querySelector('.period-btn.active')?.dataset.days || '7';
+  const days = document.querySelector('.period-btn.active')?.dataset.days || '14';
   try {
-    const url = '/panel/api/v1/traffic/' + encodeURIComponent(currentUser) + '?days=' + days;
+    const fetchDays = days === '0' ? 0 : parseInt(days) * 2;
+    const url = '/panel/api/v1/traffic/' + encodeURIComponent(currentUser) + '?days=' + fetchDays;
     const res = await fetch(url);
     if (!res.ok) return;
     const data = await res.json();
-    const dates = [...new Set(data.map(d => d.date))].sort();
-    const aggregated = dates.map(date => {
-      const day = data.filter(d => d.date === date);
-      return { date, up: day.reduce((s, d) => s + d.bytes_up, 0), down: day.reduce((s, d) => s + d.bytes_down, 0) };
-    });
     if (trafficChart) trafficChart.destroy();
-    if (aggregated.length === 0) return;
-    const maxVal = Math.max(...aggregated.flatMap(d => [d.up, d.down]), 1);
-    trafficChart = new Chart(document.getElementById('trafficChart'), {
-      type: 'bar',
-      data: {
-        labels: dates,
-        datasets: [
-          { label: _('upload'), data: aggregated.map(d => d.up), backgroundColor: cssVar('--chart-up') },
-          { label: _('download'), data: aggregated.map(d => d.down), backgroundColor: cssVar('--chart-down') },
-        ]
-      },
-      options: {
-        responsive: true,
-        plugins: { legend: { labels: { color: cssVar('--muted') } } },
-        scales: {
-          x: { ticks: { color: cssVar('--muted') }, grid: { color: cssVar('--chart-grid') } },
-          y: { ticks: { color: cssVar('--muted'), callback: v => fmtBytes(v) }, grid: { color: cssVar('--chart-grid') },
-              min: 0, max: maxVal }
+
+    const allDates = [...new Set(data.map(d => d.date))].sort();
+
+    if (days === '0') {
+      var totalUp = data.reduce((s, d) => s + d.bytes_up, 0);
+      var totalDown = data.reduce((s, d) => s + d.bytes_down, 0);
+      var label = allDates.length > 0 ? allDates[0].slice(5) + ' \u2014 ' + allDates[allDates.length-1].slice(5) : _('total');
+      trafficChart = new Chart(document.getElementById('trafficChart'), {
+        type: 'bar',
+        data: {
+          labels: [label],
+          datasets: [
+            { label: _('upload'), data: [totalUp], backgroundColor: cssVar('--chart-up'), borderRadius: 6 },
+            { label: _('download'), data: [totalDown], backgroundColor: cssVar('--chart-down'), borderRadius: 6 }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { labels: { color: cssVar('--muted') } } },
+          scales: {
+            x: { ticks: { color: cssVar('--muted') }, grid: { color: cssVar('--chart-grid') } },
+            y: { ticks: { color: cssVar('--muted'), callback: v => fmtBytes(v) }, grid: { color: cssVar('--chart-grid') } }
+          }
         }
-      }
-    });
+      });
+    } else {
+      var needDays = parseInt(days);
+      var currentDates = allDates.slice(-needDays);
+      var prevDates = allDates.slice(-needDays * 2, -needDays);
+
+      var currentUp = data.filter(d => currentDates.includes(d.date)).reduce((s, d) => s + d.bytes_up, 0);
+      var currentDown = data.filter(d => currentDates.includes(d.date)).reduce((s, d) => s + d.bytes_down, 0);
+      var prevUp = data.filter(d => prevDates.includes(d.date)).reduce((s, d) => s + d.bytes_up, 0);
+      var prevDown = data.filter(d => prevDates.includes(d.date)).reduce((s, d) => s + d.bytes_down, 0);
+
+      var labels = [_('prevPeriod'), _('currentPeriod')];
+      trafficChart = new Chart(document.getElementById('trafficChart'), {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            { label: _('upload'), data: [prevUp, currentUp], backgroundColor: cssVar('--chart-up'), borderRadius: 6 },
+            { label: _('download'), data: [prevDown, currentDown], backgroundColor: cssVar('--chart-down'), borderRadius: 6 }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { labels: { color: cssVar('--muted') } } },
+          scales: {
+            x: { ticks: { color: cssVar('--muted') }, grid: { color: cssVar('--chart-grid') } },
+            y: { ticks: { color: cssVar('--muted'), callback: function(v) { return fmtBytes(v); } }, grid: { color: cssVar('--chart-grid') } }
+          }
+        }
+      });
+    }
   } catch(e) { console.log('Traffic chart error:', e); }
 }
 

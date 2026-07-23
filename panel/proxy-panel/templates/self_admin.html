@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NYX Panel — Admin</title>
+<title>NYX Panel тАФ Admin</title>
 <script src="/static/chart.js"></script>
 <style>
   :root { --bg: #0c1a2d; --fg: #d4e5f7; --card: #132640; --border: #1e3a5f; --input-bg: #132640; --heading: #7dd3fc; --muted: #93c5fd; --accent: #38bdf8; --accent-hover: #0ea599; --danger: #f87171; --danger-hover: #ef4444; --proto-yes: #34d399; --proto-no: #64748b; --user-name: #7dd3fc; --user-disabled: #475569; --status-active-bg: #064e3b; --status-active-fg: #34d399; --status-expired-bg: #450a0a; --status-expired-fg: #f87171; --flash-ok-bg: #064e3b; --flash-ok-border: #059669; --flash-ok-fg: #34d399; --flash-err-bg: #450a0a; --flash-err-border: #dc2626; --flash-err-fg: #f87171; --btn-active: #0ea599; --dropdown-bg: #132640; --dropdown-hover: #1e3a5f; --chart-grid: #132640; --chart-up: #7dd3fc; --chart-down: #34d399; --btn-add-bg: #1e3a5f; --btn-add-fg: #93c5fd; --btn-add-border: #2563eb; --btn-toggle-on-bg: #0c4a6e; --btn-toggle-on-fg: #7dd3fc; --btn-toggle-on-border: #38bdf8; --btn-toggle-off-bg: #1e293b; --btn-toggle-off-fg: #93c5fd; --btn-toggle-off-border: #334155; --btn-del-bg: #450a0a; --btn-del-fg: #fca5a5; --btn-del-border: #dc2626; --btn-off-bg: #1e293b; --btn-off-fg: #94a3b8; --btn-off-border: #334155; --btn-export-bg: #1e293b; --btn-export-fg: #93c5fd; --btn-export-border: #334155; --btn-set-bg: #1e293b; --btn-set-fg: #93c5fd; --btn-set-border: #334155; --btn-secondary-bg: #1e3a5f; --btn-secondary-fg: #93c5fd; --btn-secondary-border: #2563eb; --btn-logout-bg: #1e293b; --btn-logout-fg: #94a3b8; --btn-logout-border: #334155; --btn-theme-bg: #1e293b; --btn-theme-fg: #94a3b8; --btn-theme-border: #334155; --btn-period-bg: #1e293b; --btn-period-fg: #93c5fd; --btn-period-border: #334155; --btn-period-active-bg: #6366f1; --btn-lang-bg: #1e293b; --btn-lang-fg: #94a3b8; --btn-lang-border: #334155; }
@@ -68,7 +68,7 @@
     <div class="header-actions">
       <a href="/self/manual" class="btn-logout" data-i18n="guide">Guide</a>
       <button class="lang-btn" id="langBtn" onclick="toggleLang()"></button>
-      <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
+      <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">ЁЯМЩ</button>
       <a href="/self/logout" class="btn-logout" data-i18n="signOut">Sign Out</a>
     </div>
   </div>
@@ -136,9 +136,9 @@
         {% endfor %}
       </select>
       <div class="btn-group" style="display:flex;gap:2px">
-        <button class="small period-btn active" data-days="1" data-i18n="today">Today</button>
-        <button class="small period-btn" data-days="7" data-i18n="week">Week</button>
-        <button class="small period-btn" data-days="30" data-i18n="month">Month</button>
+        <button class="small period-btn active" data-days="2" data-i18n="today">Today</button>
+        <button class="small period-btn" data-days="14" data-i18n="week">Week</button>
+        <button class="small period-btn" data-days="60" data-i18n="month">Month</button>
         <button class="small period-btn" data-days="0" data-i18n="all">All</button>
       </div>
     </div>
@@ -205,7 +205,12 @@ const _t = {
     copySubUrl: 'Скопировать URL подписки', copied: '\u2705 Скопировано!',
     confirmRemove: 'Удалить', confirmFrom: 'у', confirmSetPwd: 'Установить пароль для входа для',
     confirmDelUser: 'Удалить пользователя', perPage: 'на стр.',
-    totalEnd: 'всего'
+    totalEnd: 'всего',
+    config: 'Config', configs: 'Конфигурации', subscription: 'Подписка',
+    noConfigs: 'Нет доступных конфигураций', copyUrl: '\u{1F517} Скопировать URL',
+    expires: 'Истекает', noExpiry: 'Без срока', limit: 'Лимит',
+    totalTraffic: 'Всего трафика', support: 'Поддержка', usage: 'Использование',
+    currentPeriod: 'Текущий', prevPeriod: 'Прошлый'
   },
   en: {
     guide: 'Guide', signOut: 'Sign Out', admin: 'Admin',
@@ -222,7 +227,8 @@ const _t = {
     copySubUrl: 'Copy Subscription URL', copied: '\u2705 Copied!',
     confirmRemove: 'Remove', confirmFrom: 'from', confirmSetPwd: 'Set dashboard password for',
     confirmDelUser: 'Delete user', perPage: 'per page',
-    totalEnd: 'total'
+    totalEnd: 'total',
+    currentPeriod: 'Current', prevPeriod: 'Previous'
   }
 };
 function getLang() { return localStorage.getItem(langKey) || 'ru'; }
@@ -363,21 +369,20 @@ function copySub(name) {
 
 async function loadTraffic() {
   const user = document.getElementById('userSelect').value;
-  const reqDays = document.querySelector('.period-btn.active')?.dataset.days || '7';
+  const reqDays = document.querySelector('.period-btn.active')?.dataset.days || '14';
   try {
+    const fetchDays = reqDays === '0' ? 0 : parseInt(reqDays) * 2;
     const url = user
-      ? '/self/api/traffic/' + encodeURIComponent(user) + '?days=' + reqDays
-      : '/self/api/traffic?days=' + reqDays;
+      ? '/self/api/traffic/' + encodeURIComponent(user) + '?days=' + fetchDays
+      : '/self/api/traffic?days=' + fetchDays;
     const res = await fetch(url);
     if (!res.ok) return;
     const data = await res.json();
     if (trafficChart) trafficChart.destroy();
 
     const allDates = [...new Set(data.map(d => d.date))].sort();
-    const actualDays = allDates.length;
-    const needDays = parseInt(reqDays) || 0;
 
-    if (reqDays === '0' || (needDays > 0 && actualDays < needDays / 2)) {
+    if (reqDays === '0') {
       var totalUp = data.reduce((s, d) => s + d.bytes_up, 0);
       var totalDown = data.reduce((s, d) => s + d.bytes_down, 0);
       var label = allDates.length > 0 ? allDates[0].slice(5) + ' \u2014 ' + allDates[allDates.length-1].slice(5) : _('total');
@@ -400,24 +405,30 @@ async function loadTraffic() {
         }
       });
     } else {
-      var aggregated = allDates.map(function(date) {
-        var day = data.filter(d => d.date === date);
-        return { date: date, up: day.reduce((s, d) => s + d.bytes_up, 0), down: day.reduce((s, d) => s + d.bytes_down, 0) };
-      });
+      var needDays = parseInt(reqDays);
+      var currentDates = allDates.slice(-needDays);
+      var prevDates = allDates.slice(-needDays * 2, -needDays);
+
+      var currentUp = data.filter(d => currentDates.includes(d.date)).reduce((s, d) => s + d.bytes_up, 0);
+      var currentDown = data.filter(d => currentDates.includes(d.date)).reduce((s, d) => s + d.bytes_down, 0);
+      var prevUp = data.filter(d => prevDates.includes(d.date)).reduce((s, d) => s + d.bytes_up, 0);
+      var prevDown = data.filter(d => prevDates.includes(d.date)).reduce((s, d) => s + d.bytes_down, 0);
+
+      var labels = [_('prevPeriod'), _('currentPeriod')];
       trafficChart = new Chart(document.getElementById('trafficChart'), {
         type: 'bar',
         data: {
-          labels: aggregated.map(d => d.date.slice(5)),
+          labels: labels,
           datasets: [
-            { label: _('upload'), data: aggregated.map(d => d.up), backgroundColor: cssVar('--chart-up'), borderRadius: 4 },
-            { label: _('download'), data: aggregated.map(d => d.down), backgroundColor: cssVar('--chart-down'), borderRadius: 4 }
+            { label: _('upload'), data: [prevUp, currentUp], backgroundColor: cssVar('--chart-up'), borderRadius: 6 },
+            { label: _('download'), data: [prevDown, currentDown], backgroundColor: cssVar('--chart-down'), borderRadius: 6 }
           ]
         },
         options: {
           responsive: true,
           plugins: { legend: { labels: { color: cssVar('--muted') } } },
           scales: {
-            x: { ticks: { color: cssVar('--muted'), maxRotation: 45 }, grid: { color: cssVar('--chart-grid') } },
+            x: { ticks: { color: cssVar('--muted') }, grid: { color: cssVar('--chart-grid') } },
             y: { ticks: { color: cssVar('--muted'), callback: function(v) { return fmtBytes(v); } }, grid: { color: cssVar('--chart-grid') } }
           }
         }
