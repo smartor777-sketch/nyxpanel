@@ -38,7 +38,7 @@ PROTOCOLS = [
     ("awg",    "AmneziaWG",       "_awg.conf",    "_awg.png"),
     ("naive",  "NaiveProxy",      "_naive.json",  "_naive.png"),
     ("mieru",  "Mieru",           "_mieru.json",  "_mieru.png"),
-    ("olcrtc", "olcRTC",          "_olcrtc.json", "_olcrtc.png"),
+    ("olcrtc", "olcRTC",          "_olcrtc.yaml", "_olcrtc.png"),
     ("vless",  "VLESS+XHTTP+REALITY", "_vless.uri", "_vless.png"),
 ]
 
