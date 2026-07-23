@@ -158,6 +158,7 @@
     </div>
     <div class="chart-container">
       <canvas id="trafficChart"></canvas>
+      <div id="noTrafficMsg" style="display:none;text-align:center;padding:2rem;color:var(--muted);font-size:0.9rem" data-i18n="noTraffic">Нет данных о трафике</div>
     </div>
   </div>
 </div>
@@ -197,7 +198,7 @@ const _t = {
     copyUrl: '\u{1F517} Скопировать URL', noConfigs: 'Нет доступных конфигураций',
     traffic: 'Трафик', trafficNote: 'Считается трафик: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG.', today: 'Сегодня', week: 'Неделя', month: 'Месяц', all: 'Всё',
     upload: 'Загрузка', download: 'Скачивание', copied: '\u2705 Скопировано!',
-    currentPeriod: 'Текущий', prevPeriod: 'Прошлый'
+    currentPeriod: 'Текущий', prevPeriod: 'Прошлый', noTraffic: 'Нет данных о трафике'
   },en: {
     active: 'Active', disabled: 'Disabled', expires: 'Expires', noExpiry: 'No expiry',
     guide: 'Guide', support: 'Support',
@@ -210,7 +211,7 @@ const _t = {
     copyUrl: '\u{1F517} Copy URL', noConfigs: 'No configurations available',
     traffic: 'Traffic', trafficNote: 'Traffic is tracked for: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG.', today: 'Today', week: 'Week', month: 'Month', all: 'All',
     upload: 'Upload', download: 'Download', copied: '\u2705 Copied!',
-    currentPeriod: 'Current', prevPeriod: 'Previous'
+    currentPeriod: 'Current', prevPeriod: 'Previous', noTraffic: 'No traffic data'
   }
 };
 function getLang() { return localStorage.getItem(langKey) || 'ru'; }
@@ -242,6 +243,18 @@ async function loadTraffic() {
     if (!res.ok) return;
     const data = await res.json();
     if (trafficChart) trafficChart.destroy();
+
+    const noMsg = document.getElementById('noTrafficMsg');
+    const canvas = document.getElementById('trafficChart');
+
+    if (!data || data.length === 0) {
+      canvas.style.display = 'none';
+      noMsg.style.display = 'block';
+      trafficChart = null;
+      return;
+    }
+    canvas.style.display = 'block';
+    noMsg.style.display = 'none';
 
     const allDates = [...new Set(data.map(d => d.date))].sort();
 
