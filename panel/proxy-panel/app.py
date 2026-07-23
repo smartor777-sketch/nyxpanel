@@ -38,7 +38,7 @@ PROTOCOLS = [
     ("awg",    "AmneziaWG",       "_awg.conf",    "_awg.png"),
     ("naive",  "NaiveProxy",      "_naive.json",  "_naive.png"),
     ("mieru",  "Mieru",           "_mieru.json",  "_mieru.png"),
-    ("olcrtc", "olcRTC",          "_olcrtc.yaml", "_olcrtc.png"),
+    ("olcrtc", "olcRTC",          "_olcrtc.json", "_olcrtc.png"),
     ("vless",  "VLESS+XHTTP+REALITY", "_vless.uri", "_vless.png"),
 ]
 
@@ -332,6 +332,28 @@ def self_logout():
     session.pop("self_user", None)
     return redirect(url_for("self_login"))
 
+@app.route("/self/manual")
+def self_manual():
+    name = session.get("self_user")
+    if not name:
+        return redirect(url_for("self_login"))
+    apk_url = url_for("self_download_apk")
+    return render_template("manual.html", apk_url=apk_url, version=PANEL_VERSION)
+
+@app.route("/self/olcrtc-windows")
+def self_olcrtc_windows():
+    name = session.get("self_user")
+    if not name:
+        return redirect(url_for("self_login"))
+    return render_template("olcrtc_windows.html")
+
+@app.route("/self/download/apk")
+def self_download_apk():
+    apk_path = "/opt/proxy-panel/static/olcbox-me-release.apk"
+    if os.path.exists(apk_path):
+        return send_file(apk_path, as_attachment=True, download_name="Olcbox-me-1.0.0-android.apk")
+    return "APK not found", 404
+
 @app.route("/self/")
 def self_dashboard():
     name = session.get("self_user")
@@ -400,6 +422,11 @@ def self_qr(proto, name=None):
     return send_file(str(path), mimetype="image/png")
 
 # --- API v1 ---
+@app.route("/self/api/traffic")
+@app.route("/self/api/traffic/<name>")
+def self_api_traffic(name=None):
+    return api_traffic(name)
+
 @app.route("/api/v1/users")
 def api_users():
     db = get_db()

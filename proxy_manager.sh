@@ -122,7 +122,7 @@ del_user() {
         jq --arg user "$username" 'del(.auth.userpass[$user])' "$HY2_CONFIG" > /tmp/hy2_config.tmp && mv /tmp/hy2_config.tmp "$HY2_CONFIG"
         systemctl restart hysteria-server
     fi
-    if [ -f "$target_dir/${username}_olcrtc.yaml" ] && [ -f "$OLRTC_USERS_FILE" ]; then
+    if [ -f "$target_dir/${username}_olcrtc.json" ] && [ -f "$OLRTC_USERS_FILE" ]; then
         jq --arg user "$username" 'del(.[$user])' "$OLRTC_USERS_FILE" > /tmp/olcrtc_users.tmp && mv /tmp/olcrtc_users.tmp "$OLRTC_USERS_FILE"
     fi
     if [ -f "$target_dir/${username}_vless.uri" ] && [ -f "$VLESS_USERS_FILE" ]; then
@@ -142,7 +142,7 @@ list_users() {
         [ -f "$BASE_DIR/$user/${user}_awg.conf" ] && echo "   - AmneziaWG"
         [ -f "$BASE_DIR/$user/${user}_naive.json" ] && echo "   - NaiveProxy"
         [ -f "$BASE_DIR/$user/${user}_mieru.json" ] && echo "   - Mieru"
-        [ -f "$BASE_DIR/$user/${user}_olcrtc.yaml" ] && echo "   - olcRTC"
+        [ -f "$BASE_DIR/$user/${user}_olcrtc.json" ] && echo "   - olcRTC"
         [ -f "$BASE_DIR/$user/${user}_vless.uri" ] && echo "   - VLESS+XHTTP+REALITY"
     done < "$REGISTRY_FILE"
 }
@@ -197,10 +197,10 @@ remove_protocol() {
                 echo -e "${YELLOW}Mieru not found for $username${NC}"
             fi ;;
         olcrtc)
-            if [ -f "$user_dir/${username}_olcrtc.yaml" ] && [ -f "$OLRTC_USERS_FILE" ]; then
+            if { [ -f "$user_dir/${username}_olcrtc.json" ] || [ -f "$user_dir/${username}_olcrtc.yaml" ]; } && [ -f "$OLRTC_USERS_FILE" ]; then
                 jq --arg user "$username" 'del(.[$user])' "$OLRTC_USERS_FILE" > /tmp/olcrtc_users.tmp && mv /tmp/olcrtc_users.tmp "$OLRTC_USERS_FILE"
                 systemctl restart "$OLRTC_SERVICE" 2>/dev/null || true
-                rm -f "$user_dir/${username}_olcrtc.yaml" "$user_dir/${username}_olcrtc.uri" "$user_dir/${username}_olcrtc.txt" "$user_dir/${username}_olcrtc.png"
+                rm -f "$user_dir/${username}_olcrtc.json" "$user_dir/${username}_olcrtc.yaml" "$user_dir/${username}_olcrtc.uri" "$user_dir/${username}_olcrtc.txt" "$user_dir/${username}_olcrtc.png"
                 echo -e "${GREEN}olcRTC removed for $username${NC}"
             else
                 echo -e "${YELLOW}olcRTC not found for $username${NC}"
@@ -356,31 +356,26 @@ add_olcrtc_user() {
     local username=$1
     if [ -z "$username" ]; then read -p "Username: " username; fi
     if ! check_user_exists "$username"; then return 1; fi
-    if [ -f "$BASE_DIR/$username/${username}_olcrtc.yaml" ]; then echo -e "${YELLOW}olcRTC exists${NC}"; return 1; fi
+    if [ -f "$BASE_DIR/$username/${username}_olcrtc.json" ]; then echo -e "${YELLOW}olcRTC exists${NC}"; return 1; fi
     local password=$(openssl rand -hex 12)
     mkdir -p "$(dirname "$OLRTC_USERS_FILE")"
-    if [ ! -f "$OLRTC_USERS_FILE" ]; then echo '{}' > "$OLRTC_USERS_FILE"; fi
+    python3 -c "import json; f='$OLRTC_USERS_FILE'; open(f,'a').close(); json.load(open(f))" 2>/dev/null || echo '{}' > "$OLRTC_USERS_FILE"
     jq --arg user "$username" --arg pass "$password" '.[$user] = $pass' "$OLRTC_USERS_FILE" > /tmp/olcrtc_users.tmp && mv /tmp/olcrtc_users.tmp "$OLRTC_USERS_FILE"
-    cat > "$BASE_DIR/$username/${username}_olcrtc.yaml" << OLRTC_EOF
-mode: cnc
-auth:
-  provider: jitsi
-net:
-  transport: datachannel
-  dns: 8.8.8.8:53
-  ice: $OLRTC_ICE
-server: ws://${SERVER_DOMAIN}:30001
-room:
-  id: $OLRTC_ROOM_URL
-crypto:
-  key: "$OLRTC_CRYPTO_KEY"
-socks:
-  host: 127.0.0.1
-  port: 1082
-data: /tmp/olcrtc_data
-claims:
-  user: $username
-  pass: $password
+    cat > "$BASE_DIR/$username/${username}_olcrtc.json" << OLRTC_EOF
+{
+  "storage_id": "olcboxme-main",
+  "name": "NYX Main",
+  "endpoint": {
+    "room_id": "${OLRTC_ROOM_URL}",
+    "key": "${OLRTC_CRYPTO_KEY}"
+  },
+  "auth_provider": "jitsi",
+  "transport": {
+    "type": "datachannel"
+  },
+  "claims_user": "${username}",
+  "claims_pass": "${password}"
+}
 OLRTC_EOF
     local olcrtc_uri="olcrtc://jitsi?datachannel&user=${username}&pass=${password}@${OLRTC_ROOM_URL}#${OLRTC_CRYPTO_KEY}\$pxy-olcrtc - ${username}"
     echo "$olcrtc_uri" > "$BASE_DIR/$username/${username}_olcrtc.uri"

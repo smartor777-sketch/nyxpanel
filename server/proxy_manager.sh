@@ -213,7 +213,7 @@ del_user() {
     fi
 
     # 6. Удаляем из olcRTC (если есть)
-    if [ -f "$target_dir/${username}_olcrtc.yaml" ] && [ -f "$OLRTC_USERS_FILE" ]; then
+    if { [ -f "$target_dir/${username}_olcrtc.json" ] || [ -f "$target_dir/${username}_olcrtc.yaml" ]; } && [ -f "$OLRTC_USERS_FILE" ]; then
         jq --arg user "$username" 'del(.[$user])' \
           "$OLRTC_USERS_FILE" > /tmp/olcrtc_users.tmp && mv /tmp/olcrtc_users.tmp "$OLRTC_USERS_FILE"
         echo -e "${GREEN}Удален из olcRTC.${NC}"
@@ -248,7 +248,7 @@ list_users() {
         [ -f "$BASE_DIR/$user/${user}_awg.conf" ] && echo "   - AmneziaWG (✓)"
         [ -f "$BASE_DIR/$user/${user}_naive.json" ] && echo "   - NaiveProxy (✓)" 
         [ -f "$BASE_DIR/$user/${user}_mieru.json" ] && echo "   - Mieru (✓)"
-        [ -f "$BASE_DIR/$user/${user}_olcrtc.yaml" ] && echo "   - olcRTC (✓)"
+        [ -f "$BASE_DIR/$user/${user}_olcrtc.json" ] && echo "   - olcRTC (✓)"
         [ -f "$BASE_DIR/$user/${user}_vless.uri" ] && echo "   - VLESS+XHTTP+REALITY (✓)"
     done < "$REGISTRY_FILE"
 }
@@ -285,7 +285,7 @@ remove_protocol() {
         if [ -f "$BASE_DIR/$username/${username}_mieru.json" ]; then
             protocols+=("mieru"); protocol_names+=("Mieru")
         fi
-        if [ -f "$BASE_DIR/$username/${username}_olcrtc.yaml" ]; then
+        if [ -f "$BASE_DIR/$username/${username}_olcrtc.json" ] || [ -f "$BASE_DIR/$username/${username}_olcrtc.yaml" ]; then
             protocols+=("olcrtc"); protocol_names+=("olcRTC")
         fi
         if [ -f "$BASE_DIR/$username/${username}_vless.uri" ]; then
@@ -380,7 +380,7 @@ remove_protocol() {
                 jq --arg user "$username" 'del(.[$user])' \
                   "$OLRTC_USERS_FILE" > /tmp/olcrtc_users.tmp && mv /tmp/olcrtc_users.tmp "$OLRTC_USERS_FILE"
             fi
-            rm -f "$BASE_DIR/$username/${username}_olcrtc.yaml"
+            rm -f "$BASE_DIR/$username/${username}_olcrtc.json" "$BASE_DIR/$username/${username}_olcrtc.yaml"
             rm -f "$BASE_DIR/$username/${username}_olcrtc.uri"
             rm -f "$BASE_DIR/$username/${username}_olcrtc.png"
             rm -f "$BASE_DIR/$username/${username}_olcrtc.txt"
@@ -687,7 +687,7 @@ add_olcrtc_user() {
     if [ -z "$username" ]; then read -p "Введите имя пользователя: " username; fi
     if ! check_user_exists "$username"; then return 1; fi
 
-    if [ -f "$BASE_DIR/$username/${username}_olcrtc.yaml" ]; then
+    if [ -f "$BASE_DIR/$username/${username}_olcrtc.json" ]; then
         echo -e "${YELLOW}olcRTC уже добавлен для '$username'.${NC}"
         return 1
     fi
@@ -696,38 +696,31 @@ add_olcrtc_user() {
 
     local password=$(openssl rand -hex 12)
 
-    # Создаем users.json если нет
+    # Создаем users.json если нет или он битый
     mkdir -p "$(dirname "$OLRTC_USERS_FILE")"
-    if [ ! -f "$OLRTC_USERS_FILE" ]; then
-        echo '{}' > "$OLRTC_USERS_FILE"
-    fi
+    python3 -c "import json; f='$OLRTC_USERS_FILE'; open(f,'a').close(); json.load(open(f))" 2>/dev/null || echo '{}' > "$OLRTC_USERS_FILE"
 
     # Добавляем пользователя в users.json
     jq --arg user "$username" --arg pass "$password" \
       '.[$user] = $pass' \
       "$OLRTC_USERS_FILE" > /tmp/olcrtc_users.tmp && mv /tmp/olcrtc_users.tmp "$OLRTC_USERS_FILE"
 
-    # Генерируем клиентский YAML-конфиг
-    cat > "$BASE_DIR/$username/${username}_olcrtc.yaml" << OLRTC_EOF
-mode: cnc
-auth:
-  provider: jitsi
-net:
-  transport: datachannel
-  dns: 8.8.8.8:53
-  ice: $OLRTC_ICE
-server: ws://${SERVER_DOMAIN}:30001
-room:
-  id: $OLRTC_ROOM_URL
-crypto:
-  key: "$OLRTC_CRYPTO_KEY"
-socks:
-  host: 127.0.0.1
-  port: 1082
-data: /tmp/olcrtc_data
-claims:
-  user: $username
-  pass: $password
+    # Генерируем клиентский JSON-конфиг
+    cat > "$BASE_DIR/$username/${username}_olcrtc.json" << OLRTC_EOF
+{
+  "storage_id": "olcboxme-main",
+  "name": "NYX Main",
+  "endpoint": {
+    "room_id": "${OLRTC_ROOM_URL}",
+    "key": "${OLRTC_CRYPTO_KEY}"
+  },
+  "auth_provider": "jitsi",
+  "transport": {
+    "type": "datachannel"
+  },
+  "claims_user": "${username}",
+  "claims_pass": "${password}"
+}
 OLRTC_EOF
 
     # olcbox URI
@@ -751,7 +744,7 @@ OLRTC_TXT
     generate_qr "$olcrtc_uri" "$BASE_DIR/$username/${username}_olcrtc.png"
 
     echo -e "${GREEN}Готово! olcRTC добавлен.${NC}"
-    echo -e "${GREEN}• ${username}_olcrtc.yaml — клиентский конфиг${NC}"
+    echo -e "${GREEN}• ${username}_olcrtc.json — клиентский конфиг${NC}"
     echo -e "${GREEN}• ${username}_olcrtc.uri — olcbox URI${NC}"
     echo -e "${GREEN}• ${username}_olcrtc.txt — все параметры${NC}"
     echo -e "${GREEN}• ${username}_olcrtc.png — QR-код URI${NC}"
