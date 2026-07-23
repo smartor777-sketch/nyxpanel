@@ -145,6 +145,7 @@
     </div>
     <div class="chart-container">
       <canvas id="trafficChart"></canvas>
+      <div id="noTrafficMsg" style="display:none;text-align:center;padding:2rem;color:var(--muted);font-size:0.9rem" data-i18n="noTraffic">Нет данных о трафике</div>
     </div>
   </div>
 </div>
@@ -212,7 +213,7 @@ const _t = {
     noConfigs: 'Нет доступных конфигураций', copyUrl: '\u{1F517} Скопировать URL',
     expires: 'Истекает', noExpiry: 'Без срока', limit: 'Лимит',
     totalTraffic: 'Всего трафика', support: 'Поддержка', usage: 'Использование',
-    currentPeriod: 'Текущий', prevPeriod: 'Прошлый'
+    currentPeriod: 'Текущий', prevPeriod: 'Прошлый', noTraffic: 'Нет данных о трафике'
   },
   en: {
     guide: 'Guide', signOut: 'Sign Out', admin: 'Admin',
@@ -231,7 +232,7 @@ const _t = {
     confirmDelUser: 'Delete user', perPage: 'per page',
     totalEnd: 'total', setPwd: 'Set', changePwd: 'Edit',
     pwdSet: 'Password set', pwdNotSet: 'No password',
-    currentPeriod: 'Current', prevPeriod: 'Previous'
+    currentPeriod: 'Current', prevPeriod: 'Previous', noTraffic: 'No traffic data'
   }
 };
 function getLang() { return localStorage.getItem(langKey) || 'ru'; }
@@ -384,6 +385,18 @@ async function loadTraffic() {
     if (!res.ok) return;
     const data = await res.json();
     if (trafficChart) trafficChart.destroy();
+
+    const noMsg = document.getElementById('noTrafficMsg');
+    const canvas = document.getElementById('trafficChart');
+
+    if (!data || data.length === 0) {
+      canvas.style.display = 'none';
+      noMsg.style.display = 'block';
+      trafficChart = null;
+      return;
+    }
+    canvas.style.display = 'block';
+    noMsg.style.display = 'none';
 
     const allDates = [...new Set(data.map(d => d.date))].sort();
 
