@@ -349,9 +349,9 @@ def self_olcrtc_windows():
 
 @app.route("/self/download/apk")
 def self_download_apk():
-    apk_path = "/opt/proxy-panel/static/olcbox-me-release.apk"
+    apk_path = "/opt/proxy-panel/static/OlcboxME-1.0.2.apk"
     if os.path.exists(apk_path):
-        return send_file(apk_path, as_attachment=True, download_name="Olcbox-me-1.0.0-android.apk")
+        return send_file(apk_path, as_attachment=True, download_name="OlcboxME-1.0.2.apk")
     return "APK not found", 404
 
 @app.route("/self/")
