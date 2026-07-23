@@ -122,7 +122,7 @@ del_user() {
         jq --arg user "$username" 'del(.auth.userpass[$user])' "$HY2_CONFIG" > /tmp/hy2_config.tmp && mv /tmp/hy2_config.tmp "$HY2_CONFIG"
         systemctl restart hysteria-server
     fi
-    if [ -f "$target_dir/${username}_olcrtc.yaml" ] && [ -f "$OLRTC_USERS_FILE" ]; then
+    if { [ -f "$target_dir/${username}_olcrtc.json" ] || [ -f "$target_dir/${username}_olcrtc.yaml" ]; } && [ -f "$OLRTC_USERS_FILE" ]; then
         jq --arg user "$username" 'del(.[$user])' "$OLRTC_USERS_FILE" > /tmp/olcrtc_users.tmp && mv /tmp/olcrtc_users.tmp "$OLRTC_USERS_FILE"
     fi
     if [ -f "$target_dir/${username}_vless.uri" ] && [ -f "$VLESS_USERS_FILE" ]; then
@@ -131,6 +131,80 @@ del_user() {
     fi
     rm -rf "$target_dir"
     echo -e "${GREEN}User '$username' fully deleted${NC}"
+}
+
+remove_protocol() {
+    local username=$1
+    local protocol=$2
+    if [ -z "$username" ] || [ -z "$protocol" ]; then
+        echo -e "${RED}Usage: remove_protocol <username> <protocol>${NC}"
+        echo -e "${YELLOW}Protocols: hy2, awg, naive, mieru, olcrtc, vless${NC}"
+        return 1
+    fi
+    if ! check_user_exists "$username"; then return 1; fi
+    local user_dir="$BASE_DIR/$username"
+    case "$protocol" in
+        hy2)
+            if [ -f "$user_dir/${username}_hy2.json" ] && [ -f "$HY2_CONFIG" ]; then
+                jq --arg user "$username" 'del(.auth.userpass[$user])' "$HY2_CONFIG" > /tmp/hy2_config.tmp && mv /tmp/hy2_config.tmp "$HY2_CONFIG"
+                systemctl restart hysteria-server
+                rm -f "$user_dir/${username}_hy2.json" "$user_dir/${username}_hy2.png"
+                echo -e "${GREEN}Hy2 removed for $username${NC}"
+            else
+                echo -e "${YELLOW}Hy2 not found for $username${NC}"
+            fi ;;
+        awg)
+            if [ -f "$user_dir/${username}_awg.conf" ] && [ -f "$AWG_CONFIG" ]; then
+                awk -v user="$username" '$0 ~ "^# Peer: " user { skip=1; next } skip && /^\[Peer\]/ { skip=0 } !skip { print }' "$AWG_CONFIG" > /tmp/awg_tmp.conf && mv /tmp/awg_tmp.conf "$AWG_CONFIG"
+                awg-quick down "$AWG_INTERFACE" 2>/dev/null || true
+                awg-quick up "$AWG_INTERFACE" 2>/dev/null || true
+                rm -f "$user_dir/${username}_awg.conf" "$user_dir/${username}_awg.png" "$user_dir/.awg_pubkey"
+                echo -e "${GREEN}AWG removed for $username${NC}"
+            else
+                echo -e "${YELLOW}AWG not found for $username${NC}"
+            fi ;;
+        naive)
+            if [ -f "$user_dir/${username}_naive.json" ] && [ -f "$NAIVE_CONFIG" ]; then
+                sed -i "/basic_auth ${username} /d" "$NAIVE_CONFIG"
+                systemctl reload caddy
+                rm -f "$user_dir/${username}_naive.json" "$user_dir/${username}_naive.png"
+                echo -e "${GREEN}NaiveProxy removed for $username${NC}"
+            else
+                echo -e "${YELLOW}NaiveProxy not found for $username${NC}"
+            fi ;;
+        mieru)
+            if [ -f "$user_dir/${username}_mieru.json" ] && [ -f "$MIERU_CONFIG" ]; then
+                init_mieru_config
+                jq --arg name "$username" 'del(.users[] | select(.name == $name))' "$MIERU_CONFIG" > "${MIERU_CONFIG}.tmp" && mv "${MIERU_CONFIG}.tmp" "$MIERU_CONFIG"
+                apply_mieru_config
+                rm -f "$user_dir/${username}_mieru.json" "$user_dir/${username}_mieru.png" "$user_dir/${username}_mieru_standalone.json" "$user_dir/${username}_nekobox.txt"
+                echo -e "${GREEN}Mieru removed for $username${NC}"
+            else
+                echo -e "${YELLOW}Mieru not found for $username${NC}"
+            fi ;;
+        olcrtc)
+            if { [ -f "$user_dir/${username}_olcrtc.json" ] || [ -f "$user_dir/${username}_olcrtc.yaml" ]; } && [ -f "$OLRTC_USERS_FILE" ]; then
+                jq --arg user "$username" 'del(.[$user])' "$OLRTC_USERS_FILE" > /tmp/olcrtc_users.tmp && mv /tmp/olcrtc_users.tmp "$OLRTC_USERS_FILE"
+                systemctl restart "$OLRTC_SERVICE" 2>/dev/null || true
+                rm -f $user_dir/${username}_olcrtc.json $user_dir/${username}_olcrtc.yaml $user_dir/${username}_olcrtc.uri $user_dir/${username}_olcrtc.txt $user_dir/${username}_olcrtc.png
+                echo -e "${GREEN}olcRTC removed for $username${NC}"
+            else
+                echo -e "${YELLOW}olcRTC not found for $username${NC}"
+            fi ;;
+        vless)
+            if [ -f "$user_dir/${username}_vless.uri" ] && [ -f "$VLESS_USERS_FILE" ]; then
+                jq --arg user "$username" 'del(.[$user])' "$VLESS_USERS_FILE" > /tmp/vless_users.tmp && mv /tmp/vless_users.tmp "$VLESS_USERS_FILE"
+                update_xray_config
+                rm -f "$user_dir/${username}_vless.uri" "$user_dir/${username}_vless.png"
+                echo -e "${GREEN}VLESS removed for $username${NC}"
+            else
+                echo -e "${YELLOW}VLESS not found for $username${NC}"
+            fi ;;
+        *)
+            echo -e "${RED}Unknown protocol: $protocol${NC}"
+            echo -e "${YELLOW}Valid: hy2, awg, naive, mieru, olcrtc, vless${NC}"
+            return 1 ;;
+    esac
 }
 
 list_users() {
@@ -142,7 +216,7 @@ list_users() {
         [ -f "$BASE_DIR/$user/${user}_awg.conf" ] && echo "   - AmneziaWG"
         [ -f "$BASE_DIR/$user/${user}_naive.json" ] && echo "   - NaiveProxy"
         [ -f "$BASE_DIR/$user/${user}_mieru.json" ] && echo "   - Mieru"
-        [ -f "$BASE_DIR/$user/${user}_olcrtc.yaml" ] && echo "   - olcRTC"
+        [ -f "$BASE_DIR/$user/${user}_olcrtc.json" ] && echo "   - olcRTC"
         [ -f "$BASE_DIR/$user/${user}_vless.uri" ] && echo "   - VLESS+XHTTP+REALITY"
     done < "$REGISTRY_FILE"
 }
@@ -281,31 +355,26 @@ add_olcrtc_user() {
     local username=$1
     if [ -z "$username" ]; then read -p "Username: " username; fi
     if ! check_user_exists "$username"; then return 1; fi
-    if [ -f "$BASE_DIR/$username/${username}_olcrtc.yaml" ]; then echo -e "${YELLOW}olcRTC exists${NC}"; return 1; fi
+    if [ -f "$BASE_DIR/$username/${username}_olcrtc.json" ]; then echo -e "${YELLOW}olcRTC exists${NC}"; return 1; fi
     local password=$(openssl rand -hex 12)
     mkdir -p "$(dirname "$OLRTC_USERS_FILE")"
-    if [ ! -f "$OLRTC_USERS_FILE" ]; then echo '{}' > "$OLRTC_USERS_FILE"; fi
+    python3 -c "import json; f='$OLRTC_USERS_FILE'; open(f,'a').close(); json.load(open(f))" 2>/dev/null || echo '{}' > "$OLRTC_USERS_FILE"
     jq --arg user "$username" --arg pass "$password" '.[$user] = $pass' "$OLRTC_USERS_FILE" > /tmp/olcrtc_users.tmp && mv /tmp/olcrtc_users.tmp "$OLRTC_USERS_FILE"
-    cat > "$BASE_DIR/$username/${username}_olcrtc.yaml" << OLRTC_EOF
-mode: cnc
-auth:
-  provider: jitsi
-net:
-  transport: datachannel
-  dns: 8.8.8.8:53
-  ice: $OLRTC_ICE
-server: ws://${SERVER_DOMAIN}:30001
-room:
-  id: $OLRTC_ROOM_URL
-crypto:
-  key: "$OLRTC_CRYPTO_KEY"
-socks:
-  host: 127.0.0.1
-  port: 1082
-data: /tmp/olcrtc_data
-claims:
-  user: $username
-  pass: $password
+    cat > "$BASE_DIR/$username/${username}_olcrtc.json" << OLRTC_EOF
+{
+  "storage_id": "olcboxme-main",
+  "name": "NYX Main",
+  "endpoint": {
+    "room_id": "${OLRTC_ROOM_URL}",
+    "key": "${OLRTC_CRYPTO_KEY}"
+  },
+  "auth_provider": "jitsi",
+  "transport": {
+    "type": "datachannel"
+  },
+  "claims_user": "${username}",
+  "claims_pass": "${password}"
+}
 OLRTC_EOF
     local olcrtc_uri="olcrtc://jitsi?datachannel&user=${username}&pass=${password}@${OLRTC_ROOM_URL}#${OLRTC_CRYPTO_KEY}\$pxy-olcrtc - ${username}"
     echo "$olcrtc_uri" > "$BASE_DIR/$username/${username}_olcrtc.uri"
