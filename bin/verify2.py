@@ -1,0 +1,11 @@
+for f in ('self.html', 'self_admin.html'):
+    c = open('/opt/proxy-panel/templates/' + f, encoding='utf-8').read()
+    print(f + ':')
+    print('  Гайд:', 'Гайд' in c)
+    print('  Добавить пользователя:', 'Добавить пользователя' in c)
+    print('  Пользователи:', 'Пользователи' in c)
+    print('  Статус:', 'Статус' in c)
+    print('  Срок:', 'Срок' in c)
+    print('  Пароль:', 'Пароль' in c)
+    print('  Всего:', 'Всего' in c)
+    print()

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NYX Panel тАФ Admin</title>
+<script src="/static/chart.js"></script>
+<style>
+  :root { --bg: #0c1a2d; --fg: #d4e5f7; --card: #132640; --border: #1e3a5f; --input-bg: #132640; --heading: #7dd3fc; --muted: #93c5fd; --accent: #38bdf8; --accent-hover: #0ea599; --proto-yes: #34d399; --proto-no: #64748b; --status-active-bg: #064e3b; --status-active-fg: #34d399; --status-expired-bg: #450a0a; --status-expired-fg: #f87171; --btn-active: #0ea599; --chart-grid: #132640; --chart-up: #7dd3fc; --chart-down: #34d399; --btn-secondary-bg: #1e3a5f; --btn-secondary-fg: #93c5fd; --btn-secondary-border: #2563eb; --btn-logout-bg: #1e293b; --btn-logout-fg: #94a3b8; --btn-logout-border: #334155; --btn-theme-bg: #1e293b; --btn-theme-fg: #94a3b8; --btn-theme-border: #334155; --btn-add-bg: #0ea599; --btn-add-fg: #fff; --btn-add-border: #0ea599; --btn-danger-bg: #991b1b; --btn-danger-fg: #fff; --btn-danger-border: #991b1b; --btn-export-bg: #1e40af; --btn-export-fg: #fff; --btn-export-border: #1e40af; --btn-set-bg: #2563eb; --btn-set-fg: #fff; --btn-set-border: #2563eb; --btn-off-bg: #991b1b; --btn-off-fg: #fff; --btn-off-border: #991b1b; --btn-on-bg: #059669; --btn-on-fg: #fff; --btn-on-border: #059669; }
+  [data-theme="light"] { --bg: #eaf2fb; --fg: #1e3a5f; --card: #ffffff; --border: #c5ddf0; --input-bg: #dceaf7; --heading: #0358a8; --muted: #5a7fa0; --accent: #0284c7; --accent-hover: #0369a1; --proto-yes: #059669; --proto-no: #94a3b8; --status-active-bg: #ecfdf5; --status-active-fg: #059669; --status-expired-bg: #fef2f2; --status-expired-fg: #dc2626; --btn-active: #0284c7; --chart-grid: #c5ddf0; --chart-up: #0284c7; --chart-down: #059669; --btn-secondary-bg: #e8eef6; --btn-secondary-fg: #334155; --btn-secondary-border: #b8c9dc; --btn-logout-bg: #f1f5f9; --btn-logout-fg: #475569; --btn-logout-border: #cbd5e1; --btn-theme-bg: #f1f5f9; --btn-theme-fg: #475569; --btn-theme-border: #cbd5e1; --btn-add-bg: #059669; --btn-add-fg: #fff; --btn-add-border: #059669; --btn-danger-bg: #dc2626; --btn-danger-fg: #fff; --btn-danger-border: #dc2626; --btn-export-bg: #2563eb; --btn-export-fg: #fff; --btn-export-border: #2563eb; --btn-set-bg: #2563eb; --btn-set-fg: #fff; --btn-set-border: #2563eb; --btn-off-bg: #dc2626; --btn-off-fg: #fff; --btn-off-border: #dc2626; --btn-on-bg: #059669; --btn-on-fg: #fff; --btn-on-border: #059669; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--fg); padding: 2rem; }
+  .container { max-width: 1200px; margin: 0 auto; }
+  h1 { color: var(--heading); }
+  .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 0.5rem; }
+  .btn-logout { background: var(--btn-logout-bg); color: var(--btn-logout-fg); border: 1px solid var(--btn-logout-border); padding: 0.4rem 1rem; border-radius: 6px; font-size: 0.85rem; cursor: pointer; text-decoration: none; }
+  .btn-logout:hover { filter: brightness(0.95); }
+  .theme-btn { background: var(--btn-theme-bg); color: var(--btn-theme-fg); border: 1px solid var(--btn-theme-border); padding: 0.3rem 0.6rem; font-size: 1rem; cursor: pointer; border-radius: 6px; }
+  .theme-btn:hover { filter: brightness(0.95); }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; }
+  .card h2 { color: var(--muted); margin-bottom: 1rem; font-size: 1.1rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { border: 1px solid var(--border); padding: 0.5rem; text-align: left; }
+  th { background: var(--input-bg); font-weight: 600; }
+  td input, td select { width: 100%; padding: 0.3rem; border-radius: 4px; border: 1px solid var(--border); background: var(--input-bg); color: var(--fg); font-size: 0.8rem; }
+  .actions { display: flex; gap: 4px; flex-wrap: wrap; }
+  .actions button { padding: 0.25rem 0.5rem; border-radius: 4px; border: 1px solid var(--border); font-size: 0.75rem; cursor: pointer; white-space: nowrap; }
+  button { font-family: inherit; }
+  .chart-container { max-width: 100%; margin: 1rem 0; }
+  .toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
+  .btn-group { display: flex; gap: 2px; }
+  .btn-group button { border-radius: 0; border-right: 1px solid var(--border); padding: 0.4rem 0.8rem; background: var(--input-bg); color: var(--fg); border: 1px solid var(--border); font-size: 0.8rem; cursor: pointer; }
+  .btn-group button:first-child { border-radius: 6px 0 0 6px; }
+  .btn-group button:last-child { border-radius: 0 6px 6px 0; border-right: none; }
+  .btn-group .active { background: var(--btn-active); border-color: var(--btn-active); color: #fff; }
+  .status-badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; }
+  .status-active { background: var(--status-active-bg); color: var(--status-active-fg); }
+  .status-expired { background: var(--status-expired-bg); color: var(--status-expired-fg); }
+  .button { padding: 0.4rem 0.8rem; border-radius: 6px; border: 1px solid var(--btn-add-border); font-size: 0.85rem; cursor: pointer; color: var(--btn-add-fg); background: var(--btn-add-bg); }
+  .button:hover { filter: brightness(0.9); }
+  .small { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
+  .danger { background: var(--btn-danger-bg); border-color: var(--btn-danger-border); color: var(--btn-danger-fg); }
+  .export-btn { background: var(--btn-export-bg); border-color: var(--btn-export-border); color: var(--btn-export-fg); }
+  .set-btn { background: var(--btn-set-bg); border-color: var(--btn-set-border); color: var(--btn-set-fg); }
+  .off-btn { background: var(--btn-off-bg); border-color: var(--btn-off-border); color: var(--btn-off-fg); }
+  .toggle-on { background: var(--btn-on-bg); border-color: var(--btn-on-border); color: var(--btn-on-fg); }
+  .toggle-off { background: var(--btn-off-bg); border-color: var(--btn-off-border); color: var(--btn-off-fg); }
+  .period-btn { background: var(--btn-secondary-bg); border: 1px solid var(--btn-secondary-border); color: var(--btn-secondary-fg); }
+  .period-btn.active { background: var(--btn-active); border-color: var(--btn-active); color: #fff; }
+  select { padding: 0.3rem 0.5rem; border-radius: 4px; border: 1px solid var(--border); background: var(--input-bg); color: var(--fg); font-size: 0.8rem; }
+  .badge { display: inline-block; padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; }
+  .badge-yes { background: var(--status-active-bg); color: var(--status-active-fg); }
+  .badge-no { background: var(--card); color: var(--proto-no); border: 1px solid var(--border); }
+  @media (max-width: 768px) { body { padding: 0.5rem; } table { font-size: 0.75rem; } th, td { padding: 0.3rem; } .actions { gap: 2px; } .actions button { font-size: 0.65rem; padding: 0.15rem 0.3rem; } }
+.footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 1.5rem 0 0.5rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header-bar">
+    <h1>NYX Panel <span style="font-size:0.6rem;color:var(--muted);font-weight:normal">Admin</span></h1>
+    <div style="display:flex;gap:0.5rem;align-items:center">
+      <a href="/self/manual" class="btn-logout">Guide</a>
+      <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">ЁЯМЩ</button>
+      <a href="/self/logout" class="btn-logout">Sign Out</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Traffic <span style="font-size:0.75rem;color:var(--muted);font-weight:normal">Total: <span id="totalTraffic">...</span></span></h2>
+    <div class="toolbar">
+      <div class="btn-group">
+        <button class="period-btn active" data-days="2">Today</button>
+        <button class="period-btn" data-days="14">Week</button>
+        <button class="period-btn" data-days="60">Month</button>
+        <button class="period-btn" data-days="0">All</button>
+      </div>
+    </div>
+    <div class="chart-container">
+      <canvas id="trafficChart"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Users</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>VLESS</th>
+          <th>Hy2</th>
+          <th>Naive</th>
+          <th>Mieru</th>
+          <th>AWG</th>
+          <th>Expires</th>
+          <th>Active</th>
+          <th style="width:40%">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="usersBody"></tbody>
+    </table>
+    <div style="margin-top:1rem;display:flex;gap:1rem;flex-wrap:wrap;align-items:center">
+      <input type="text" id="newUsername" placeholder="New username" style="padding:0.4rem 0.6rem;border-radius:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--fg);font-size:0.85rem">
+      <button class="button" onclick="addUser()">+ Add User</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const themeKey = 'nyx_theme';
+function getTheme() { return localStorage.getItem(themeKey) || 'dark'; }
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem(themeKey, t);
+  document.getElementById('themeBtn').textContent = t === 'dark' ? '\u{1F319}' : '\u{2600}\u{FE0F}';
+  if (trafficChart) {
+    trafficChart.data.datasets[0].backgroundColor = cssVar('--chart-up');
+    trafficChart.data.datasets[1].backgroundColor = cssVar('--chart-down');
+    trafficChart.options.plugins.legend.labels.color = cssVar('--muted');
+    trafficChart.options.scales.x.ticks.color = cssVar('--muted');
+    trafficChart.options.scales.y.ticks.color = cssVar('--muted');
+    trafficChart.options.scales.x.grid.color = cssVar('--chart-grid');
+    trafficChart.options.scales.y.grid.color = cssVar('--chart-grid');
+    trafficChart.update();
+  }
+}
+function toggleTheme() { setTheme(getTheme() === 'dark' ? 'light' : 'dark'); }
+
+let trafficChart = null;
+setTheme(getTheme());
+
+const fmtBytes = v => v >= 1073741824 ? (v/1073741824).toFixed(1)+' GB' : v >= 1048576 ? (v/1048576).toFixed(1)+' MB' : (v/1024).toFixed(1)+' KB';
+
+async function loadUsers() {
+  try {
+    const res = await fetch('/panel/api/v1/users');
+    if (!res.ok) { document.getElementById('usersBody').innerHTML = '<tr><td colspan="9">Error loading users</td></tr>'; return; }
+    const users = await res.json();
+    let html = '';
+    const now = new Date().toISOString().slice(0,10);
+    for (const u of users) {
+      const expires = u.expires_at ? u.expires_at.slice(0,10) : 'тАФ';
+      const expired = u.expires_at && u.expires_at.slice(0,10) < now;
+      const active = u.active !== 0 && !expired;
+      html += '<tr>' +
+        '<td>' + (u.note ? u.username + ' <span class="note">' + u.note + '</span>' : u.username) + '</td>' +
+        '<td><span class="badge ' + (u.vless ? 'badge-yes' : 'badge-no') + '">' + (u.vless ? 'тЬУ' : 'тЬЧ') + '</span></td>' +
+        '<td><span class="badge ' + (u.hy2 ? 'badge-yes' : 'badge-no') + '">' + (u.hy2 ? 'тЬУ' : 'тЬЧ') + '</span></td>' +
+        '<td><span class="badge ' + (u.naive ? 'badge-yes' : 'badge-no') + '">' + (u.naive ? 'тЬУ' : 'тЬЧ') + '</span></td>' +
+        '<td><span class="badge ' + (u.mieru ? 'badge-yes' : 'badge-no') + '">' + (u.mieru ? 'тЬУ' : 'тЬЧ') + '</span></td>' +
+        '<td><span class="badge ' + (u.awg ? 'badge-yes' : 'badge-no') + '">' + (u.awg ? 'тЬУ' : 'тЬЧ') + '</span></td>' +
+        '<td style="font-size:0.8rem">' + expires + '<br><span class="status-badge ' + (active ? 'status-active' : 'status-expired') + '">' + (active ? 'Active' : 'Disabled') + '</span></td>' +
+        '<td>' +
+          '<select class="active-select" data-user="' + u.username + '">' +
+            '<option value="1"' + (u.active === 1 || u.active === null ? ' selected' : '') + '>Active</option>' +
+            '<option value="0"' + (u.active === 0 ? ' selected' : '') + '>Disabled</option>' +
+          '</select>' +
+        '</td>' +
+        '<td>' +
+          '<div class="actions">' +
+            '<button class="small toggle-on" onclick="addProto(\'' + u.username + '\',\'vless\')">+VL</button>' +
+            '<button class="small toggle-on" onclick="addProto(\'' + u.username + '\',\'hy2\')">+Hy</button>' +
+            '<button class="small toggle-on" onclick="addProto(\'' + u.username + '\',\'naive\')">+Na</button>' +
+            '<button class="small toggle-on" onclick="addProto(\'' + u.username + '\',\'mieru\')">+Mi</button>' +
+            '<button class="small toggle-on" onclick="addProto(\'' + u.username + '\',\'awg\')">+AW</button>' +
+            '<button class="small toggle-off" onclick="rmProto(\'' + u.username + '\',\'vless\')">-VL</button>' +
+            '<button class="small toggle-off" onclick="rmProto(\'' + u.username + '\',\'hy2\')">-Hy</button>' +
+            '<button class="small toggle-off" onclick="rmProto(\'' + u.username + '\',\'naive\')">-Na</button>' +
+            '<button class="small toggle-off" onclick="rmProto(\'' + u.username + '\',\'mieru\')">-Mi</button>' +
+            '<button class="small toggle-off" onclick="rmProto(\'' + u.username + '\',\'awg\')">-AW</button>' +
+          '</div>' +
+          '<div class="actions" style="margin-top:4px">' +
+            '<button class="small export-btn" onclick="editUser(\'' + u.username + '\',\'expires\')">Exp</button>' +
+            '<button class="small set-btn" onclick="editUser(\'' + u.username + '\',\'passwd\')">Pwd</button>' +
+            '<button class="small off-btn" onclick="editUser(\'' + u.username + '\',\'toggle\')">' + (active ? 'Off' : 'On') + '</button>' +
+            '<button class="small danger" onclick="deleteUser(\'' + u.username + '\')">Del</button>' +
+            '<button class="small export-btn" onclick="exportUser(\'' + u.username + '\')">ЁЯУж</button>' +
+          '</div>' +
+        '</td>' +
+      '</tr>';
+    }
+    document.getElementById('usersBody').innerHTML = html;
+    document.querySelectorAll('.active-select').forEach(s => {
+      s.addEventListener('change', function() { setActive(this.dataset.user, this.value); });
+    });
+  } catch(e) { document.getElementById('usersBody').innerHTML = '<tr><td colspan="9">Error: ' + e.message + '</td></tr>'; }
+}
+
+async function loadTraffic() {
+  const days = document.querySelector('.period-btn.active')?.dataset?.days || '7';
+  try {
+    const url = '/panel/api/v1/traffic?days=' + days;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+    const users = [...new Set(data.map(d => d.username))].sort();
+    const dates = [...new Set(data.map(d => d.date))].sort();
+    const aggregated = dates.map(date => {
+      const day = data.filter(d => d.date === date);
+      return { date, up: day.reduce((s, d) => s + d.bytes_up, 0), down: day.reduce((s, d) => s + d.bytes_down, 0) };
+    });
+    const totalBytes = aggregated.reduce((s, d) => s + d.up + d.down, 0);
+    document.getElementById('totalTraffic').textContent = fmtBytes(totalBytes);
+    if (trafficChart) trafficChart.destroy();
+    trafficChart = new Chart(document.getElementById('trafficChart'), {
+      type: 'bar',
+      data: {
+        labels: dates,
+        datasets: [
+          { label: 'Upload', data: aggregated.map(d => d.up), backgroundColor: cssVar('--chart-up') },
+          { label: 'Download', data: aggregated.map(d => d.down), backgroundColor: cssVar('--chart-down') },
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { labels: { color: cssVar('--muted') } } },
+        scales: {
+          x: { ticks: { color: cssVar('--muted') }, grid: { color: cssVar('--chart-grid') } },
+          y: { ticks: { color: cssVar('--muted'), callback: v => fmtBytes(v) }, grid: { color: cssVar('--chart-grid') } }
+        }
+      }
+    });
+  } catch(e) { console.log('Traffic chart error:', e); }
+}
+
+document.querySelectorAll('.period-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadTraffic();
+  });
+});
+loadUsers();
+loadTraffic();
+
+const protoMap = { 'vless': 'VLESS', 'hy2': 'Hy2', 'naive': 'Naive', 'mieru': 'Mieru', 'awg': 'AWG' };
+async function addProto(user, proto) {
+  try {
+    const res = await fetch('/panel/api/v1/users/' + encodeURIComponent(user) + '/add/' + proto, { method: 'POST' });
+    const data = await res.json();
+    if (data.status === 'ok') { loadUsers(); } else { alert(data.error || 'Error'); }
+  } catch(e) { alert('Error: ' + e.message); }
+}
+async function rmProto(user, proto) {
+  try {
+    const res = await fetch('/panel/api/v1/users/' + encodeURIComponent(user) + '/rm/' + proto, { method: 'POST' });
+    const data = await res.json();
+    if (data.status === 'ok') { loadUsers(); } else { alert(data.error || 'Error'); }
+  } catch(e) { alert('Error: ' + e.message); }
+}
+async function addUser() {
+  const name = document.getElementById('newUsername').value.trim();
+  if (!name) return;
+  try {
+    const res = await fetch('/panel/api/v1/users/' + encodeURIComponent(name) + '/add/vless', { method: 'POST' });
+    const data = await res.json();
+    if (data.status === 'ok') { document.getElementById('newUsername').value = ''; loadUsers(); } else { alert(data.error || 'Error'); }
+  } catch(e) { alert('Error: ' + e.message); }
+}
+async function deleteUser(user) {
+  if (!confirm('Delete user "' + user + '"?')) return;
+  try {
+    const res = await fetch('/panel/api/v1/users/' + encodeURIComponent(user) + '/del', { method: 'POST' });
+    const data = await res.json();
+    if (data.status === 'ok') { loadUsers(); } else { alert(data.error || 'Error'); }
+  } catch(e) { alert('Error: ' + e.message); }
+}
+async function editUser(user, action) {
+  try {
+    const res = await fetch('/panel/api/v1/users/' + encodeURIComponent(user) + '/' + action, { method: 'POST' });
+    const data = await res.json();
+    if (data.status === 'ok') { loadUsers(); } else { alert(data.error || 'Error'); }
+  } catch(e) { alert('Error: ' + e.message); }
+}
+async function setActive(user, val) {
+  try {
+    await fetch('/panel/api/v1/users/' + encodeURIComponent(user) + '/active/' + val, { method: 'POST' });
+    loadUsers();
+  } catch(e) { alert('Error: ' + e.message); }
+}
+function exportUser(user) {
+  window.open('/panel/api/v1/sub/' + encodeURIComponent(user), '_blank');
+}
+</script>
+<div class="footer">
+  &copy; 2026 Merlin.<br>
+  <em>Crafting Dreams &amp; Magic</em>
+</div>
+</body>
+</html>

@@ -88,7 +88,7 @@
 
   <div class="card">
     <h2 data-i18n="addUser">Add User</h2>
-    <form method="POST" action="/panel/user/add">
+    <form method="POST" action="/self/user/add">
       <input name="username" data-i18n-placeholder="usernamePH" placeholder="Username" pattern="[a-zA-Z0-9_-]+" required>
       <button type="submit" data-i18n="add">Add</button>
     </form>
@@ -317,17 +317,17 @@ function renderUsers() {
     const actions = protocolsList.map(p => {
       const key = p[0], pname = p[1];
       if (u.protocols[key]) {
-        return '<form method="POST" action="/panel/user/' + u.name + '/protocol/' + key + '/delete" onsubmit="return confirm(\'' + _('confirmRemove') + ' ' + pname + ' ' + _('confirmFrom') + ' ' + u.name + '?\')" style="display:inline">' +
+        return '<form method="POST" action="/self/user/' + u.name + '/protocol/' + key + '/delete" onsubmit="return confirm(\'' + _('confirmRemove') + ' ' + pname + ' ' + _('confirmFrom') + ' ' + u.name + '?\')" style="display:inline">' +
           '<button class="small toggle-off" title="' + _('confirmRemove') + '">-' + pname.slice(0,4) + '</button></form>';
       }
-      return '<form method="POST" action="/panel/user/' + u.name + '/protocol/' + key + '/add" style="display:inline">' +
+      return '<form method="POST" action="/self/user/' + u.name + '/protocol/' + key + '/add" style="display:inline">' +
         '<button class="small toggle-on" title="' + _('add') + '">+' + pname.slice(0,4) + '</button></form>';
     }).join('');
 
     const exportItems = protocolsList.filter(p => u.protocols[p[0]]).map(p => {
       const key = p[0], pname = p[1];
-      return '<a href="/panel/user/' + u.name + '/config/' + key + '" class="dropdown-item">\u{1F4C4} ' + pname + '</a>' +
-        '<a href="/panel/user/' + u.name + '/qr/' + key + '" target="_blank" class="dropdown-item">\u{1F4F1} ' + pname + ' QR</a>';
+      return '<a href="/self/user/' + u.name + '/config/' + key + '" class="dropdown-item">\u{1F4C4} ' + pname + '</a>' +
+        '<a href="/self/user/' + u.name + '/qr/' + key + '" target="_blank" class="dropdown-item">\u{1F4F1} ' + pname + ' QR</a>';
     }).join('');
     const hasExport = exportItems.length > 0;
 
@@ -336,18 +336,18 @@ function renderUsers() {
       '<td class="user-name">' + u.name + '</td>' +
       '<td>' + (!u.active ? '<span class="status-badge status-expired">' + _('disabled') + '</span>' : '<span class="status-badge status-active">' + _('active') + '</span>') + '</td>' +
       protoHTML +
-      '<td><form method="POST" action="/panel/user/' + u.name + '/expiry" style="display:flex;gap:2px">' +
+      '<td><form method="POST" action="/self/user/' + u.name + '/expiry" style="display:flex;gap:2px">' +
         '<input class="expiry-input" name="expires" type="date" value="' + (u.expires_at ? u.expires_at.slice(0,10) : '') + '" placeholder="never">' +
         '<button class="small set-btn" type="submit">' + _('set') + '</button></form></td>' +
-      '<td><form method="POST" action="/panel/user/' + u.name + '/password" style="display:flex;gap:2px" onsubmit="return confirm(\'' + _('confirmSetPwd') + ' ' + u.name + '?\')">' +
+      '<td><form method="POST" action="/self/user/' + u.name + '/password" style="display:flex;gap:2px" onsubmit="return confirm(\'' + _('confirmSetPwd') + ' ' + u.name + '?\')">' +
         '<input class="expiry-input" name="password" type="text" placeholder="' + (u.has_password ? '****' : _('pwdNotSet')) + '">' +
         '<button class="small ' + (u.has_password ? 'toggle-on' : 'set-btn') + '" type="submit">' + (u.has_password ? _('changePwd') : _('setPwd')) + '</button>' +
         (u.has_password ? ' <span style="color:var(--proto-yes);font-size:0.85rem;margin-left:2px" title="' + _('pwdSet') + '">&#10003;</span>' : '') +
         '</form></td>' +
       '<td class="actions">' + actions +
-        '<form method="POST" action="/panel/user/' + u.name + '/toggle" style="display:inline">' +
+        '<form method="POST" action="/self/user/' + u.name + '/toggle" style="display:inline">' +
           '<button class="small off-btn" title="' + (u.active ? _('off') : _('on')) + '">' + (u.active ? _('off') : _('on')) + '</button></form>' +
-        '<form method="POST" action="/panel/user/' + u.name + '/delete" onsubmit="return confirm(\'' + _('confirmDelUser') + ' ' + u.name + '?\')" style="display:inline">' +
+        '<form method="POST" action="/self/user/' + u.name + '/delete" onsubmit="return confirm(\'' + _('confirmDelUser') + ' ' + u.name + '?\')" style="display:inline">' +
           '<button class="small danger">' + _('del') + '</button></form>' +
       '</td>' +
       '<td>' + (hasExport ? '<div class="dropdown"><button class="small export-btn" onclick="toggleDropdown(event, \'dd-' + u.name + '\')">\u{25BE} ' + _('export_') + '</button><div id="dd-' + u.name + '" class="dropdown-menu" style="display:none">' +
@@ -367,16 +367,16 @@ function renderUsers() {
       '<button class="small toggle-on" onclick="this.closest(\'form\').submit()">+' + p[1].slice(0,4) + '</button>'
     ).join('');
     const rmBtns = protocolsList.filter(p => u.protocols[p[0]]).map(p =>
-      '<form method="POST" action="/panel/user/' + u.name + '/protocol/' + p[0] + '/delete" style="display:inline"><button class="small toggle-off">-' + p[1].slice(0,4) + '</button></form>'
+      '<form method="POST" action="/self/user/' + u.name + '/protocol/' + p[0] + '/delete" style="display:inline"><button class="small toggle-off">-' + p[1].slice(0,4) + '</button></form>'
     ).join('');
     const addForms = protocolsList.filter(p => !u.protocols[p[0]]).map(p =>
-      '<form method="POST" action="/panel/user/' + u.name + '/protocol/' + p[0] + '/add" style="display:inline">' + addBtns.split('</button>').slice(protocolsList.indexOf(p), protocolsList.indexOf(p)+1).join('</button>') + '</form>'
+      '<form method="POST" action="/self/user/' + u.name + '/protocol/' + p[0] + '/add" style="display:inline">' + addBtns.split('</button>').slice(protocolsList.indexOf(p), protocolsList.indexOf(p)+1).join('</button>') + '</form>'
     ).join('');
 
     const exportItems = protocolsList.filter(p => u.protocols[p[0]]).map(p => {
       const key = p[0], pname = p[1];
-      return '<a href="/panel/user/' + u.name + '/config/' + key + '" class="dropdown-item">\u{1F4C4} ' + pname + '</a>' +
-        '<a href="/panel/user/' + u.name + '/qr/' + key + '" target="_blank" class="dropdown-item">\u{1F4F1} ' + pname + ' QR</a>';
+      return '<a href="/self/user/' + u.name + '/config/' + key + '" class="dropdown-item">\u{1F4C4} ' + pname + '</a>' +
+        '<a href="/self/user/' + u.name + '/qr/' + key + '" target="_blank" class="dropdown-item">\u{1F4F1} ' + pname + ' QR</a>';
     }).join('');
     const hasExport = exportItems.length > 0;
 
@@ -385,11 +385,11 @@ function renderUsers() {
       '<span class="status-badge ' + (u.active ? 'status-active' : 'status-expired') + '">' + (u.active ? _('active') : _('disabled')) + '</span></div>' +
       '<div class="uc-protos">' + protoTags + '</div>' +
       '<div class="uc-exp">Exp: ' +
-        '<form method="POST" action="/panel/user/' + u.name + '/expiry" style="display:flex;gap:2px;flex:1">' +
+        '<form method="POST" action="/self/user/' + u.name + '/expiry" style="display:flex;gap:2px;flex:1">' +
           '<input name="expires" type="date" value="' + (u.expires_at ? u.expires_at.slice(0,10) : '') + '">' +
           '<button class="small set-btn" type="submit">' + _('set') + '</button></form></div>' +
       '<div class="uc-pwd">Pwd: ' +
-        '<form method="POST" action="/panel/user/' + u.name + '/password" style="display:flex;gap:2px;flex:1">' +
+        '<form method="POST" action="/self/user/' + u.name + '/password" style="display:flex;gap:2px;flex:1">' +
           '<input name="password" type="text" placeholder="' + (u.has_password ? '****' : _('pwdNotSet')) + '">' +
           '<button class="small ' + (u.has_password ? 'toggle-on' : 'set-btn') + '" type="submit">' + (u.has_password ? _('changePwd') : _('setPwd')) + '</button>' +
           (u.has_password ? ' <span style="color:var(--proto-yes)">&#10003;</span>' : '') +
@@ -397,12 +397,12 @@ function renderUsers() {
       '<div class="uc-actions">' +
         protocolsList.map(p =>
           (u.protocols[p[0]]
-            ? '<form method="POST" action="/panel/user/' + u.name + '/protocol/' + p[0] + '/delete" style="display:inline"><button class="small toggle-off">-' + p[1].slice(0,4) + '</button></form>'
-            : '<form method="POST" action="/panel/user/' + u.name + '/protocol/' + p[0] + '/add" style="display:inline"><button class="small toggle-on">+' + p[1].slice(0,4) + '</button></form>')
+            ? '<form method="POST" action="/self/user/' + u.name + '/protocol/' + p[0] + '/delete" style="display:inline"><button class="small toggle-off">-' + p[1].slice(0,4) + '</button></form>'
+            : '<form method="POST" action="/self/user/' + u.name + '/protocol/' + p[0] + '/add" style="display:inline"><button class="small toggle-on">+' + p[1].slice(0,4) + '</button></form>')
         ).join('') +
         '<hr class="uc-divider">' +
-        '<form method="POST" action="/panel/user/' + u.name + '/toggle" style="display:inline"><button class="small off-btn">' + (u.active ? _('off') : _('on')) + '</button></form>' +
-        '<form method="POST" action="/panel/user/' + u.name + '/delete" onsubmit="return confirm(\'' + _('confirmDelUser') + ' ' + u.name + '?\')" style="display:inline"><button class="small danger">' + _('del') + '</button></form>' +
+        '<form method="POST" action="/self/user/' + u.name + '/toggle" style="display:inline"><button class="small off-btn">' + (u.active ? _('off') : _('on')) + '</button></form>' +
+        '<form method="POST" action="/self/user/' + u.name + '/delete" onsubmit="return confirm(\'' + _('confirmDelUser') + ' ' + u.name + '?\')" style="display:inline"><button class="small danger">' + _('del') + '</button></form>' +
       '</div>' +
       (hasExport ? '<div class="uc-export"><div class="dropdown"><button class="small export-btn" onclick="toggleDropdown(event, \'ddm-' + u.name + '\')" style="width:100%">\u{25BE} ' + _('export_') + '</button><div id="ddm-' + u.name + '" class="dropdown-menu" style="display:none">' +
         '<a href="#" onclick="copySub(\'' + u.name + '\');return false" class="dropdown-item">\u{1F517} ' + _('copySubUrl') + '</a>' +
@@ -458,7 +458,7 @@ document.addEventListener('click', () => {
 });
 
 function copySub(name) {
-  const url = window.location.origin + '/panel/api/v1/sub/' + encodeURIComponent(name);
+  const url = window.location.origin + '/self/api/v1/sub/' + encodeURIComponent(name);
   navigator.clipboard.writeText(url).then(() => {
     const btn = event.target;
     btn.textContent = _('copied');
