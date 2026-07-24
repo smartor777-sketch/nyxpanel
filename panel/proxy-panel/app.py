@@ -9,33 +9,12 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("PANEL_SECRET", os.urandom(16).hex())
 PANEL_VERSION = "1.06"
 
-class PrefixMiddleware:
-    def __init__(self, app, prefix='/panel'):
-        self.app = app
-        self.prefix = prefix
-    def __call__(self, environ, start_response):
-        path = environ['PATH_INFO']
-        if path.startswith('/self'):
-            return self.app(environ, start_response)
-        if path == '/' or path == '':
-            environ['PATH_INFO'] = '/self/login'
-            environ['SCRIPT_NAME'] = ''
-            return self.app(environ, start_response)
-        if path.startswith(self.prefix):
-            environ['PATH_INFO'] = path[len(self.prefix):]
-            environ['SCRIPT_NAME'] = self.prefix
-            return self.app(environ, start_response)
-        start_response('404', [('Content-Type', 'text/plain')])
-        return [b'Not Found']
-
-app.wsgi_app = PrefixMiddleware(app.wsgi_app)
-
 BASE_DIR = Path("/root/proxy_users")
 REGISTRY = BASE_DIR / ".registry"
 DB_PATH = "/opt/proxy-panel/panel.db"
 
 def is_admin():
-    return session.get("self_role") == "admin" or request.headers.get("REMOTE_USER")
+    return session.get("self_role") == "admin"
 
 PROTOCOLS = [
     ("hy2",    "Hysteria 2",      "_hy2.json",    "_hy2.png"),
@@ -180,20 +159,16 @@ def call_script(name, username):
 
 @app.route("/")
 def index():
-    if not is_admin():
-        return redirect("/self/login")
-    db_users = get_db_users()
-    admin_name = session.get("self_user") or request.headers.get("REMOTE_USER") or "Admin"
-    return render_template("index.html", users=db_users, protocols=PROTOCOLS, version=PANEL_VERSION, admin_name=admin_name)
+    return redirect("/self/login")
 
-@app.route("/user/add", methods=["POST"])
+@app.route("/self/user/add", methods=["POST"])
 def user_add():
     if not is_admin():
         return redirect("/self/login")
     name = request.form.get("username", "").strip()
     if not re.match(r'^[a-zA-Z0-9_-]+$', name):
         flash("Invalid username", "error")
-        return redirect(request.referrer or url_for("index"))
+        return redirect(request.referrer or "/self/")
     ok, msg = call_script("add_user", name)
     if ok:
         db = get_db()
@@ -201,9 +176,9 @@ def user_add():
         db.commit()
         db.close()
     flash(msg[:300], "ok" if ok else "error")
-    return redirect(request.referrer or url_for("index"))
+    return redirect(request.referrer or "/self/")
 
-@app.route("/user/<name>/delete", methods=["POST"])
+@app.route("/self/user/<name>/delete", methods=["POST"])
 def user_delete(name):
     if not is_admin():
         return redirect("/self/login")
@@ -214,9 +189,9 @@ def user_delete(name):
         db.commit()
         db.close()
     flash(msg[:300], "ok" if ok else "error")
-    return redirect(request.referrer or url_for("index"))
+    return redirect(request.referrer or "/self/")
 
-@app.route("/user/<name>/protocol/<proto>/add", methods=["POST"])
+@app.route("/self/user/<name>/protocol/<proto>/add", methods=["POST"])
 def proto_add(name, proto):
     if not is_admin():
         return redirect("/self/login")
@@ -227,20 +202,20 @@ def proto_add(name, proto):
     sname = script_map.get(proto)
     if not sname:
         flash("Unknown protocol", "error")
-        return redirect(request.referrer or url_for("index"))
+        return redirect(request.referrer or "/self/")
     ok, msg = call_script(sname, name)
     flash(msg[:300], "ok" if ok else "error")
-    return redirect(request.referrer or url_for("index"))
+    return redirect(request.referrer or "/self/")
 
-@app.route("/user/<name>/protocol/<proto>/delete", methods=["POST"])
+@app.route("/self/user/<name>/protocol/<proto>/delete", methods=["POST"])
 def proto_delete(name, proto):
     if not is_admin():
         return redirect("/self/login")
     ok, msg = call_script(f"del_{proto}", name)
     flash(msg[:300], "ok" if ok else "error")
-    return redirect(request.referrer or url_for("index"))
+    return redirect(request.referrer or "/self/")
 
-@app.route("/user/<name>/config/<proto>")
+@app.route("/self/user/<name>/config/<proto>")
 def get_config(name, proto):
     if not is_admin():
         return redirect("/self/login")
@@ -253,7 +228,7 @@ def get_config(name, proto):
         return "Not found", 404
     return send_file(str(path), as_attachment=True, download_name=f"{name}{suffix}")
 
-@app.route("/user/<name>/qr/<proto>")
+@app.route("/self/user/<name>/qr/<proto>")
 def get_qr(name, proto):
     if not is_admin():
         return redirect("/self/login")
@@ -266,7 +241,7 @@ def get_qr(name, proto):
         return "Not found", 404
     return send_file(str(path), mimetype="image/png")
 
-@app.route("/user/<name>/expiry", methods=["POST"])
+@app.route("/self/user/<name>/expiry", methods=["POST"])
 def set_expiry(name):
     if not is_admin():
         return redirect("/self/login")
@@ -284,9 +259,9 @@ def set_expiry(name):
         flash("Expiry cleared", "ok")
     db.commit()
     db.close()
-    return redirect(request.referrer or url_for("index"))
+    return redirect(request.referrer or "/self/")
 
-@app.route("/user/<name>/toggle", methods=["POST"])
+@app.route("/self/user/<name>/toggle", methods=["POST"])
 def toggle_user(name):
     if not is_admin():
         return redirect("/self/login")
@@ -297,23 +272,23 @@ def toggle_user(name):
         db.execute("UPDATE users SET active = ? WHERE username = ?", (new, name))
         db.commit()
     db.close()
-    return redirect(request.referrer or url_for("index"))
+    return redirect(request.referrer or "/self/")
 
-@app.route("/user/<name>/password", methods=["POST"])
+@app.route("/self/user/<name>/password", methods=["POST"])
 def set_password(name):
     if not is_admin():
         return redirect("/self/login")
     pwd = request.form.get("password", "").strip()
     if not pwd:
         flash("Password cannot be empty", "error")
-        return redirect(request.referrer or url_for("index"))
+        return redirect(request.referrer or "/self/")
     db = get_db()
     db.execute("UPDATE users SET password_hash = ? WHERE username = ?",
                (generate_password_hash(pwd), name))
     db.commit()
     db.close()
     flash(f"Password set for {name}", "ok")
-    return redirect(request.referrer or url_for("index"))
+    return redirect(request.referrer or "/self/")
 
 # --- Self-service dashboard ---
 @app.route("/self/login", methods=["GET", "POST"])
@@ -454,14 +429,14 @@ def self_qr(proto, name=None):
 def self_api_traffic(name=None):
     return api_traffic(name)
 
-@app.route("/api/v1/users")
+@app.route("/self/api/v1/users")
 def api_users():
     db = get_db()
     rows = db.execute("SELECT username, created_at, expires_at, active, note FROM users ORDER BY username").fetchall()
     db.close()
     return json.dumps([dict(r) for r in rows], ensure_ascii=False, default=str)
 
-@app.route("/api/v1/traffic/totals")
+@app.route("/self/api/v1/traffic/totals")
 def api_traffic_totals():
     db = get_db()
     rows = db.execute(
@@ -470,8 +445,8 @@ def api_traffic_totals():
     db.close()
     return json.dumps([dict(r) for r in rows], default=str)
 
-@app.route("/api/v1/traffic")
-@app.route("/api/v1/traffic/<name>")
+@app.route("/self/api/v1/traffic")
+@app.route("/self/api/v1/traffic/<name>")
 def api_traffic(name=None):
     days = request.args.get("days", 30, type=int)
     db = get_db()
@@ -498,7 +473,7 @@ def api_traffic(name=None):
     db.close()
     return json.dumps([dict(r) for r in rows], default=str)
 
-@app.route("/api/v1/sub/<name>")
+@app.route("/self/api/v1/sub/<name>")
 def api_subscription(name):
     ua = (request.headers.get("User-Agent", "") or "").lower()
     base = BASE_DIR / name
@@ -529,7 +504,7 @@ def api_subscription(name):
     base_url = request.url_root.rstrip("/")
     standalone_path = base / f"{name}_mieru_standalone.json"
     if standalone_path.exists():
-        links.append(f"mieru config: {base_url}/user/{name}/config/mieru")
+        links.append(f"mieru config: {base_url}/self/user/{name}/config/mieru")
     payload = base64.b64encode("\n".join(links).encode()).decode()
 
     # All major clients (V2RayNG, NekoBox, Hiddify, Sing-box, Clash)

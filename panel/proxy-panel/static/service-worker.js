@@ -23,7 +23,7 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
-  if (event.request.url.includes('/self/api/') || event.request.url.includes('/panel/')) {
+  if (event.request.url.includes('/self/api/') ) {
     event.respondWith(fetch(event.request));
     return;
   }

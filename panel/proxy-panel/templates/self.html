@@ -259,7 +259,7 @@ async function loadTraffic() {
   const days = document.querySelector('.period-btn.active')?.dataset.days || '14';
   try {
     const fetchDays = days === '0' ? 0 : parseInt(days) * 2;
-    const url = '/panel/api/v1/traffic/' + encodeURIComponent(currentUser) + '?days=' + fetchDays;
+    const url = '/self/api/v1/traffic/' + encodeURIComponent(currentUser) + '?days=' + fetchDays;
     const res = await fetch(url);
     if (!res.ok) return;
     const data = await res.json();
@@ -344,7 +344,7 @@ document.querySelectorAll('.period-btn').forEach(btn => {
 loadTraffic();
 
 function copySub() {
-  const url = window.location.origin + '/panel/api/v1/sub/' + encodeURIComponent(currentUser);
+  const url = window.location.origin + '/self/api/v1/sub/' + encodeURIComponent(currentUser);
   navigator.clipboard.writeText(url).then(() => {
     const btn = event.target;
     btn.textContent = _('copied');

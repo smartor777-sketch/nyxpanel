@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NYX Panel — Guide</title>
+<style>
+  :root { --bg: #0c1a2d; --fg: #d4e5f7; --card: #132640; --border: #1e3a5f; --input-bg: #132640; --heading: #7dd3fc; --muted: #93c5fd; --accent: #38bdf8; --accent-hover: #0ea599; --danger: #f87171; --proto-yes: #34d399; --proto-no: #64748b; --status-active-bg: #064e3b; --status-active-fg: #34d399; --btn-active: #0ea599; --link: #7dd3fc; --link-hover: #93c5fd; --code-bg: #0c1a2d; --code-fg: #d4e5f7; --highlight: #c084fc; --h2-border: #1e3a5f; --btn-logout-bg: #1e293b; --btn-logout-fg: #94a3b8; --btn-logout-border: #334155; --btn-theme-bg: #1e293b; --btn-theme-fg: #94a3b8; --btn-theme-border: #334155; --btn-lang-bg: #1e293b; --btn-lang-fg: #94a3b8; --btn-lang-border: #334155; }
+  [data-theme="light"] { --bg: #eaf2fb; --fg: #1e3a5f; --card: #ffffff; --border: #c5ddf0; --input-bg: #dceaf7; --heading: #0358a8; --muted: #5a7fa0; --accent: #0284c7; --accent-hover: #0369a1; --danger: #dc2626; --proto-yes: #059669; --proto-no: #94a3b8; --status-active-bg: #ecfdf5; --status-active-fg: #059669; --btn-active: #0284c7; --link: #0358a8; --link-hover: #1e3a8a; --code-bg: #eaf2fb; --code-fg: #1e3a5f; --highlight: #7c3aed; --h2-border: #c5ddf0; --btn-logout-bg: #f1f5f9; --btn-logout-fg: #475569; --btn-logout-border: #cbd5e1; --btn-theme-bg: #f1f5f9; --btn-theme-fg: #475569; --btn-theme-border: #cbd5e1; --btn-lang-bg: #f1f5f9; --btn-lang-fg: #475569; --btn-lang-border: #cbd5e1; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--fg); padding: 2rem; }
+  .container { max-width: 800px; margin: 0 auto; }
+  .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 0.5rem; }
+  .header-bar h1 { color: var(--heading); margin-bottom: 0.2rem; }
+  .header-bar .subtitle { color: var(--muted); font-size: 0.9rem; }
+  .header-actions { display: flex; gap: 0.5rem; align-items: center; }
+  .lang-btn { background: var(--btn-lang-bg); color: var(--btn-lang-fg); border: 1px solid var(--btn-lang-border); padding: 0.2rem 0.5rem; font-size: 0.8rem; cursor: pointer; border-radius: 6px; font-weight: 600; }
+  .lang-btn:hover { filter: brightness(0.95); }
+  .theme-btn { background: var(--btn-theme-bg); color: var(--btn-theme-fg); border: 1px solid var(--btn-theme-border); padding: 0.3rem 0.6rem; font-size: 1rem; cursor: pointer; border-radius: 6px; }
+  .theme-btn:hover { filter: brightness(0.95); }
+  .back-btn { padding: 0.4rem 1rem; border-radius: 6px; border: 1px solid var(--btn-logout-border); background: var(--btn-logout-bg); color: var(--btn-logout-fg); font-size: 0.85rem; cursor: pointer; text-decoration: none; }
+  .back-btn:hover { filter: brightness(0.95); }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 2rem; margin-bottom: 1.5rem; }
+  .card h2 { color: var(--heading); font-size: 1.3rem; margin-top: 0; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--h2-border); }
+  .card h3 { color: var(--highlight); font-size: 1.1rem; margin: 1.5rem 0 0.5rem 0; }
+  .card p { margin: 0.75rem 0; line-height: 1.6; }
+  .card ul { margin: 0.5rem 0 0.5rem 1.5rem; }
+  .card li { margin: 0.4rem 0; line-height: 1.5; }
+  .card code { background: var(--code-bg); color: var(--code-fg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.9em; }
+  .card a { color: var(--link); text-decoration: none; }
+  .card a:hover { color: var(--link-hover); text-decoration: underline; }
+  .download-btn { display: inline-block; padding: 0.6rem 1.2rem; border-radius: 8px; background: var(--accent); color: #fff; font-weight: 600; text-decoration: none; margin: 0.5rem 0; }
+  .download-btn:hover { background: var(--accent-hover); text-decoration: none; color: #fff; }
+  .protocol-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin: 1rem 0; }
+  .protocol-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+  .protocol-card .name { font-weight: 600; color: var(--heading); margin-bottom: 0.3rem; }
+  .protocol-card .desc { font-size: 0.85rem; color: var(--muted); }
+  .tag { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.75rem; margin-right: 0.3rem; }
+  .tag-proxy { background: #064e3b; color: #34d399; }
+  .tag-vpn { background: #0c4a6e; color: #7dd3fc; }
+  .tag-important { background: #450a0a; color: #f87171; }
+  [data-theme="light"] .tag-proxy { background: #ecfdf5; color: #059669; }
+  [data-theme="light"] .tag-vpn { background: #e0f2fe; color: #0369a1; }
+  [data-theme="light"] .tag-important { background: #fef2f2; color: #dc2626; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+  .note { background: var(--status-active-bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem 1rem; margin: 1rem 0; font-size: 0.9rem; }
+  .note strong { color: var(--status-active-fg); }
+  .app-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin: 1rem 0; }
+  .app-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+  .app-card .app-name { font-weight: 600; color: var(--fg); margin-bottom: 0.3rem; }
+  .app-card .app-proto { font-size: 0.8rem; color: var(--muted); }
+.footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 1.5rem 0 0.5rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header-bar">
+    <div>
+      <h1 data-i18n="guideTitle">NYX Panel Guide</h1>
+      <div class="subtitle" data-i18n="guideSubtitle">User manual</div>
+    </div>
+    <div class="header-actions">
+      <button class="lang-btn" id="langBtn" onclick="toggleLang()"></button>
+      <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
+      <a href="javascript:history.back()" class="back-btn" data-i18n="back">← Back</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="s1Title">1. Getting Started</h2>
+    <p data-i18n="s1Intro">NYX Panel provides access to proxy and VPN configurations for the following protocols:</p>
+    <div class="protocol-grid">
+      <div class="protocol-card">
+        <div class="name">VLESS+XHTTP+REALITY</div>
+        <div class="desc"><span class="tag tag-proxy">Proxy</span> <span data-i18n="protoVlessDesc">Fast, modern proxy protocol</span></div>
+      </div>
+      <div class="protocol-card">
+        <div class="name">Hysteria 2</div>
+        <div class="desc"><span class="tag tag-proxy">Proxy</span> <span data-i18n="protoHy2Desc">High-speed UDP-based proxy</span></div>
+      </div>
+      <div class="protocol-card">
+        <div class="name">NaiveProxy</div>
+        <div class="desc"><span class="tag tag-proxy">Proxy</span> <span data-i18n="protoNaiveDesc">Chrome-based proxy for stability</span></div>
+      </div>
+      <div class="protocol-card">
+        <div class="name">AmneziaWG</div>
+        <div class="desc"><span class="tag tag-vpn">VPN</span> <span data-i18n="protoAwgDesc">Hardened WireGuard VPN</span></div>
+      </div>
+      <div class="protocol-card">
+        <div class="name">Mieru</div>
+        <div class="desc"><span class="tag tag-proxy">Proxy</span> <span data-i18n="protoMieruDesc">Lightweight proxy protocol</span></div>
+      </div>
+      <div class="protocol-card">
+        <div class="name">olcRTC</div>
+        <div class="desc"><span class="tag tag-proxy">Proxy</span> <span data-i18n="protoOlcrtcDesc">WebRTC-based — mobile only</span></div>
+      </div>
+    </div>
+
+    <p data-i18n="s1Formats">Each configuration is available in <strong>three formats</strong>:</p>
+    <ul>
+      <li data-i18n="s1Li1"><strong>Config file</strong> — download the configuration file (Config button)</li>
+      <li data-i18n="s1Li2"><strong>QR code</strong> — scan with your phone app (QR button)</li>
+      <li data-i18n="s1Li3"><strong>Subscription link</strong> — copy the URL and paste into your app; it will auto-load settings. Click <strong>"Copy URL"</strong> to copy the subscription link.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="s2Title">2. Protocol Usage</h2>
+
+    <h3>olcRTC</h3>
+    <p data-i18n="olcrtcDesc">Designed exclusively for <strong>mobile networks</strong> (4G/5G). <strong>Wi-Fi must be turned off</strong> for this protocol to work properly.</p>
+    <p data-i18n="olcrtcFallback">For exceptional cases where other protocols do not work, you can use the <strong>OlcboxME Windows application</strong> or the <strong>console utility</strong>.</p>
+
+    <h3>VLESS+XHTTP+REALITY</h3>
+    <p data-i18n="vlessDesc">This is the primary target for DPI blocking. It may sometimes fail to connect or hang. If you experience issues, try switching to another protocol.</p>
+
+    <h3 data-i18n="otherTitle">Other protocols</h3>
+    <p data-i18n="otherDesc">Hysteria 2, NaiveProxy, AmneziaWG, and Mieru work over standard internet connections (Wi-Fi, Ethernet).</p>
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="s3Title">3. Recommended Apps</h2>
+
+    <h3 data-i18n="androidTitle">Android</h3>
+    <div class="app-grid">
+      <div class="app-card">
+        <div class="app-name"><a href="{{ apk_url | default('#') }}">OlcboxME</a></div>
+        <div class="app-proto" data-i18n="appOlcrtc">olcRTC</div>
+      </div>
+      <div class="app-card">
+        <div class="app-name">Happ / Hiddify</div>
+        <div class="app-proto">VLESS, Hysteria 2, NaiveProxy</div>
+      </div>
+      <div class="app-card">
+        <div class="app-name">v2RayTun</div>
+        <div class="app-proto">VLESS, Hysteria 2, NaiveProxy</div>
+      </div>
+      <div class="app-card">
+        <div class="app-name">Exclave</div>
+        <div class="app-proto">VLESS, Hysteria 2, NaiveProxy</div>
+      </div>
+      <div class="app-card">
+        <div class="app-name">AmneziaWG</div>
+        <div class="app-proto" data-i18n="appAwg">AmneziaWG (VPN)</div>
+      </div>
+    </div>
+
+    <div class="note">
+      <strong data-i18n="noteTitle">OlcboxME for olcRTC:</strong><br>
+      <a href="{{ apk_url | default('#') }}" class="download-btn" data-i18n="downloadBtn">⬇ Download OlcboxME APK</a>
+    </div>
+
+    <h3 data-i18n="windowsTitle">Windows</h3>
+    <div class="app-grid">
+      <div class="app-card">
+        <div class="app-name">Happ / Hiddify / NekoBox / v2RayTun</div>
+        <div class="app-proto">VLESS, Hysteria 2, NaiveProxy</div>
+      </div>
+      <div class="app-card">
+        <div class="app-name">AmneziaWG</div>
+        <div class="app-proto" data-i18n="appAwg">AmneziaWG (VPN)</div>
+      </div>
+      <div class="app-card">
+        <div class="app-name">NekoBox</div>
+        <div class="app-proto" data-i18n="appNekoProto">Mieru (manual parameter entry)</div>
+      </div>
+      <div class="app-card">
+        <div class="app-name"><a href="/static/OlcboxME-1.0.1.exe">OlcboxME</a></div>
+        <div class="app-proto" data-i18n="appOlcrtc">olcRTC</div>
+      </div>
+      <div class="app-card">
+        <div class="app-name"><a href="/self/olcrtc-windows">olcrtc-windows-amd64.exe</a></div>
+        <div class="app-proto" data-i18n="appOlcrtcWin">olcRTC (console SOCKS5)</div>
+      </div>
+    </div>
+
+    <p data-i18n="olcrtcWindows">For olcRTC on Windows, a console SOCKS5 client (<code>olcrtc-windows-amd64.exe</code>) is available — <a href="/self/olcrtc-windows">download and setup instructions</a>.</p>
+  </div>
+
+  <hr>
+
+  <p style="text-align:center;color:var(--muted);font-size:0.85rem">
+    NYX Panel — <a href="javascript:history.back()" data-i18n="footerBack">Back to Dashboard</a>
+  </p>
+</div>
+
+<script>
+const themeKey = 'nyx_theme';
+const langKey = 'nyx_lang';
+function getTheme() { return localStorage.getItem(themeKey) || 'dark'; }
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem(themeKey, t);
+  document.getElementById('themeBtn').textContent = t === 'dark' ? '\u{1F319}' : '\u{2600}\u{FE0F}';
+}
+function toggleTheme() { setTheme(getTheme() === 'dark' ? 'light' : 'dark'); }
+
+const _t = {
+  ru: {
+    guideTitle: 'NYX Panel — Гайд', guideSubtitle: 'Руководство пользователя', back: '← Назад',
+    s1Title: '1. Начало работы',
+    s1Intro: 'NYX Panel предоставляет доступ к прокси и VPN конфигурациям для следующих протоколов:',
+    protoVlessDesc: 'Быстрый, современный прокси-протокол',
+    protoHy2Desc: 'Высокоскоростной UDP-прокси',
+    protoNaiveDesc: 'Прокси на основе Chrome для стабильности',
+    protoAwgDesc: 'Усиленный WireGuard VPN',
+    protoMieruDesc: 'Лёгкий прокси-протокол',
+    protoOlcrtcDesc: 'На основе WebRTC — только мобильные устройства',
+    s1Formats: 'Каждая конфигурация доступна в <strong>трёх форматах</strong>:',
+    s1Li1: '<strong>Файл конфигурации</strong> — скачайте файл (кнопка Config)',
+    s1Li2: '<strong>QR-код</strong> — отсканируйте приложением (кнопка QR)',
+    s1Li3: '<strong>Ссылка подписки</strong> — скопируйте URL и вставьте в приложение; настройки подгрузятся автоматически. Нажмите <strong>"Скопировать URL"</strong> чтобы скопировать ссылку.',
+    s2Title: '2. Использование протоколов',
+    olcrtcDesc: 'Разработан исключительно для <strong>мобильных сетей</strong> (4G/5G). <strong>Wi-Fi должен быть выключен</strong> для корректной работы этого протокола.',
+    vlessDesc: 'Это основная цель DPI-блокировок. Иногда может не подключаться или зависать. Если возникли проблемы, попробуйте переключиться на другой протокол.',
+    otherTitle: 'Другие протоколы',
+    otherDesc: 'Hysteria 2, NaiveProxy, AmneziaWG и Mieru работают через стандартные интернет-подключения (Wi-Fi, Ethernet).',
+    s3Title: '3. Рекомендуемые приложения',
+    androidTitle: 'Android',
+    windowsTitle: 'Windows',
+    appOlcrtc: 'olcRTC',
+    appAwg: 'AmneziaWG (VPN)',
+    appNekoProto: 'Mieru (ручной ввод параметров)',
+    noteTitle: 'OlcboxME для olcRTC:',
+    downloadBtn: '⬇ Скачать OlcboxME APK',
+    olcrtcFallback: 'Для <strong>исключительных случаев</strong>, если у Вас не работают остальные протоколы, Вы можете использовать <strong>приложение OlcboxME для Windows</strong> или <strong>консольную утилиту</strong>.',
+    appOlcrtcWin: 'olcRTC (консольный SOCKS5)',
+    olcrtcWindows: 'Для olcRTC на Windows доступен консольный SOCKS5-клиент (<code>olcrtc-windows-amd64.exe</code>) — <a href="/self/olcrtc-windows">скачать и инструкция</a>.',
+    footerBack: 'На главную'
+  },
+  en: {
+    guideTitle: 'NYX Panel Guide', guideSubtitle: 'User manual', back: '← Back',
+    s1Title: '1. Getting Started',
+    s1Intro: 'NYX Panel provides access to proxy and VPN configurations for the following protocols:',
+    protoVlessDesc: 'Fast, modern proxy protocol',
+    protoHy2Desc: 'High-speed UDP-based proxy',
+    protoNaiveDesc: 'Chrome-based proxy for stability',
+    protoAwgDesc: 'Hardened WireGuard VPN',
+    protoMieruDesc: 'Lightweight proxy protocol',
+    protoOlcrtcDesc: 'WebRTC-based — mobile only',
+    s1Formats: 'Each configuration is available in <strong>three formats</strong>:',
+    s1Li1: '<strong>Config file</strong> — download the configuration file (Config button)',
+    s1Li2: '<strong>QR code</strong> — scan with your phone app (QR button)',
+    s1Li3: '<strong>Subscription link</strong> — copy the URL and paste into your app; it will auto-load settings. Click <strong>"Copy URL"</strong> to copy the subscription link.',
+    s2Title: '2. Protocol Usage',
+    olcrtcDesc: 'Designed exclusively for <strong>mobile networks</strong> (4G/5G). <strong>Wi-Fi must be turned off</strong> for this protocol to work properly.',
+    vlessDesc: 'This is the primary target for DPI blocking. It may sometimes fail to connect or hang. If you experience issues, try switching to another protocol.',
+    otherTitle: 'Other protocols',
+    otherDesc: 'Hysteria 2, NaiveProxy, AmneziaWG, and Mieru work over standard internet connections (Wi-Fi, Ethernet).',
+    s3Title: '3. Recommended Apps',
+    androidTitle: 'Android',
+    windowsTitle: 'Windows',
+    appOlcrtc: 'olcRTC',
+    appAwg: 'AmneziaWG (VPN)',
+    appNekoProto: 'Mieru (manual parameter entry)',
+    noteTitle: 'OlcboxME for olcRTC:',
+    downloadBtn: '⬇ Download OlcboxME APK',
+    olcrtcFallback: 'For exceptional cases where other protocols do not work, you can use the <strong>OlcboxME Windows application</strong> or the <strong>console utility</strong>.',
+    appOlcrtcWin: 'olcRTC (console SOCKS5)',
+    olcrtcWindows: 'For olcRTC on Windows, a console SOCKS5 client (<code>olcrtc-windows-amd64.exe</code>) is available — <a href="/self/olcrtc-windows">download and setup instructions</a>.',
+    footerBack: 'Back to Dashboard'
+  }
+};
+function getLang() { return localStorage.getItem(langKey) || 'ru'; }
+function setLang(l) { localStorage.setItem(langKey, l); document.getElementById('langBtn').textContent = l==='ru' ? 'EN' : 'RU'; applyLang(); }
+function toggleLang() { setLang(getLang()==='ru' ? 'en' : 'ru'); }
+function _(k) { const v = _t[getLang()][k]; return v !== undefined ? v : k; }
+function applyLang() {
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = _(el.dataset.i18n); });
+}
+setTheme(getTheme());
+setLang(getLang());
+</script>
+<div class="footer">
+  &copy; 2026 Merlin.<br>
+  <em>Crafting Dreams &amp; Magic</em>
+</div>
+</body>
+</html>

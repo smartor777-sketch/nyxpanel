@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NYX Panel тАФ Admin</title>
+<script src="/static/chart.js"></script>
+<style>
+  :root { --bg: #0c1a2d; --fg: #d4e5f7; --card: #132640; --border: #1e3a5f; --input-bg: #132640; --heading: #7dd3fc; --muted: #93c5fd; --accent: #38bdf8; --accent-hover: #0ea599; --danger: #f87171; --danger-hover: #ef4444; --proto-yes: #34d399; --proto-no: #64748b; --user-name: #7dd3fc; --user-disabled: #475569; --status-active-bg: #064e3b; --status-active-fg: #34d399; --status-expired-bg: #450a0a; --status-expired-fg: #f87171; --flash-ok-bg: #064e3b; --flash-ok-border: #059669; --flash-ok-fg: #34d399; --flash-err-bg: #450a0a; --flash-err-border: #dc2626; --flash-err-fg: #f87171; --btn-active: #0ea599; --dropdown-bg: #132640; --dropdown-hover: #1e3a5f; --chart-grid: #132640; --chart-up: #7dd3fc; --chart-down: #34d399; --btn-add-bg: #1e3a5f; --btn-add-fg: #93c5fd; --btn-add-border: #2563eb; --btn-toggle-on-bg: #0c4a6e; --btn-toggle-on-fg: #7dd3fc; --btn-toggle-on-border: #38bdf8; --btn-toggle-off-bg: #1e293b; --btn-toggle-off-fg: #93c5fd; --btn-toggle-off-border: #334155; --btn-del-bg: #450a0a; --btn-del-fg: #fca5a5; --btn-del-border: #dc2626; --btn-off-bg: #1e293b; --btn-off-fg: #94a3b8; --btn-off-border: #334155; --btn-export-bg: #1e293b; --btn-export-fg: #93c5fd; --btn-export-border: #334155; --btn-set-bg: #1e293b; --btn-set-fg: #93c5fd; --btn-set-border: #334155; --btn-secondary-bg: #1e3a5f; --btn-secondary-fg: #93c5fd; --btn-secondary-border: #2563eb; --btn-logout-bg: #1e293b; --btn-logout-fg: #94a3b8; --btn-logout-border: #334155; --btn-theme-bg: #1e293b; --btn-theme-fg: #94a3b8; --btn-theme-border: #334155; --btn-period-bg: #1e293b; --btn-period-fg: #93c5fd; --btn-period-border: #334155; --btn-period-active-bg: #6366f1; --btn-lang-bg: #1e293b; --btn-lang-fg: #94a3b8; --btn-lang-border: #334155; }
+  [data-theme="light"] { --bg: #eaf2fb; --fg: #1e3a5f; --card: #ffffff; --border: #c5ddf0; --input-bg: #dceaf7; --heading: #0358a8; --muted: #5a7fa0; --accent: #0284c7; --accent-hover: #0369a1; --danger: #dc2626; --danger-hover: #b91c1c; --proto-yes: #059669; --proto-no: #94a3b8; --user-name: #0358a8; --user-disabled: #94a3b8; --status-active-bg: #ecfdf5; --status-active-fg: #059669; --status-expired-bg: #fef2f2; --status-expired-fg: #dc2626; --flash-ok-bg: #ecfdf5; --flash-ok-border: #6ee7b7; --flash-ok-fg: #047857; --flash-err-bg: #fef2f2; --flash-err-border: #fca5a5; --flash-err-fg: #dc2626; --btn-active: #0284c7; --dropdown-bg: #ffffff; --dropdown-hover: #f0f7ff; --chart-grid: #c5ddf0; --chart-up: #0284c7; --chart-down: #059669; --btn-add-bg: #dbeafe; --btn-add-fg: #1e40af; --btn-add-border: #93c5fd; --btn-toggle-on-bg: #bae6fd; --btn-toggle-on-fg: #0369a1; --btn-toggle-on-border: #7dd3fc; --btn-toggle-off-bg: #e0e7ff; --btn-toggle-off-fg: #3730a3; --btn-toggle-off-border: #a5b4fc; --btn-del-bg: #fee2e2; --btn-del-fg: #991b1b; --btn-del-border: #fca5a5; --btn-off-bg: #f1f5f9; --btn-off-fg: #475569; --btn-off-border: #cbd5e1; --btn-export-bg: #e0e7ff; --btn-export-fg: #3730a3; --btn-export-border: #a5b4fc; --btn-set-bg: #e0e7ff; --btn-set-fg: #3730a3; --btn-set-border: #a5b4fc; --btn-secondary-bg: #e8eef6; --btn-secondary-fg: #334155; --btn-secondary-border: #b8c9dc; --btn-logout-bg: #f1f5f9; --btn-logout-fg: #475569; --btn-logout-border: #cbd5e1; --btn-theme-bg: #f1f5f9; --btn-theme-fg: #475569; --btn-theme-border: #cbd5e1; --btn-period-bg: #e0e7ff; --btn-period-fg: #3730a3; --btn-period-border: #a5b4fc; --btn-period-active-bg: #6366f1; --btn-lang-bg: #f1f5f9; --btn-lang-fg: #475569; --btn-lang-border: #cbd5e1; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--fg); padding: 2rem; }
+  .container { max-width: 1200px; margin: 0 auto; }
+  h1 { color: var(--heading); margin-bottom: 0.2rem; }
+  .subtitle { color: var(--muted); margin-bottom: 1.5rem; font-size: 0.9rem; }
+  h2 { color: var(--muted); margin: 1rem 0; font-size: 1.2rem; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; }
+  .flash { padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; }
+  .flash.ok { background: var(--flash-ok-bg); border: 1px solid var(--flash-ok-border); color: var(--flash-ok-fg); }
+  .flash.error { background: var(--flash-err-bg); border: 1px solid var(--flash-err-border); color: var(--flash-err-fg); }
+  form { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+  input, select, button { padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid var(--border); background: var(--input-bg); color: var(--fg); font-size: 0.9rem; }
+  input:focus { outline: none; border-color: var(--heading); }
+  button { cursor: pointer; background: var(--btn-add-bg); color: var(--btn-add-fg); border: 1px solid var(--btn-add-border); font-weight: 600; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.9rem; }
+  button:hover { filter: brightness(0.95); }
+  button.danger { background: var(--btn-del-bg); color: var(--btn-del-fg); border-color: var(--btn-del-border); }
+  button.danger:hover { filter: brightness(0.95); }
+  button.small { padding: 0.25rem 0.6rem; font-size: 0.78rem; border-radius: 5px; }
+  button.small.toggle-on { background: var(--btn-toggle-on-bg); color: var(--btn-toggle-on-fg); border-color: var(--btn-toggle-on-border); }
+  button.small.toggle-off { background: var(--btn-toggle-off-bg); color: var(--btn-toggle-off-fg); border-color: var(--btn-toggle-off-border); }
+  button.small.off-btn { background: var(--btn-off-bg); color: var(--btn-off-fg); border-color: var(--btn-off-border); }
+  button.secondary { background: var(--btn-secondary-bg); color: var(--btn-secondary-fg); border-color: var(--btn-secondary-border); }
+  button.secondary:hover { filter: brightness(0.95); }
+  button.export-btn { background: var(--btn-export-bg); color: var(--btn-export-fg); border-color: var(--btn-export-border); }
+  button.set-btn { background: var(--btn-set-bg); color: var(--btn-set-fg); border-color: var(--btn-set-border); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { text-align: left; padding: 0.5rem 0.4rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; }
+  .user-name { font-weight: 600; color: var(--user-name); }
+  .user-inactive .user-name { color: var(--user-disabled); }
+  .proto-yes { color: var(--proto-yes); }
+  .proto-no { color: var(--proto-no); }
+  .actions { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+  .actions form { display: inline; }
+  .expiry-input { width: 110px; padding: 0.25rem 0.5rem; font-size: 0.8rem; }
+  .status-badge { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.75rem; }
+  .status-active { background: var(--status-active-bg); color: var(--status-active-fg); }
+  .status-expired { background: var(--status-expired-bg); color: var(--status-expired-fg); }
+  .chart-container { max-width: 600px; margin: 1rem 0; }
+  .header-bar { display: flex; justify-content: space-between; align-items: center; }
+  .btn-logout { background: var(--btn-logout-bg); color: var(--btn-logout-fg); border: 1px solid var(--btn-logout-border); padding: 0.4rem 1rem; border-radius: 6px; font-size: 0.85rem; cursor: pointer; text-decoration: none; }
+  .btn-logout:hover { filter: brightness(0.95); }
+  .lang-btn { background: var(--btn-lang-bg); color: var(--btn-lang-fg); border: 1px solid var(--btn-lang-border); padding: 0.2rem 0.5rem; font-size: 0.8rem; cursor: pointer; border-radius: 6px; font-weight: 600; }
+  .lang-btn:hover { filter: brightness(0.95); }
+  .theme-btn { background: var(--btn-theme-bg); color: var(--btn-theme-fg); border: 1px solid var(--btn-theme-border); padding: 0.3rem 0.6rem; font-size: 1rem; cursor: pointer; border-radius: 6px; }
+  .theme-btn:hover { filter: brightness(0.95); }
+  .header-actions { display: flex; gap: 0.5rem; align-items: center; }
+.footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 1.5rem 0 0.5rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header-bar">
+    <div>
+      <h1>NYX Panel <span style="font-size:0.6rem;color:var(--muted);font-weight:normal">v{{ version }}</span></h1>
+      <div class="subtitle"><span data-i18n="admin">Admin</span>: {{ admin_name }}</div>
+    </div>
+    <div class="header-actions">
+      <a href="/self/manual" class="btn-logout" data-i18n="guide">Guide</a>
+      <button class="lang-btn" id="langBtn" onclick="toggleLang()"></button>
+      <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">ЁЯМЩ</button>
+      <a href="/self/logout" class="btn-logout" data-i18n="signOut">Sign Out</a>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, msg in messages %}
+        <div class="flash {{ category }}">{{ msg }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="card">
+    <h2 data-i18n="addUser">Add User</h2>
+    <form method="POST" action="/panel/user/add">
+      <input name="username" data-i18n-placeholder="usernamePH" placeholder="Username" pattern="[a-zA-Z0-9_-]+" required>
+      <button type="submit" data-i18n="add">Add</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2><span data-i18n="users">Users</span> <span id="userCount" style="color:var(--muted);font-size:0.9rem;font-weight:normal"></span></h2>
+    {% if users %}
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+      <select id="perPage" style="padding:0.25rem 0.5rem;border-radius:4px;border:1px solid var(--border);background:var(--input-bg);color:var(--fg);font-size:0.8rem">
+        <option value="10" data-i18n="perPage10">10 per page</option>
+        <option value="25" data-i18n="perPage25">25 per page</option>
+        <option value="50" data-i18n="perPage50">50 per page</option>
+      </select>
+      <div id="pagination" class="pagination"></div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th data-i18n="userCol">User</th>
+          <th data-i18n="statusCol">Status</th>
+          {% for key, name, _, _ in protocols %}
+            <th>{{ name.split('+')[0] }}</th>
+          {% endfor %}
+          <th data-i18n="expiryCol">Expiry</th>
+          <th data-i18n="passCol">Pass</th>
+          <th data-i18n="actCol">Act.</th>
+          <th data-i18n="exportCol">Export</th>
+        </tr>
+      </thead>
+      <tbody id="userTableBody">
+      </tbody>
+    </table>
+    <div style="display:flex;justify-content:center;margin-top:0.5rem">
+      <div id="paginationBottom" class="pagination"></div>
+    </div>
+    {% else %}
+      <p style="color:var(--muted);" data-i18n="noUsers">No users yet</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="traffic">Traffic</h2>
+        <p style="font-size:0.78rem;color:var(--muted);margin-bottom:0.8rem" data-i18n="trafficNote">Считается трафик: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG.</p>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center">
+      <select id="userSelect" style="padding:0.4rem 0.8rem;border-radius:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--fg)">
+        <option value="" data-i18n="allUsers">All Users</option>
+        {% for u in users %}
+        <option value="{{ u.name }}">{{ u.name }}</option>
+        {% endfor %}
+      </select>
+      <div class="btn-group" style="display:flex;gap:2px">
+        <button class="small period-btn active" data-days="2" data-i18n="today">Today</button>
+        <button class="small period-btn" data-days="14" data-i18n="week">Week</button>
+        <button class="small period-btn" data-days="60" data-i18n="month">Month</button>
+        <button class="small period-btn" data-days="0" data-i18n="all">All</button>
+      </div>
+    </div>
+    <div class="chart-container">
+      <canvas id="trafficChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<style>
+  .btn-group .period-btn { border-radius: 0; border-right: 1px solid var(--btn-period-border); background: var(--btn-period-bg); color: var(--btn-period-fg); }
+  .btn-group .period-btn:first-child { border-radius: 6px 0 0 6px; }
+  .btn-group .period-btn:last-child { border-radius: 0 6px 6px 0; border-right: none; }
+  .btn-group .period-btn.active { background: var(--btn-period-active-bg); border-color: var(--btn-period-active-bg); color: #fff; }
+  .btn-group .period-btn:hover { filter: brightness(0.95); }
+  .pagination { display:flex;gap:2px;flex-wrap:wrap; }
+  .pagination button { padding:0.2rem 0.5rem;border-radius:4px;border:1px solid var(--border);background:var(--input-bg);color:var(--fg);font-size:0.75rem;cursor:pointer; }
+  .pagination button:hover { background:var(--border); }
+  .pagination button.active { background:var(--btn-active);border-color:var(--btn-active);color:#fff; }
+  .pagination button:disabled { opacity:0.4;cursor:default; }
+  .dropdown { position:relative; display:inline-block; }
+  .dropdown-menu { position:absolute; right:0; top:100%; z-index:100; background:var(--dropdown-bg); border:1px solid var(--border); border-radius:8px; min-width:200px; padding:0.25rem 0; box-shadow:0 8px 24px rgba(0,0,0,0.4); }
+  .dropdown-item { display:block; padding:0.4rem 1rem; color:var(--fg); text-decoration:none; font-size:0.8rem; white-space:nowrap; }
+  .dropdown-item:hover { background:var(--dropdown-hover); }
+  .dropdown-divider { border-top:1px solid var(--border); margin:0.25rem 0; }
+.footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 1.5rem 0 0.5rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+</style>
+
+<script>
+const themeKey = 'nyx_theme';
+const langKey = 'nyx_lang';
+function getTheme() { return localStorage.getItem(themeKey) || 'dark'; }
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem(themeKey, t);
+  document.getElementById('themeBtn').textContent = t === 'dark' ? '\u{1F319}' : '\u{2600}\u{FE0F}';
+  if (trafficChart) {
+    trafficChart.data.datasets[0].backgroundColor = cssVar('--chart-up');
+    trafficChart.data.datasets[1].backgroundColor = cssVar('--chart-down');
+    trafficChart.options.plugins.legend.labels.color = cssVar('--muted');
+    trafficChart.options.scales.x.ticks.color = cssVar('--muted');
+    trafficChart.options.scales.y.ticks.color = cssVar('--muted');
+    trafficChart.options.scales.x.grid.color = cssVar('--chart-grid');
+    trafficChart.options.scales.y.grid.color = cssVar('--chart-grid');
+    trafficChart.update();
+  }
+}
+function toggleTheme() { setTheme(getTheme() === 'dark' ? 'light' : 'dark'); }
+
+const _t = {
+  ru: {
+    guide: 'Гайд', signOut: 'Выйти', admin: 'Админ',
+    addUser: 'Добавить пользователя', usernamePH: 'Имя пользователя', add: 'Добавить',
+    users: 'Пользователи', userCol: 'Пользователь', statusCol: 'Статус',
+    expiryCol: 'Срок', passCol: 'Пароль', actCol: 'Действ.', exportCol: 'Экспорт',
+    noUsers: 'Пользователей пока нет',
+    perPage10: '10 на стр.', perPage25: '25 на стр.', perPage50: '50 на стр.',
+    traffic: 'Трафик', trafficNote: 'Считается трафик: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG.', allUsers: 'Все пользователи',
+    today: 'Сегодня', week: 'Неделя', month: 'Месяц', all: 'Всё',
+    upload: 'Загрузка', download: 'Скачивание', total: 'Всего',
+    active: 'активен', disabled: 'отключён', set: 'задать',
+    off: 'выкл', on: 'вкл', del: 'удл', export_: 'Экспорт',
+    copySubUrl: 'Скопировать URL подписки', copied: '\u2705 Скопировано!',
+    confirmRemove: 'Удалить', confirmFrom: 'у', confirmSetPwd: 'Установить пароль для входа для',
+    confirmDelUser: 'Удалить пользователя', perPage: 'на стр.',
+    totalEnd: 'всего',
+    config: 'Config', configs: 'Конфигурации', subscription: 'Подписка',
+    noConfigs: 'Нет доступных конфигураций', copyUrl: '\u{1F517} Скопировать URL',
+    expires: 'Истекает', noExpiry: 'Без срока', limit: 'Лимит',
+    totalTraffic: 'Всего трафика', support: 'Поддержка', usage: 'Использование',
+    currentPeriod: 'Текущий', prevPeriod: 'Прошлый'
+  },
+  en: {
+    guide: 'Guide', signOut: 'Sign Out', admin: 'Admin',
+    addUser: 'Add User', usernamePH: 'Username', add: 'Add',
+    users: 'Users', userCol: 'User', statusCol: 'Status',
+    expiryCol: 'Expiry', passCol: 'Pass', actCol: 'Act.', exportCol: 'Export',
+    noUsers: 'No users yet',
+    perPage10: '10 per page', perPage25: '25 per page', perPage50: '50 per page',
+    traffic: 'Traffic', trafficNote: 'Traffic is tracked for: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG.', allUsers: 'All Users',
+    today: 'Today', week: 'Week', month: 'Month', all: 'All',
+    upload: 'Upload', download: 'Download', total: 'Total',
+    active: 'active', disabled: 'disabled', set: 'set',
+    off: 'off', on: 'on', del: 'del', export_: 'Export',
+    copySubUrl: 'Copy Subscription URL', copied: '\u2705 Copied!',
+    confirmRemove: 'Remove', confirmFrom: 'from', confirmSetPwd: 'Set dashboard password for',
+    confirmDelUser: 'Delete user', perPage: 'per page',
+    totalEnd: 'total',
+    currentPeriod: 'Current', prevPeriod: 'Previous'
+  }
+};
+function getLang() { return localStorage.getItem(langKey) || 'ru'; }
+function setLang(l) { localStorage.setItem(langKey, l); document.getElementById('langBtn').textContent = l==='ru' ? 'EN' : 'RU'; applyLang(); if (typeof renderUsers === 'function') renderUsers(); }
+function toggleLang() { setLang(getLang()==='ru' ? 'en' : 'ru'); }
+function _(k) { const v = _t[getLang()][k]; return v !== undefined ? v : k; }
+function applyLang() {
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = _(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { el.placeholder = _(el.dataset.i18nPlaceholder); });
+  document.querySelectorAll('[data-i18n-value]').forEach(el => { el.value = _(el.dataset.i18nValue); });
+}
+
+const usersData = {{ users | tojson }};
+const PER_PAGE_KEY = 'nyx_per_page';
+let currentPage = 1;
+let perPage = parseInt(localStorage.getItem(PER_PAGE_KEY)) || 10;
+const fmtBytes = v => v >= 1073741824 ? (v/1073741824).toFixed(1)+' GB' : v >= 1048576 ? (v/1048576).toFixed(1)+' MB' : (v/1024).toFixed(1)+' KB';
+
+let trafficChart = null;
+setTheme(getTheme());
+setLang(getLang());
+
+function renderUsers() {
+  const start = (currentPage - 1) * perPage;
+  const end = Math.min(start + perPage, usersData.length);
+  const pageUsers = usersData.slice(start, end);
+  const totalPages = Math.ceil(usersData.length / perPage) || 1;
+
+  document.getElementById('userCount').textContent = '(' + usersData.length + ' ' + _('totalEnd') + ')';
+  document.getElementById('perPage').value = perPage;
+
+  const tbody = document.getElementById('userTableBody');
+  tbody.innerHTML = pageUsers.map((u, i) => {
+    const idx = start + i + 1;
+    const protoHTML = {{ protocols | tojson }}.map(p => {
+      const key = p[0];
+      const active = u.protocols[key];
+      return '<td>' + (active ? '<span class="proto-yes">+</span>' : '<span class="proto-no">-</span>') + '</td>';
+    }).join('');
+
+    const protocolsList = {{ protocols | tojson }};
+    const actions = protocolsList.map(p => {
+      const key = p[0], pname = p[1];
+      if (u.protocols[key]) {
+        return '<form method="POST" action="/panel/user/' + u.name + '/protocol/' + key + '/delete" onsubmit="return confirm(\'' + _('confirmRemove') + ' ' + pname + ' ' + _('confirmFrom') + ' ' + u.name + '?\')" style="display:inline">' +
+          '<button class="small toggle-off" title="' + _('confirmRemove') + '">-' + pname.slice(0,4) + '</button></form>';
+      }
+      return '<form method="POST" action="/panel/user/' + u.name + '/protocol/' + key + '/add" style="display:inline">' +
+        '<button class="small toggle-on" title="' + _('add') + '">+' + pname.slice(0,4) + '</button></form>';
+    }).join('');
+
+    const exportItems = protocolsList.filter(p => u.protocols[p[0]]).map(p => {
+      const key = p[0], pname = p[1];
+      return '<a href="/panel/user/' + u.name + '/config/' + key + '" class="dropdown-item">\u{1F4C4} ' + pname + '</a>' +
+        '<a href="/panel/user/' + u.name + '/qr/' + key + '" target="_blank" class="dropdown-item">\u{1F4F1} ' + pname + ' QR</a>';
+    }).join('');
+    const hasExport = exportItems.length > 0;
+
+    return '<tr class="' + (!u.active ? 'user-inactive' : '') + '">' +
+      '<td style="color:var(--muted);font-size:0.8rem">' + idx + '</td>' +
+      '<td class="user-name">' + u.name + '</td>' +
+      '<td>' + (!u.active ? '<span class="status-badge status-expired">' + _('disabled') + '</span>' : '<span class="status-badge status-active">' + _('active') + '</span>') + '</td>' +
+      protoHTML +
+      '<td><form method="POST" action="/panel/user/' + u.name + '/expiry" style="display:flex;gap:2px">' +
+        '<input class="expiry-input" name="expires" type="date" value="' + (u.expires_at ? u.expires_at.slice(0,10) : '') + '" placeholder="never">' +
+        '<button class="small set-btn" type="submit">' + _('set') + '</button></form></td>' +
+      '<td><form method="POST" action="/panel/user/' + u.name + '/password" style="display:flex;gap:2px" onsubmit="return confirm(\'' + _('confirmSetPwd') + ' ' + u.name + '?\')">' +
+        '<input class="expiry-input" name="password" type="text" placeholder="set pwd">' +
+        '<button class="small set-btn" type="submit">' + _('set') + '</button></form></td>' +
+      '<td class="actions">' + actions +
+        '<form method="POST" action="/panel/user/' + u.name + '/toggle" style="display:inline">' +
+          '<button class="small off-btn" title="' + (u.active ? _('off') : _('on')) + '">' + (u.active ? _('off') : _('on')) + '</button></form>' +
+        '<form method="POST" action="/panel/user/' + u.name + '/delete" onsubmit="return confirm(\'' + _('confirmDelUser') + ' ' + u.name + '?\')" style="display:inline">' +
+          '<button class="small danger">' + _('del') + '</button></form>' +
+      '</td>' +
+      '<td>' + (hasExport ? '<div class="dropdown"><button class="small export-btn" onclick="toggleDropdown(event, \'dd-' + u.name + '\')">\u{25BE} ' + _('export_') + '</button><div id="dd-' + u.name + '" class="dropdown-menu" style="display:none">' +
+        '<a href="#" onclick="copySub(\'' + u.name + '\');return false" class="dropdown-item">\u{1F517} ' + _('copySubUrl') + '</a>' +
+        '<div class="dropdown-divider"></div>' + exportItems + '</div></div>' : '') +
+      '</td></tr>';
+  }).join('');
+
+  renderPagination(totalPages, currentPage);
+}
+
+function renderPagination(totalPages, page) {
+  const render = containerId => {
+    const el = document.getElementById(containerId);
+    let html = '<button ' + (page <= 1 ? 'disabled' : '') + ' onclick="goPage(' + (page-1) + ')">\u2039</button>';
+    for (let i = 1; i <= totalPages; i++) {
+      if (i === 1 || i === totalPages || Math.abs(i - page) <= 2) {
+        html += '<button class="' + (i === page ? 'active' : '') + '" onclick="goPage(' + i + ')">' + i + '</button>';
+      } else if (html.slice(-8) !== '...\u00a0\end') {
+        html += '<button disabled>\u2026</button>';
+      }
+    }
+    html += '<button ' + (page >= totalPages ? 'disabled' : '') + ' onclick="goPage(' + (page+1) + ')">\u203A</button>';
+    el.innerHTML = html;
+  };
+  render('pagination');
+  render('paginationBottom');
+}
+
+function goPage(p) {
+  currentPage = p;
+  renderUsers();
+}
+
+document.getElementById('perPage').addEventListener('change', function() {
+  perPage = parseInt(this.value);
+  localStorage.setItem(PER_PAGE_KEY, perPage);
+  currentPage = 1;
+  renderUsers();
+});
+
+renderUsers();
+
+function toggleDropdown(e, id) {
+  e.stopPropagation();
+  const menu = document.getElementById(id);
+  const isVisible = menu.style.display === 'block';
+  document.querySelectorAll('.dropdown-menu').forEach(m => m.style.display = 'none');
+  menu.style.display = isVisible ? 'none' : 'block';
+}
+document.addEventListener('click', () => {
+  document.querySelectorAll('.dropdown-menu').forEach(m => m.style.display = 'none');
+});
+
+function copySub(name) {
+  const url = window.location.origin + '/panel/api/v1/sub/' + encodeURIComponent(name);
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = event.target;
+    btn.textContent = _('copied');
+    setTimeout(() => { btn.textContent = _('copySubUrl'); }, 2000);
+  }).catch(() => {
+    prompt('Copy this URL:', url);
+  });
+}
+
+async function loadTraffic() {
+  const user = document.getElementById('userSelect').value;
+  const reqDays = document.querySelector('.period-btn.active')?.dataset.days || '14';
+  try {
+    const fetchDays = reqDays === '0' ? 0 : parseInt(reqDays) * 2;
+    const url = user
+      ? '/self/api/traffic/' + encodeURIComponent(user) + '?days=' + fetchDays
+      : '/self/api/traffic?days=' + fetchDays;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (trafficChart) trafficChart.destroy();
+
+    const allDates = [...new Set(data.map(d => d.date))].sort();
+
+    if (reqDays === '0') {
+      var totalUp = data.reduce((s, d) => s + d.bytes_up, 0);
+      var totalDown = data.reduce((s, d) => s + d.bytes_down, 0);
+      var label = allDates.length > 0 ? allDates[0].slice(5) + ' \u2014 ' + allDates[allDates.length-1].slice(5) : _('total');
+      trafficChart = new Chart(document.getElementById('trafficChart'), {
+        type: 'bar',
+        data: {
+          labels: [label],
+          datasets: [
+            { label: _('upload'), data: [totalUp], backgroundColor: cssVar('--chart-up'), borderRadius: 6 },
+            { label: _('download'), data: [totalDown], backgroundColor: cssVar('--chart-down'), borderRadius: 6 }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { labels: { color: cssVar('--muted') } } },
+          scales: {
+            x: { ticks: { color: cssVar('--muted') }, grid: { color: cssVar('--chart-grid') } },
+            y: { ticks: { color: cssVar('--muted'), callback: function(v) { return fmtBytes(v); } }, grid: { color: cssVar('--chart-grid') } }
+          }
+        }
+      });
+    } else {
+      var needDays = parseInt(reqDays);
+      var currentDates = allDates.slice(-needDays);
+      var prevDates = allDates.slice(-needDays * 2, -needDays);
+
+      var currentUp = data.filter(d => currentDates.includes(d.date)).reduce((s, d) => s + d.bytes_up, 0);
+      var currentDown = data.filter(d => currentDates.includes(d.date)).reduce((s, d) => s + d.bytes_down, 0);
+      var prevUp = data.filter(d => prevDates.includes(d.date)).reduce((s, d) => s + d.bytes_up, 0);
+      var prevDown = data.filter(d => prevDates.includes(d.date)).reduce((s, d) => s + d.bytes_down, 0);
+
+      var labels = [_('prevPeriod'), _('currentPeriod')];
+      trafficChart = new Chart(document.getElementById('trafficChart'), {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            { label: _('upload'), data: [prevUp, currentUp], backgroundColor: cssVar('--chart-up'), borderRadius: 6 },
+            { label: _('download'), data: [prevDown, currentDown], backgroundColor: cssVar('--chart-down'), borderRadius: 6 }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { labels: { color: cssVar('--muted') } } },
+          scales: {
+            x: { ticks: { color: cssVar('--muted') }, grid: { color: cssVar('--chart-grid') } },
+            y: { ticks: { color: cssVar('--muted'), callback: function(v) { return fmtBytes(v); } }, grid: { color: cssVar('--chart-grid') } }
+          }
+        }
+      });
+    }
+  } catch(e) { console.log('Traffic chart error:', e); }
+}
+
+document.getElementById('userSelect').addEventListener('change', loadTraffic);
+document.querySelectorAll('.period-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadTraffic();
+  });
+});
+loadTraffic();
+</script>
+<div class="footer">
+  &copy; 2026 Merlin.<br>
+  <em>Crafting Dreams &amp; Magic</em>
+</div>
+</body>
+</html>
