@@ -416,6 +416,7 @@ PostDown = iptables -t nat -D POSTROUTING -o ${NET_IFACE} -j MASQUERADE
 AWG_EOF
 
     awg-quick down awg0 2>/dev/null || true
+    ip link delete awg0 2>/dev/null || true
     awg-quick up awg0 2>/dev/null || true
     systemctl enable awg-quick@awg0 2>/dev/null || true
     info "AmneziaWG установлен"
