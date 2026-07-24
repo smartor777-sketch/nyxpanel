@@ -490,6 +490,23 @@ SVCEOF
 systemctl daemon-reload
 systemctl enable --now panel 2>/dev/null || warn "Панель не запущена (нет app.py?)"
 
+# Ждём создания БД и создаём admin пользователя
+sleep 2
+python3 -c "
+import sqlite3, time
+from werkzeug.security import generate_password_hash
+for _ in range(10):
+    try:
+        db = sqlite3.connect('/opt/proxy-panel/panel.db')
+        db.execute('INSERT OR IGNORE INTO users (username,password_hash,role) VALUES (?,?,?)',
+                   ('admin', generate_password_hash('${PANEL_PASS}'), 'admin'))
+        db.commit()
+        db.close()
+        break
+    except:
+        time.sleep(1)
+" 2>/dev/null || true
+
 # --- 9. Watchdog ---
 info "=== Шаг 9: Service Watchdog ==="
 
