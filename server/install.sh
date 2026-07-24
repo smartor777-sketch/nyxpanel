@@ -371,14 +371,8 @@ systemctl enable --now olcrtc 2>/dev/null || true
 # --- 7. AmneziaWG ---
 info "=== Шаг 7: Установка AmneziaWG ==="
 
-# Ключ PPA
-mkdir -p /etc/apt/keyrings
-curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x75C9DD72C799870E310542E24166F2C257290828" 2>/dev/null | gpg --dearmor -o /etc/apt/keyrings/amnezia.gpg 2>/dev/null || true
-echo "deb [signed-by=/etc/apt/keyrings/amnezia.gpg] https://ppa.launchpadcontent.net/amnezia/ppa/ubuntu noble main" > /etc/apt/sources.list.d/amnezia.list
-apt-get update -qq > /dev/null 2>&1
-
-# Ядро может потребовать linux-headers для DKMS
-apt-get install -y -qq linux-headers-amd64 amneziawg 2>/dev/null || {
+# AmneziaWG есть в репозиториях Debian 13 (trixie) — PPA не нужен
+apt-get install -y -qq amneziawg amneziawg-tools 2>/dev/null || {
     warn "amneziawg не установлен через apt"
 }
 
