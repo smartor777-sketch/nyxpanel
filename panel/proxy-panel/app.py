@@ -247,7 +247,7 @@ def get_config(name, proto):
     path = BASE_DIR / name / f"{name}{suffix}"
     if not path.exists():
         return "Not found", 404
-    return send_file(str(path), as_attachment=True, download_name=f"{name}_{proto}{suffix}")
+    return send_file(str(path), as_attachment=True, download_name=f"{name}{suffix}")
 
 @app.route("/user/<name>/qr/<proto>")
 def get_qr(name, proto):
