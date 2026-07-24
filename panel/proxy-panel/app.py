@@ -423,7 +423,7 @@ def self_config(proto, name=None):
     path = BASE_DIR / target / f"{target}{suffix}"
     if not path.exists():
         return "Not found", 404
-    return send_file(str(path), as_attachment=True, download_name=f"{target}_{proto}{suffix}")
+    return send_file(str(path), as_attachment=True, download_name=f"{target}{suffix}")
 
 @app.route("/self/qr/<proto>")
 @app.route("/self/qr/<name>/<proto>")
