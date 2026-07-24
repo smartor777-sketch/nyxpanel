@@ -1,0 +1,43 @@
+1. Общие сведения про NYX панель
+
+NYX панель даёт доступ к конфигурации прокси и VPN (AmneziaWG - VPN, остальные - прокси) следующих протоколов:
+
+VLESS+XHTTP+REALITY
+Hysteria 2
+NaiveProxy
+AmneziaWG
+Mieru
+olcRTC
+
+Конфигурации есть  трёх видов: 
+1) файл с настройками (кнопка Config) 
+2) QR-код, его можно сканировать в приложении (кнопка QR) 
+3) Универсальная ссылка (Subscription), копируется по кнопке "Сopy URL". 
+Ссылка копируется в буфер обмена и вставляется в приложение, и приложение само загружает настройки. Работает не везде :)
+
+2. Особенности использования протоколов
+
+Протокол olcRTC предназначен для работы исключительно в мобильной сети (без Wi-Fi, отключите его).
+Остальные протоколы работают в проводных провайдерах (когда у вас интернет подключен через Wi-Fi).
+
+Важно: протокол VLESS - главная мишень для РКН. Может иногда не подключаться или "висеть".
+
+3. Приложения для работы прокси и VPN
+
+Для телефонов:
+olcRTC - только для Android программа OlcboxME.
+VLESS+XHTTP+REALITY - HAPP, Hyddify, v2RayTun, Exclave.
+Hysteria 2, NaiveProxy  - Exclave
+AmneziaWG - AmneziaWG клиент
+Mieru - неизвестно:)
+
+Для Windows:
+olcRTC - только консольный клиент SOKS5 olcrtc-windows-amd64.exe (если вам такое надо, обращайтесь в техподдержку).
+VLESS+XHTTP+REALITY, Hysteria 2, NaiveProxy - HAPP, Hyddify, v2RayTun, NekoBox
+AmneziaWG - AmneziaWG клиент, NekoBox
+Mieru - NekoBox (ручной вод параметров)
+olcRTC - 
+
+
+4. Где скачать приложения: 
+Для Android:   (ССЫЛКА на  Olcbox-me Olcbox-me-1.0.0-android.apk)

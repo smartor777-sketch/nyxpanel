@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NYX Panel — Light Warm Amber</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  :root { --bg: #1c1917; --fg: #e7e5e4; --card: #292524; --border: #44403c; --input-bg: #292524; --heading: #fb923c; --muted: #a8a29e; --accent: #f97316; --accent-hover: #ea580c; --proto-yes: #22c55e; --proto-no: #78716c; --status-active-bg: #14532d; --status-active-fg: #4ade80; --status-expired-bg: #450a0a; --status-expired-fg: #f87171; --btn-active: #f97316; --chart-grid: #292524; --chart-up: #fb923c; --chart-down: #22c55e; }
+  [data-theme="light"] { --bg: #f5f0eb; --fg: #292524; --card: #fffcf9; --border: #ddd5cc; --input-bg: #ebe5dc; --heading: #9a3412; --muted: #78716c; --accent: #d97706; --accent-hover: #b45309; --proto-yes: #16a34a; --proto-no: #a8a29e; --status-active-bg: #f0fdf4; --status-active-fg: #16a34a; --status-expired-bg: #fef2f2; --status-expired-fg: #dc2626; --btn-active: #d97706; --chart-grid: #ddd5cc; --chart-up: #d97706; --chart-down: #16a34a; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--fg); padding: 2rem; }
+  .container { max-width: 700px; margin: 0 auto; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; }
+  .card h2 { color: var(--muted); font-size: 1rem; margin-bottom: 1rem; }
+  .card h1 { color: var(--heading); margin-bottom: 0.5rem; }
+  .row { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .btn { padding: 0.5rem 1rem; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-success { background: var(--proto-yes); color: #fff; }
+  .btn-danger { background: var(--status-expired-fg); color: #fff; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--fg); }
+  .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+  .badge-active { background: var(--status-active-bg); color: var(--status-active-fg); }
+  .badge-expired { background: var(--status-expired-bg); color: var(--status-expired-fg); }
+  .proto-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; background: var(--bg); border-radius: 8px; margin-bottom: 0.5rem; }
+  .stat { text-align: center; padding: 1rem; background: var(--bg); border-radius: 8px; flex: 1; }
+  .stat .val { font-size: 1.5rem; font-weight: 700; color: var(--heading); }
+  .stat .lbl { font-size: 0.8rem; color: var(--muted); margin-top: 0.3rem; }
+  .chart-container { max-width: 100%; margin-top: 1rem; }
+  .subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
+  .input { padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid var(--border); background: var(--input-bg); color: var(--fg); font-size: 0.9rem; }
+  .theme-toggle { position: fixed; top: 1rem; right: 1rem; background: var(--card); border: 1px solid var(--border); padding: 0.4rem 0.8rem; border-radius: 8px; cursor: pointer; color: var(--fg); font-size: 1rem; }
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="setTheme(getTheme()==='dark'?'light':'dark'); location.reload()">Toggle Theme</button>
+<div class="container">
+  <h1>Light: Warm Amber</h1>
+  <p class="subtitle">Тёплый бежевый фон + amber акценты. Уютный, натуральный.</p>
+
+  <div class="card">
+    <h2>Buttons</h2>
+    <div class="row">
+      <button class="btn btn-primary">Primary</button>
+      <button class="btn btn-success">Success</button>
+      <button class="btn btn-danger">Danger</button>
+      <button class="btn btn-outline">Outline</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Badges</h2>
+    <div class="row">
+      <span class="badge badge-active">Active</span>
+      <span class="badge badge-expired">Expired</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Stats</h2>
+    <div class="row">
+      <div class="stat"><div class="val">2.4 GB</div><div class="lbl">Upload</div></div>
+      <div class="stat"><div class="val">8.1 GB</div><div class="lbl">Download</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Configurations</h2>
+    <div class="proto-item"><span>AmneziaWG</span><span class="badge badge-active">Active</span></div>
+    <div class="proto-item"><span>VLESS+REALITY</span><span class="badge badge-active">Active</span></div>
+    <div class="proto-item"><span>NaiveProxy</span><span class="badge badge-expired">Disabled</span></div>
+  </div>
+
+  <div class="card">
+    <h2>Input</h2>
+    <input class="input" placeholder="Username" style="width:100%;margin-bottom:0.5rem">
+    <input class="input" type="password" placeholder="Password" style="width:100%">
+  </div>
+
+  <div class="card">
+    <h2>Traffic Chart</h2>
+    <div class="chart-container"><canvas id="chart1"></canvas></div>
+  </div>
+</div>
+
+<script>
+const themeKey='nyx_theme';
+function getTheme(){return localStorage.getItem(themeKey)||'light';}
+function setTheme(t){document.documentElement.setAttribute('data-theme',t);localStorage.setItem(themeKey,t);}
+setTheme(getTheme());
+const labels=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const upData=[1.2,0.8,2.1,1.5,0.9,3.2,1.8];
+const downData=[3.5,2.1,5.8,4.2,2.8,8.1,5.2];
+function cssVar(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim();}
+new Chart(document.getElementById('chart1'),{type:'bar',data:{labels,datasets:[{label:'Upload',data:upData,backgroundColor:cssVar('--chart-up')},{label:'Download',data:downData,backgroundColor:cssVar('--chart-down')}]},options:{responsive:true,plugins:{legend:{labels:{color:cssVar('--muted')}}},scales:{x:{ticks:{color:cssVar('--muted')},grid:{color:cssVar('--chart-grid')}},y:{ticks:{color:cssVar('--muted')},grid:{color:cssVar('--chart-grid')}}}}});
+</script>
+</body>
+</html>

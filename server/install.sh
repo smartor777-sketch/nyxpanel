@@ -182,8 +182,6 @@ if ! command -v caddy &>/dev/null || [ ! -f /lib/systemd/system/caddy.service ];
     apt-get install -y -qq caddy > /dev/null 2>&1
 fi
 
-PANEL_PASS_HASH=$(caddy hash-password --plaintext "$PANEL_PASS" 2>/dev/null || echo 'CHANGEME')
-
 mkdir -p /etc/caddy
 
 cat > /etc/caddy/Caddyfile << CADDY_EOF
@@ -192,17 +190,6 @@ cat > /etc/caddy/Caddyfile << CADDY_EOF
 }
 
 ${DOMAIN}:443, ${DOMAIN}:8443 {
-    handle /panel/api/* {
-        reverse_proxy 127.0.0.1:${PANEL_PORT}
-    }
-
-    handle /panel* {
-        basicauth {
-            admin ${PANEL_PASS_HASH}
-        }
-        reverse_proxy 127.0.0.1:${PANEL_PORT}
-    }
-
     handle /self* {
         reverse_proxy 127.0.0.1:${PANEL_PORT}
     }
@@ -593,7 +580,7 @@ echo ""
 echo -e "${GREEN}=========================================${NC}"
 echo -e "${GREEN}  NYX Panel — Установка завершена!${NC}"
 echo -e "${GREEN}=========================================${NC}"
-echo -e "Панель: ${CYAN}https://${DOMAIN}:8443/panel/${NC}"
+echo -e "Панель: ${CYAN}https://${DOMAIN}:8443/self/login${NC}"
 echo -e "Логин:  ${CYAN}admin${NC}  Пароль: ${CYAN}${PANEL_PASS}${NC}"
 echo -e "Reality PK: ${YELLOW}${REALITY_PUBLIC}${NC}"
 echo -e "Short ID:   ${YELLOW}${SHORT_ID}${NC}"
