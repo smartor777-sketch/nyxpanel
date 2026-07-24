@@ -17,6 +17,9 @@ class PrefixMiddleware:
         path = environ['PATH_INFO']
         if path.startswith('/self'):
             return self.app(environ, start_response)
+        if path == '/' or path == '':
+            start_response('302', [('Location', '/self/login'), ('Content-Type', 'text/plain')])
+            return [b'']
         if path.startswith(self.prefix):
             environ['PATH_INFO'] = path[len(self.prefix):]
             environ['SCRIPT_NAME'] = self.prefix
