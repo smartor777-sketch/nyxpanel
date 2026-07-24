@@ -186,6 +186,8 @@ fi
 
 PANEL_PASS_HASH=$(caddy hash-password --plaintext "$PANEL_PASS" 2>/dev/null || echo 'CHANGEME')
 
+mkdir -p /etc/caddy
+
 cat > /etc/caddy/Caddyfile << CADDY_EOF
 {
     email ${EMAIL}
