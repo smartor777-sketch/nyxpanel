@@ -89,8 +89,8 @@ if [ ! -f /usr/local/bin/geoip.dat ]; then
 fi
 
 REALITY_KEYS=$(/usr/local/bin/xray x25519)
-REALITY_PRIVATE=$(echo "$REALITY_KEYS" | grep PrivateKey | awk '{print $3}')
-REALITY_PUBLIC=$(echo "$REALITY_KEYS" | grep PublicKey | awk '{print $3}')
+REALITY_PRIVATE=$(echo "$REALITY_KEYS" | grep "^PrivateKey" | awk '{print $2}')
+REALITY_PUBLIC=$(echo "$REALITY_KEYS" | grep "PublicKey" | awk '{print $NF}')
 SHORT_ID=$(openssl rand -hex 8)
 
 cat > /usr/local/etc/xray/config.json << XRAY_EOF
