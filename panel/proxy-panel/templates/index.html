@@ -2,7 +2,12 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#0c1a2d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
 <title>NYX Panel - Admin</title>
 <script src="/static/chart.js"></script>
 <style>
@@ -51,8 +56,34 @@
   .badge { display: inline-block; padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; }
   .badge-yes { background: var(--status-active-bg); color: var(--status-active-fg); }
   .badge-no { background: var(--card); color: var(--proto-no); border: 1px solid var(--border); }
-  @media (max-width: 768px) { body { padding: 0.5rem; } table { font-size: 0.75rem; } th, td { padding: 0.3rem; } .actions { gap: 2px; } .actions button { font-size: 0.65rem; padding: 0.15rem 0.3rem; } }
-.footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 1.5rem 0 0.5rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .users-cards { display: none; }
+  .user-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.8rem; margin-bottom: 0.6rem; }
+  .user-card .uc-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+  .user-card .uc-name { font-weight: 600; color: var(--heading); font-size: 0.95rem; }
+  .user-card .uc-status { font-size: 0.75rem; }
+  .user-card .uc-protos { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+  .user-card .uc-exp { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.5rem; }
+  .user-card .uc-actions { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.25rem; }
+  .user-card .uc-actions button { padding: 0.3rem 0.2rem; font-size: 0.65rem; border-radius: 4px; border: 1px solid var(--border); cursor: pointer; text-align: center; }
+  .user-card .uc-actions .uc-divider { grid-column: 1 / -1; height: 0; border: none; border-top: 1px solid var(--border); margin: 0.15rem 0; }
+  .footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 1.5rem 0 0.5rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+  @media (max-width: 768px) {
+    body { padding: 1rem; }
+    .header-bar { flex-direction: column; align-items: flex-start; }
+    .header-bar > div:last-child { width: 100%; justify-content: flex-end; flex-wrap: wrap; }
+    .card { padding: 1rem; }
+    .toolbar { flex-direction: column; align-items: stretch; }
+    .btn-group { flex-wrap: wrap; }
+    .btn-group button { flex: 1; min-width: 0; font-size: 0.75rem; padding: 0.3rem 0.5rem; border-radius: 0; border-right: 1px solid var(--border); }
+    .btn-group button:first-child { border-radius: 6px 0 0 6px; }
+    .btn-group button:last-child { border-radius: 0 6px 6px 0; border-right: none; }
+    .chart-container { height: 220px; }
+    .table-wrap { display: none; }
+    .users-cards { display: block; }
+    .mobile-stack { display: flex; flex-direction: column; gap: 0.5rem; }
+    .mobile-stack > div { width: 100%; }
+  }
 </style>
 </head>
 <body>
@@ -83,6 +114,7 @@
 
   <div class="card">
     <h2>Users</h2>
+    <div class="table-wrap">
     <table>
       <thead>
         <tr>
@@ -94,12 +126,14 @@
           <th>AWG</th>
           <th>Expires</th>
           <th>Active</th>
-          <th style="width:40%">Actions</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody id="usersBody"></tbody>
     </table>
-    <div style="margin-top:1rem;display:flex;gap:1rem;flex-wrap:wrap;align-items:center">
+    </div>
+    <div class="users-cards" id="usersCards"></div>
+    <div class="mobile-stack" style="margin-top:1rem;display:flex;gap:1rem;flex-wrap:wrap;align-items:center">
       <input type="text" id="newUsername" placeholder="New username" style="padding:0.4rem 0.6rem;border-radius:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--fg);font-size:0.85rem">
       <button class="button" onclick="addUser()">+ Add User</button>
     </div>
@@ -138,18 +172,20 @@ async function loadUsers() {
     if (!res.ok) { document.getElementById('usersBody').innerHTML = '<tr><td colspan="9">Error loading users</td></tr>'; return; }
     const users = await res.json();
     let html = '';
+    let cards = '';
     const now = new Date().toISOString().slice(0,10);
     for (const u of users) {
-      const expires = u.expires_at ? u.expires_at.slice(0,10) : 'тАФ';
+      const expires = u.expires_at ? u.expires_at.slice(0,10) : '-';
       const expired = u.expires_at && u.expires_at.slice(0,10) < now;
       const active = u.active !== 0 && !expired;
+      const name = u.note ? u.username + ' <span class="note">' + u.note + '</span>' : u.username;
       html += '<tr>' +
-        '<td>' + (u.note ? u.username + ' <span class="note">' + u.note + '</span>' : u.username) + '</td>' +
-        '<td><span class="badge ' + (u.vless ? 'badge-yes' : 'badge-no') + '">' + (u.vless ? 'тЬУ' : 'тЬЧ') + '</span></td>' +
-        '<td><span class="badge ' + (u.hy2 ? 'badge-yes' : 'badge-no') + '">' + (u.hy2 ? 'тЬУ' : 'тЬЧ') + '</span></td>' +
-        '<td><span class="badge ' + (u.naive ? 'badge-yes' : 'badge-no') + '">' + (u.naive ? 'тЬУ' : 'тЬЧ') + '</span></td>' +
-        '<td><span class="badge ' + (u.mieru ? 'badge-yes' : 'badge-no') + '">' + (u.mieru ? 'тЬУ' : 'тЬЧ') + '</span></td>' +
-        '<td><span class="badge ' + (u.awg ? 'badge-yes' : 'badge-no') + '">' + (u.awg ? 'тЬУ' : 'тЬЧ') + '</span></td>' +
+        '<td>' + name + '</td>' +
+        '<td><span class="badge ' + (u.vless ? 'badge-yes' : 'badge-no') + '">' + (u.vless ? 'Y' : 'N') + '</span></td>' +
+        '<td><span class="badge ' + (u.hy2 ? 'badge-yes' : 'badge-no') + '">' + (u.hy2 ? 'Y' : 'N') + '</span></td>' +
+        '<td><span class="badge ' + (u.naive ? 'badge-yes' : 'badge-no') + '">' + (u.naive ? 'Y' : 'N') + '</span></td>' +
+        '<td><span class="badge ' + (u.mieru ? 'badge-yes' : 'badge-no') + '">' + (u.mieru ? 'Y' : 'N') + '</span></td>' +
+        '<td><span class="badge ' + (u.awg ? 'badge-yes' : 'badge-no') + '">' + (u.awg ? 'Y' : 'N') + '</span></td>' +
         '<td style="font-size:0.8rem">' + expires + '<br><span class="status-badge ' + (active ? 'status-active' : 'status-expired') + '">' + (active ? 'Active' : 'Disabled') + '</span></td>' +
         '<td>' +
           '<select class="active-select" data-user="' + u.username + '">' +
@@ -175,12 +211,48 @@ async function loadUsers() {
             '<button class="small set-btn" onclick="editUser(\'' + u.username + '\',\'passwd\')">Pwd</button>' +
             '<button class="small off-btn" onclick="editUser(\'' + u.username + '\',\'toggle\')">' + (active ? 'Off' : 'On') + '</button>' +
             '<button class="small danger" onclick="deleteUser(\'' + u.username + '\')">Del</button>' +
-            '<button class="small export-btn" onclick="exportUser(\'' + u.username + '\')">ЁЯУж</button>' +
+            '<button class="small export-btn" onclick="exportUser(\'' + u.username + '\')">Sub</button>' +
           '</div>' +
         '</td>' +
       '</tr>';
+      const protoTags = [
+        u.vless ? '<span class="badge badge-yes">VL</span>' : '',
+        u.hy2 ? '<span class="badge badge-yes">Hy</span>' : '',
+        u.naive ? '<span class="badge badge-yes">Na</span>' : '',
+        u.mieru ? '<span class="badge badge-yes">Mi</span>' : '',
+        u.awg ? '<span class="badge badge-yes">AW</span>' : ''
+      ].filter(Boolean).join(' ');
+      cards += '<div class="user-card">' +
+        '<div class="uc-top"><span class="uc-name">' + u.username + (u.note ? ' <span class="note">' + u.note + '</span>' : '') + '</span>' +
+        '<span class="uc-status"><span class="status-badge ' + (active ? 'status-active' : 'status-expired') + '">' + (active ? 'Active' : 'Disabled') + '</span></span></div>' +
+        '<div class="uc-protos">' + (protoTags || '<span class="badge badge-no">none</span>') + '</div>' +
+        '<div class="uc-exp">Exp: ' + expires +
+        ' <select class="active-select" data-user="' + u.username + '" style="margin-left:0.5rem;padding:0.15rem;border-radius:4px;border:1px solid var(--border);background:var(--input-bg);color:var(--fg);font-size:0.75rem">' +
+          '<option value="1"' + (u.active === 1 || u.active === null ? ' selected' : '') + '>On</option>' +
+          '<option value="0"' + (u.active === 0 ? ' selected' : '') + '>Off</option>' +
+        '</select></div>' +
+        '<div class="uc-actions">' +
+          '<button class="toggle-on" onclick="addProto(\'' + u.username + '\',\'vless\')">+VL</button>' +
+          '<button class="toggle-on" onclick="addProto(\'' + u.username + '\',\'hy2\')">+Hy</button>' +
+          '<button class="toggle-on" onclick="addProto(\'' + u.username + '\',\'naive\')">+Na</button>' +
+          '<button class="toggle-on" onclick="addProto(\'' + u.username + '\',\'mieru\')">+Mi</button>' +
+          '<button class="toggle-on" onclick="addProto(\'' + u.username + '\',\'awg\')">+AW</button>' +
+          '<button class="toggle-off" onclick="rmProto(\'' + u.username + '\',\'vless\')">-VL</button>' +
+          '<button class="toggle-off" onclick="rmProto(\'' + u.username + '\',\'hy2\')">-Hy</button>' +
+          '<button class="toggle-off" onclick="rmProto(\'' + u.username + '\',\'naive\')">-Na</button>' +
+          '<button class="toggle-off" onclick="rmProto(\'' + u.username + '\',\'mieru\')">-Mi</button>' +
+          '<button class="toggle-off" onclick="rmProto(\'' + u.username + '\',\'awg\')">-AW</button>' +
+          '<hr class="uc-divider">' +
+          '<button class="export-btn" onclick="editUser(\'' + u.username + '\',\'expires\')">Exp</button>' +
+          '<button class="set-btn" onclick="editUser(\'' + u.username + '\',\'passwd\')">Pwd</button>' +
+          '<button class="off-btn" onclick="editUser(\'' + u.username + '\',\'toggle\')">' + (active ? 'Off' : 'On') + '</button>' +
+          '<button class="danger" onclick="deleteUser(\'' + u.username + '\')">Del</button>' +
+          '<button class="export-btn" onclick="exportUser(\'' + u.username + '\')">Sub</button>' +
+        '</div>' +
+      '</div>';
     }
     document.getElementById('usersBody').innerHTML = html;
+    document.getElementById('usersCards').innerHTML = cards;
     document.querySelectorAll('.active-select').forEach(s => {
       s.addEventListener('change', function() { setActive(this.dataset.user, this.value); });
     });

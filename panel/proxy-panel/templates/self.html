@@ -2,7 +2,12 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#0c1a2d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
 <title>NYX Panel - {{ user.username }}</title>
 <script src="/static/chart.js"></script>
 <style>
@@ -53,6 +58,22 @@
 .pwd-save-btn:hover { filter: brightness(0.95); }
 .pwd-cancel-btn { background: var(--btn-logout-bg); color: var(--btn-logout-fg); border: 1px solid var(--btn-logout-border); padding: 0.35rem 0.7rem; border-radius: 5px; font-size: 0.82rem; cursor: pointer; }
 .pwd-cancel-btn:hover { filter: brightness(0.95); }
+@media (max-width: 640px) {
+  body { padding: 1rem; }
+  .header-bar { flex-direction: column; align-items: flex-start; }
+  .header-bar > div:last-child { width: 100%; justify-content: flex-end; flex-wrap: wrap; }
+  .grid { grid-template-columns: 1fr; }
+  .stat .val { font-size: 1.2rem; }
+  .proto-item { flex-direction: column; gap: 0.5rem; align-items: flex-start; }
+  .proto-actions { width: 100%; }
+  .proto-actions button { flex: 1; }
+  .toolbar { flex-direction: column; align-items: stretch; }
+  .btn-group { flex-wrap: wrap; }
+  .btn-group button { flex: 1; min-width: 0; font-size: 0.78rem; padding: 0.3rem 0.5rem; border-radius: 0; border-right: 1px solid var(--border); }
+  .btn-group button:first-child { border-radius: 6px 0 0 6px; }
+  .btn-group button:last-child { border-radius: 0 6px 6px 0; border-right: none; }
+  .chart-container { height: 250px; }
+}
 </style>
 </head>
 <body>
@@ -362,6 +383,7 @@ async function changePwd() {
     }
   } catch(e) { msg.style.color = 'var(--status-expired-fg)'; msg.textContent = _('pwdErr'); }
 }
+if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/static/service-worker.js'); }
 </script>
 <div class="footer">
   &copy; 2026 Merlin.<br>

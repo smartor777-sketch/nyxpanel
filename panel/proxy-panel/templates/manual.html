@@ -2,7 +2,12 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#0c1a2d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
 <title>NYX Panel — Guide</title>
 <style>
   :root { --bg: #0c1a2d; --fg: #d4e5f7; --card: #132640; --border: #1e3a5f; --input-bg: #132640; --heading: #7dd3fc; --muted: #93c5fd; --accent: #38bdf8; --accent-hover: #0ea599; --danger: #f87171; --proto-yes: #34d399; --proto-no: #64748b; --status-active-bg: #064e3b; --status-active-fg: #34d399; --btn-active: #0ea599; --link: #7dd3fc; --link-hover: #93c5fd; --code-bg: #0c1a2d; --code-fg: #d4e5f7; --highlight: #c084fc; --h2-border: #1e3a5f; --btn-logout-bg: #1e293b; --btn-logout-fg: #94a3b8; --btn-logout-border: #334155; --btn-theme-bg: #1e293b; --btn-theme-fg: #94a3b8; --btn-theme-border: #334155; --btn-lang-bg: #1e293b; --btn-lang-fg: #94a3b8; --btn-lang-border: #334155; }
@@ -50,6 +55,15 @@
   .app-card .app-name { font-weight: 600; color: var(--fg); margin-bottom: 0.3rem; }
   .app-card .app-proto { font-size: 0.8rem; color: var(--muted); }
 .footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 1.5rem 0 0.5rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+@media (max-width: 640px) {
+  body { padding: 1rem; }
+  .header-bar { flex-direction: column; align-items: flex-start; }
+  .header-actions { width: 100%; justify-content: flex-end; flex-wrap: wrap; }
+  .protocol-grid { grid-template-columns: 1fr; }
+  .app-grid { grid-template-columns: 1fr; }
+  .card { padding: 1.2rem; }
+  .download-btn { display: block; text-align: center; }
+}
 </style>
 </head>
 <body>

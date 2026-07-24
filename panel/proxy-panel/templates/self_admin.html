@@ -2,7 +2,12 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#0c1a2d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
 <title>NYX Panel - Admin</title>
 <script src="/static/chart.js"></script>
 <style>
@@ -100,6 +105,7 @@
       </select>
       <div id="pagination" class="pagination"></div>
     </div>
+    <div class="table-wrap">
     <table>
       <thead>
         <tr>
@@ -118,6 +124,8 @@
       <tbody id="userTableBody">
       </tbody>
     </table>
+    </div>
+    <div class="users-cards" id="usersCards"></div>
     <div style="display:flex;justify-content:center;margin-top:0.5rem">
       <div id="paginationBottom" class="pagination"></div>
     </div>
@@ -162,11 +170,43 @@
   .pagination button.active { background:var(--btn-active);border-color:var(--btn-active);color:#fff; }
   .pagination button:disabled { opacity:0.4;cursor:default; }
   .dropdown { position:relative; display:inline-block; }
-  .dropdown-menu { position:absolute; right:0; top:100%; z-index:100; background:var(--dropdown-bg); border:1px solid var(--border); border-radius:8px; min-width:200px; padding:0.25rem 0; box-shadow:0 8px 24px rgba(0,0,0,0.4); }
+  .dropdown-menu { position:absolute; right:0; top:100%; z-index:100; background:var(--dropdown-bg); border:1px solid var(--border); border-radius:8px; min-width:200px; max-width:90vw; padding:0.25rem 0; box-shadow:0 8px 24px rgba(0,0,0,0.4); }
   .dropdown-item { display:block; padding:0.4rem 1rem; color:var(--fg); text-decoration:none; font-size:0.8rem; white-space:nowrap; }
   .dropdown-item:hover { background:var(--dropdown-hover); }
   .dropdown-divider { border-top:1px solid var(--border); margin:0.25rem 0; }
 .footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 1.5rem 0 0.5rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+.users-cards { display: none; }
+.user-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.8rem; margin-bottom: 0.6rem; }
+.user-card .uc-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
+.user-card .uc-name { font-weight: 600; color: var(--user-name); font-size: 0.95rem; }
+.user-card .uc-protos { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-bottom: 0.4rem; }
+.user-card .uc-exp { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
+.user-card .uc-exp input { width: 0; flex: 1; min-width: 80px; padding: 0.2rem 0.4rem; font-size: 0.75rem; border-radius: 4px; border: 1px solid var(--border); background: var(--input-bg); color: var(--fg); }
+.user-card .uc-pwd { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
+.user-card .uc-pwd input { width: 0; flex: 1; min-width: 80px; padding: 0.2rem 0.4rem; font-size: 0.75rem; border-radius: 4px; border: 1px solid var(--border); background: var(--input-bg); color: var(--fg); }
+.user-card .uc-actions { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.2rem; }
+.user-card .uc-actions button { padding: 0.3rem 0.2rem; font-size: 0.65rem; border-radius: 4px; border: 1px solid var(--border); cursor: pointer; text-align: center; }
+.user-card .uc-divider { grid-column: 1 / -1; height: 0; border: none; border-top: 1px solid var(--border); margin: 0.15rem 0; }
+.user-card .uc-export { margin-top: 0.4rem; position: relative; }
+.user-card .uc-export .dropdown { display: block; }
+.user-card .uc-export .dropdown-menu { right: 0; left: 0; min-width: 0; width: 100%; }
+.user-card .uc-export button { width: 100%; padding: 0.35rem; font-size: 0.75rem; border-radius: 4px; cursor: pointer; }
+@media (max-width: 768px) {
+  body { padding: 1rem; }
+  .header-bar { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+  .header-actions { width: 100%; justify-content: flex-end; flex-wrap: wrap; }
+  .card { padding: 1rem; }
+  form { flex-direction: column; align-items: stretch; }
+  form input, form select { width: 100%; }
+  .btn-group { flex-wrap: wrap; display: flex; }
+  .btn-group .period-btn { flex: 1; min-width: 0; font-size: 0.75rem; padding: 0.3rem 0.5rem; border-radius: 0; border-right: 1px solid var(--btn-period-border); }
+  .btn-group .period-btn:first-child { border-radius: 6px 0 0 6px; }
+  .btn-group .period-btn:last-child { border-radius: 0 6px 6px 0; border-right: none; }
+  .chart-container { height: 220px; }
+  .pagination { flex-wrap: wrap; }
+  .table-wrap { display: none; }
+  .users-cards { display: block; }
+}
 </style>
 
 <script>
@@ -315,6 +355,61 @@ function renderUsers() {
         '<div class="dropdown-divider"></div>' + exportItems + '</div></div>' : '') +
       '</td></tr>';
   }).join('');
+
+  const cardsHtml = pageUsers.map((u, i) => {
+    const idx = start + i + 1;
+    const protocolsList = {{ protocols | tojson }};
+    const protoTags = protocolsList.map(p => {
+      return '<span class="badge ' + (u.protocols[p[0]] ? 'badge-yes' : 'badge-no') + '">' + p[1].split('+')[0] + '</span>';
+    }).join(' ');
+
+    const addBtns = protocolsList.filter(p => !u.protocols[p[0]]).map(p =>
+      '<button class="small toggle-on" onclick="this.closest(\'form\').submit()">+' + p[1].slice(0,4) + '</button>'
+    ).join('');
+    const rmBtns = protocolsList.filter(p => u.protocols[p[0]]).map(p =>
+      '<form method="POST" action="/panel/user/' + u.name + '/protocol/' + p[0] + '/delete" style="display:inline"><button class="small toggle-off">-' + p[1].slice(0,4) + '</button></form>'
+    ).join('');
+    const addForms = protocolsList.filter(p => !u.protocols[p[0]]).map(p =>
+      '<form method="POST" action="/panel/user/' + u.name + '/protocol/' + p[0] + '/add" style="display:inline">' + addBtns.split('</button>').slice(protocolsList.indexOf(p), protocolsList.indexOf(p)+1).join('</button>') + '</form>'
+    ).join('');
+
+    const exportItems = protocolsList.filter(p => u.protocols[p[0]]).map(p => {
+      const key = p[0], pname = p[1];
+      return '<a href="/panel/user/' + u.name + '/config/' + key + '" class="dropdown-item">\u{1F4C4} ' + pname + '</a>' +
+        '<a href="/panel/user/' + u.name + '/qr/' + key + '" target="_blank" class="dropdown-item">\u{1F4F1} ' + pname + ' QR</a>';
+    }).join('');
+    const hasExport = exportItems.length > 0;
+
+    return '<div class="user-card">' +
+      '<div class="uc-top"><span class="uc-name">' + u.name + '</span>' +
+      '<span class="status-badge ' + (u.active ? 'status-active' : 'status-expired') + '">' + (u.active ? _('active') : _('disabled')) + '</span></div>' +
+      '<div class="uc-protos">' + protoTags + '</div>' +
+      '<div class="uc-exp">Exp: ' +
+        '<form method="POST" action="/panel/user/' + u.name + '/expiry" style="display:flex;gap:2px;flex:1">' +
+          '<input name="expires" type="date" value="' + (u.expires_at ? u.expires_at.slice(0,10) : '') + '">' +
+          '<button class="small set-btn" type="submit">' + _('set') + '</button></form></div>' +
+      '<div class="uc-pwd">Pwd: ' +
+        '<form method="POST" action="/panel/user/' + u.name + '/password" style="display:flex;gap:2px;flex:1">' +
+          '<input name="password" type="text" placeholder="' + (u.has_password ? '****' : _('pwdNotSet')) + '">' +
+          '<button class="small ' + (u.has_password ? 'toggle-on' : 'set-btn') + '" type="submit">' + (u.has_password ? _('changePwd') : _('setPwd')) + '</button>' +
+          (u.has_password ? ' <span style="color:var(--proto-yes)">&#10003;</span>' : '') +
+        '</form></div>' +
+      '<div class="uc-actions">' +
+        protocolsList.map(p =>
+          (u.protocols[p[0]]
+            ? '<form method="POST" action="/panel/user/' + u.name + '/protocol/' + p[0] + '/delete" style="display:inline"><button class="small toggle-off">-' + p[1].slice(0,4) + '</button></form>'
+            : '<form method="POST" action="/panel/user/' + u.name + '/protocol/' + p[0] + '/add" style="display:inline"><button class="small toggle-on">+' + p[1].slice(0,4) + '</button></form>')
+        ).join('') +
+        '<hr class="uc-divider">' +
+        '<form method="POST" action="/panel/user/' + u.name + '/toggle" style="display:inline"><button class="small off-btn">' + (u.active ? _('off') : _('on')) + '</button></form>' +
+        '<form method="POST" action="/panel/user/' + u.name + '/delete" onsubmit="return confirm(\'' + _('confirmDelUser') + ' ' + u.name + '?\')" style="display:inline"><button class="small danger">' + _('del') + '</button></form>' +
+      '</div>' +
+      (hasExport ? '<div class="uc-export"><div class="dropdown"><button class="small export-btn" onclick="toggleDropdown(event, \'ddm-' + u.name + '\')" style="width:100%">\u{25BE} ' + _('export_') + '</button><div id="ddm-' + u.name + '" class="dropdown-menu" style="display:none">' +
+        '<a href="#" onclick="copySub(\'' + u.name + '\');return false" class="dropdown-item">\u{1F517} ' + _('copySubUrl') + '</a>' +
+        '<div class="dropdown-divider"></div>' + exportItems + '</div></div></div>' : '') +
+    '</div>';
+  }).join('');
+  document.getElementById('usersCards').innerHTML = cardsHtml;
 
   renderPagination(totalPages, currentPage);
 }
