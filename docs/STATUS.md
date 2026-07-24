@@ -21,6 +21,27 @@
 - **Mieru**: подтверждён ручной ввод (NekoBox не поддерживает subscription для Mieru)
 - **Roadmap**: пункт 11 добавлен в `AGENTS/panel.md` (log-agent для Caddy/Mieru)
 
+### Адаптивная вёрстка + PWA (24 Jul 2026)
+
+- **Responsive mobile layout**: таблица юзеров в `self_admin.html` заменена на карточки на мобильных (≤768px), горизонтальный скролл убран
+- **Адаптивные CSS**: `self.html`, `self_admin.html`, `self_login.html`, `manual.html`, `index.html`
+  - Кнопки периодов (All/Week/Month) — flex-wrap
+  - Сетки protocol-grid / app-grid — одна колонка на мобилках
+  - Header — колонка на мобилках
+  - Dropdown Export — полная ширина карточки
+- **PWA**: `manifest.json`, `service-worker.js`, иконки 192/512
+- **Перенаправление `/`**: корневой URL редиректит на `/self/login` (Middleware + Caddy)
+
+### Миграция портов (24 Jul 2026)
+
+- **xray**: перенесён с 443 → **4433** (VLESS+Reality)
+- **Caddy**: слушает на **443** + **8443** + 80 (panel + NaiveProxy)
+- **UFW**: порт 4433 добавлен (`ufw allow 4433/tcp`)
+- **VLESS конфиги**: все `.uri` файлы обновлены (порт 443 → 4433)
+- **QR коды**: пересозданы для всех юзеров
+- **proxy_manager.sh**: `VLESS_PORT="4433"`
+- Результат: `https://panel.kuban-forum.ru/` (порт 443) работает без `:8443`
+
 ### В работе
 
 - (none)
@@ -33,13 +54,15 @@
 | olcRTC (модифицированный) | [`github.com/smartor777-sketch/olcrtc-users`](https://github.com/smartor777-sketch/olcrtc-users) |
 | olcbox (KMP клиент) | [`github.com/smartor777-sketch/olcbox`](https://github.com/smartor777-sketch/olcbox) |
 
-### Prod (31.76.8.29, 76t05pyu.ikill.baby)
+### Prod (31.76.8.29, panel.kuban-forum.ru)
 
-- **Panel**: v1.05 (SQLite + API + collector + subscription), обновлена
+- **Panel**: v1.06 (SQLite + API + collector + subscription), актуальная версия
 - **Collector**: cron `*/5 * * * *`, сбор Xray (gRPC) + Hy2 (trafficStats) + AWG (awg show)
-- **База**: SQLite с мигрированными пользователями (Alexander, Katya, Merlin, Silky, test)
+- **База**: SQLite с пользователями (Alexander, Katya, Merlin, Silky, test)
 - **Caddy**: `/panel*` reverse_proxy на Flask 127.0.0.1:5000, basicauth
 - **Старая панель**: сохранена как `/opt/proxy-panel/app.py.bak`
+- **Домен**: `panel.kuban-forum.ru` (A-запись → 31.76.8.29, Cloudflare DNS, без proxy)
+- **DNS**: `ns2.q11.ru` (masterhost), TTL 600s
 
 ### Изменения v1.05
 
@@ -222,3 +245,19 @@ iptables nat POSTROUTING: MASQUERADE только «-s <overlay> -o <ens3>» (и
 - `delaycompress`: предыдущий архив остаётся несжатым один цикл (удобно для `tail -f` старых логов).
 - journald до 500 MB — запас с учётом 4-6 systemd-сервисов (Caddy, Xray, Hy2, AWG, panel, Mita);
   при достижении лимита journald удаляет самые старые записи.
+
+## Текущая конфигурация портов (Prod + Dev)
+
+| Сервис | Порт | Протокол | Назначение |
+|--------|------|----------|------------|
+| xray (VLESS+Reality) | **4433** | TCP | Прокси-трафик клиентов |
+| Caddy (panel) | **443** | TCP+TLS | `https://panel.kuban-forum.ru/` |
+| Caddy (panel) | **8443** | TCP+TLS | `https://panel.kuban-forum.ru:8443/` (legacy) |
+| Caddy (http→https) | **80** | TCP | Редирект на HTTPS |
+| Caddy (NaiveProxy) | **8443** | TCP+TLS | forward_proxy (Naive) |
+| Hysteria2 | **30000** | UDP | Hy2 трафик |
+| Mieru | **444-448** | TCP+UDP | Mieru трафик |
+| olcRTC | **39743** | UDP | WebRTC трафик |
+| AWG | — | UDP | WireGuard tunnel |
+| panel (Flask) | **5000** | TCP (localhost) | Внутренний API |
+| xray API | **10085** | TCP (localhost) | gRPC stats |
