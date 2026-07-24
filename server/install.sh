@@ -176,11 +176,9 @@ curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' 2>/dev/null | 
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' > /etc/apt/sources.list.d/caddy-stable.list 2>/dev/null || true
 apt-get update -qq > /dev/null 2>&1
 
-# Переустановка, если бинарник отсутствует (например, после ручной зачистки)
-if ! command -v caddy &>/dev/null; then
+# Переустановка, если бинарник или сервис отсутствуют (напр. после ручной зачистки)
+if ! command -v caddy &>/dev/null || [ ! -f /lib/systemd/system/caddy.service ]; then
     dpkg --purge caddy 2>/dev/null || true
-    apt-get install -y -qq caddy > /dev/null 2>&1
-else
     apt-get install -y -qq caddy > /dev/null 2>&1
 fi
 
