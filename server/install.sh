@@ -37,6 +37,12 @@ ARCH=$(uname -m)
 # --- 1. Базовая настройка ---
 info "=== Шаг 1: Базовая настройка ==="
 export DEBIAN_FRONTEND=noninteractive
+
+# Очистка битых пакетов (mita и др., которые могли остаться от прошлых установок)
+dpkg --purge --force-depends mita 2>/dev/null || true
+rm -f /var/lib/dpkg/info/mita.*
+apt-get -f -y install 2>/dev/null || true
+
 apt-get update -qq
 apt-get install -y -qq curl wget jq qrencode unzip python3 python3-pip ufw gnupg2 lsb-release ca-certificates socat net-tools htop > /dev/null 2>&1
 
@@ -281,6 +287,7 @@ MITA_URL="https://github.com/enfein/mieru/releases/download/v3.34.1/mita_3.34.1_
 curl -sL "$MITA_URL" -o /tmp/mita.deb
 dpkg -i /tmp/mita.deb 2>/dev/null || true
 rm -f /tmp/mita.deb
+apt-get -f -y install 2>/dev/null || true
 
 # Исправляем mita.service если бинарник /usr/bin/mita а не /usr/bin/mieru
 if [ -f /usr/bin/mita ] && ! [ -f /usr/bin/mieru ]; then
