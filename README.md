@@ -35,12 +35,6 @@ Users can change their own password from their dashboard:
 - **Protocols**: Xray (VLESS), sing-box (Hysteria2), WireGuard (AmneziaWG), Mieru, NaiveProxy
 - **Clients**: OlcboxME (Kotlin Multiplatform), oRTC (Go WebRTC tunnel)
 
-## Servers
-
-| Environment | IP | Domain | Port |
-|-------------|-----|--------|------|
-| Production | 31.76.8.29 | panel.kuban-forum.ru | 443 |
-| Development | 2.26.51.8 | nyx.kuban-forum.ru | 8443 |
 
 ## License
 
