@@ -68,6 +68,7 @@ ufw allow ${HY2_PORT}/udp > /dev/null 2>&1
 ufw allow ${MIERU_PORTS//-/:}/tcp > /dev/null 2>&1
 ufw allow ${OLCRTC_PORT}/udp > /dev/null 2>&1
 ufw allow ${OLCRTC_PORT}/tcp > /dev/null 2>&1
+ufw allow 9443/tcp > /dev/null 2>&1
 ufw --force enable > /dev/null 2>&1
 info "UFW настроен"
 
@@ -578,6 +579,69 @@ else
     warn "AmneziaWG не установлен"
 fi
 
+# --- 7b. Trojan-Go ---
+info "=== Шаг 7b: Установка Trojan-Go ==="
+
+TROJAN_VERSION="0.10.6"
+curl -sL "https://github.com/p4gefau1t/trojan-go/releases/download/v${TROJAN_VERSION}/trojan-go-linux-amd64.zip" -o /tmp/trojan-go.zip
+unzip -oq /tmp/trojan-go.zip -d /tmp/trojan-go
+install -m 755 /tmp/trojan-go/trojan-go /usr/local/bin/trojan-go
+mkdir -p /etc/trojan-go
+rm -rf /tmp/trojan-go*
+
+cat > /etc/trojan-go/config.json << TJ_EOF
+{
+  "run_type": "server",
+  "local_addr": "0.0.0.0",
+  "local_port": 9443,
+  "remote_addr": "127.0.0.1",
+  "remote_port": 8080,
+  "password": [],
+  "ssl": {
+    "cert": "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem",
+    "key": "/etc/letsencrypt/live/${DOMAIN}/privkey.pem",
+    "fallback_addr": "127.0.0.1",
+    "fallback_port": 8080
+  },
+  "api": {
+    "enabled": true,
+    "api_addr": "127.0.0.1",
+    "api_port": 10000
+  }
+}
+TJ_EOF
+
+cat > /etc/systemd/system/trojan-go.service << 'SVCEOF'
+[Unit]
+Description=Trojan-Go
+After=network.target nss-lookup.target
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/trojan-go -config /etc/trojan-go/config.json
+Restart=always
+RestartSec=3
+LimitNOFILE=65535
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+
+systemctl daemon-reload
+systemctl enable --now trojan-go
+info "Trojan-Go v${TROJAN_VERSION} установлен на порту 9443"
+
+# Caddy HTTP fallback для Trojan
+TROJAN_HTTP_BLOCK="http://${DOMAIN}:8080 {
+    root * /var/www/html
+    file_server
+}"
+if ! grep -q "${DOMAIN}:8080" /etc/caddy/Caddyfile 2>/dev/null; then
+    echo "" >> /etc/caddy/Caddyfile
+    echo "$TROJAN_HTTP_BLOCK" >> /etc/caddy/Caddyfile
+    systemctl reload caddy
+    info "Caddy HTTP fallback :8080 добавлен"
+fi
+
 # --- 8. Панель + proxy_manager.sh ---
 info "=== Шаг 8: Установка панели ==="
 
@@ -633,6 +697,12 @@ sed -i "s/VLESS_PORT=\".*\"/VLESS_PORT=\"$VLESS_PORT\"/" /root/proxy_manager.sh
 sed -i "s/MIERU_IP=\".*\"/MIERU_IP=\"$SERVER_IP\"/" /root/proxy_manager.sh
 sed -i "s|OLRTC_ICE=\"ws://.*:30001/ice\"|OLRTC_ICE=\"ws://$DOMAIN:30001/ice\"|" /root/proxy_manager.sh
 sed -i "s|OLRTC_ROOM_URL=\".*\"|OLRTC_ROOM_URL=\"https://meet.egovm.ru/nyx-$DOMAIN\"|" /root/proxy_manager.sh
+sed -i "s/TROJAN_CONFIG=\".*\"/TROJAN_CONFIG=\"\/etc\/sing-box\/config.json\"/" /root/proxy_manager.sh
+sed -i "s/TROJAN_USERS_FILE=\".*\"/TROJAN_USERS_FILE=\"\/etc\/sing-box\/trojan_users.json\"/" /root/proxy_manager.sh
+sed -i "s/TROJAN_PORT=\".*\"/TROJAN_PORT=\"9443\"/" /root/proxy_manager.sh
+sed -i "s|TROJAN_CERT=\".*\"|TROJAN_CERT=\"/root/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/$DOMAIN/$DOMAIN.crt\"|" /root/proxy_manager.sh
+sed -i "s|TROJAN_KEY=\".*\"|TROJAN_KEY=\"/root/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/$DOMAIN/$DOMAIN.key\"|" /root/proxy_manager.sh
+sed -i "s/TROJAN_SERVICE=\".*\"/TROJAN_SERVICE=\"trojan-go\"/" /root/proxy_manager.sh
 info "proxy_manager.sh настроен под домен $DOMAIN"
 
 cat > /etc/systemd/system/panel.service << 'SVCEOF'
@@ -675,7 +745,7 @@ info "=== Шаг 9: Service Watchdog ==="
 
 cat > /usr/local/bin/service-watchdog.sh << 'WDEOF'
 #!/bin/bash
-SERVICES="xray caddy sing-box-naive hysteria2 mita olcrtc awg-quick@awg0"
+SERVICES="xray caddy sing-box-naive hysteria2 mita olcrtc awg-quick@awg0 trojan-go"
 LOG="/var/log/service-watchdog.log"
 MAX_LOG_LINES=1000
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') $1" >> "$LOG"; }
@@ -766,6 +836,6 @@ echo -e "Caddy proxy: ${CYAN}admin${NC}:${CYAN}${ADMIN_PROXY_PASS}${NC}"
 echo -e "Naive proxy: ${CYAN}initial${NC}:${CYAN}${NAIVE_PASSWORD}${NC}"
 echo ""
 echo -e "Сервисы:"
-for svc in xray caddy sing-box-naive hysteria2 mita olcrtc panel; do
+for svc in xray caddy sing-box-naive hysteria2 mita olcrtc trojan-go panel; do
     echo -e "  $svc: ${CYAN}$(systemctl is-active $svc 2>/dev/null || echo 'n/a')${NC}"
 done
