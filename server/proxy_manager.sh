@@ -9,9 +9,9 @@ BASE_DIR="/root/proxy_users"
 REGISTRY_FILE="$BASE_DIR/.registry"
 
 # Пути к конфигам серверов
-HY2_CONFIG="/etc/hysteria/config.yaml"
+HY2_CONFIG="/etc/hysteria/config.json"
 AWG_CONFIG="/etc/amnezia/amneziawg/awg0.conf" 
-NAIVE_CONFIG="/etc/caddy/Caddyfile"  
+NAIVE_CONFIG="/etc/caddy/Caddyfile.naive"  
 AWG_INTERFACE="awg0"
 
 # Параметры сервера
@@ -27,7 +27,7 @@ OLRTC_USERS_FILE="/etc/olcrtc/users.json"
 OLRTC_CONFIG="/root/.config/olcrtc/server.yaml"
 OLRTC_SERVICE="olcrtc"
 OLRTC_ICE="ws://76t05pyu.ikill.baby:30001/ice"
-OLRTC_ROOM_URL="https://meet.egovm.ru/pxy-76t05pyu.ikill.baby"
+OLRTC_ROOM_URL="https://meet.egovm.ru/nyx-76t05pyu.ikill.baby"
 OLRTC_CRYPTO_KEY="2967bab5e92bb2c9ceef2e0e9b7b65d1dabca7d7b2db8c005250a591d2ce4b31"
 
 # VLESS+XHTTP+REALITY
@@ -357,7 +357,7 @@ remove_protocol() {
         naive)
             if [ -f "$NAIVE_CONFIG" ]; then
                 sed -i "/basic_auth ${username} /d" "$NAIVE_CONFIG"
-                systemctl reload caddy
+                systemctl reload caddy-naive
             fi
             rm -f "$BASE_DIR/$username/${username}_naive.json"
             rm -f "$BASE_DIR/$username/${username}_naive.png"
@@ -431,7 +431,7 @@ add_hy2_user() {
     systemctl restart hysteria-server
 
     local user_dir="$BASE_DIR/$username"
-    local tag_name="pxy-hy2 - $username"
+    local tag_name="nyx-hy2 - $username"
     local auth_str="${username}:${password}"
 
     jq -n \
@@ -529,7 +529,6 @@ add_naive_user() {
     local username=$1
     if [ -z "$username" ]; then read -p "Введите имя пользователя: " username; fi
     if ! check_user_exists "$username"; then return 1; fi
-    
     if [ -f "$BASE_DIR/$username/${username}_naive.json" ]; then
         echo -e "${YELLOW}NaiveProxy уже добавлен для '$username'.${NC}"
         return 1
@@ -538,16 +537,17 @@ add_naive_user() {
     echo -e "${YELLOW}Генерируем настройки NaiveProxy для '$username'...${NC}"
 
     if [ ! -f "$NAIVE_CONFIG" ]; then
-        echo -e "${RED}Конфиг Caddy не найден по пути $NAIVE_CONFIG${NC}"
+        echo -e "${RED}Конфиг Caddy Naive не найден по пути $NAIVE_CONFIG${NC}"
         return 1
     fi
 
     local password=$(openssl rand -hex 12)
-    local tag_name="pxy-naive - $username"
+    local tag_name="nyx-naive - $username"
 
-    sed -i "/forward_proxy {/a\\   basic_auth $username $password" "$NAIVE_CONFIG"
+    # Добавляем basic_auth в Caddyfile.naive
+    sed -i "/forward_proxy {/a\\        basic_auth $username $password" "$NAIVE_CONFIG"
 
-    systemctl reload caddy
+    systemctl reload caddy-naive
 
     jq -n \
       --arg tag_val "$tag_name" \
@@ -609,7 +609,7 @@ add_mieru_user() {
 
     # 5. Генерируем клиентский JSON для NEKOBOX (sing-box формат, для enfein/mbox)
     jq -n \
-      --arg tag_val "pxy-mieru - $username" \
+      --arg tag_val "nyx-mieru - $username" \
       --arg server_val "$SERVER_DOMAIN" \
       --argjson port_val 444 \
       --arg user_val "$username" \
@@ -635,7 +635,7 @@ add_mieru_user() {
       --arg port_range "$MIERU_PORTS" \
       --arg user_val "$username" \
       --arg pass_val "$password" \
-      --arg tag_val "pxy-mieru - $username" \
+      --arg tag_val "nyx-mieru - $username" \
       '{
         activeProfile: "default",
         socks5Port: 1080,
@@ -724,7 +724,7 @@ add_olcrtc_user() {
 OLRTC_EOF
 
     # olcbox URI
-    local olcrtc_uri="olcrtc://jitsi?datachannel&user=${username}&pass=${password}@${OLRTC_ROOM_URL}#${OLRTC_CRYPTO_KEY}\$pxy-olcrtc - ${username}"
+    local olcrtc_uri="olcrtc://jitsi?datachannel&user=${username}&pass=${password}@${OLRTC_ROOM_URL}#${OLRTC_CRYPTO_KEY}\$nyx-olcrtc - ${username}"
     echo "$olcrtc_uri" > "$BASE_DIR/$username/${username}_olcrtc.uri"
 
     # Текстовый файл с параметрами

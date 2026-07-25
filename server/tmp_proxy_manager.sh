@@ -27,7 +27,7 @@ OLRTC_USERS_FILE="/etc/olcrtc/users.json"
 OLRTC_CONFIG="/root/.config/olcrtc/server.yaml"
 OLRTC_SERVICE="olcrtc"
 OLRTC_ICE="ws://76t05pyu.ikill.baby:30001/ice"
-OLRTC_ROOM_URL="https://meet.egovm.ru/pxy-76t05pyu.ikill.baby"
+OLRTC_ROOM_URL="https://meet.egovm.ru/nyx-76t05pyu.ikill.baby"
 OLRTC_CRYPTO_KEY="2967bab5e92bb2c9ceef2e0e9b7b65d1dabca7d7b2db8c005250a591d2ce4b31"
 
 # VLESS+XHTTP+REALITY
@@ -428,7 +428,7 @@ add_hy2_user() {
     systemctl restart hysteria-server
 
     local user_dir="$BASE_DIR/$username"
-    local tag_name="pxy-hy2 - $username"
+    local tag_name="nyx-hy2 - $username"
     local auth_str="${username}:${password}"
 
     jq -n \
@@ -540,7 +540,7 @@ add_naive_user() {
     fi
 
     local password=$(openssl rand -hex 12)
-    local tag_name="pxy-naive - $username"
+    local tag_name="nyx-naive - $username"
 
     sed -i "/forward_proxy {/a\\   basic_auth $username $password" "$NAIVE_CONFIG"
 
@@ -606,7 +606,7 @@ add_mieru_user() {
 
     # 5. Генерируем клиентский JSON для NEKOBOX (sing-box формат, для enfein/mbox)
     jq -n \
-      --arg tag_val "pxy-mieru - $username" \
+      --arg tag_val "nyx-mieru - $username" \
       --arg server_val "$SERVER_DOMAIN" \
       --argjson port_val 444 \
       --arg user_val "$username" \
@@ -632,7 +632,7 @@ add_mieru_user() {
       --arg port_range "$MIERU_PORTS" \
       --arg user_val "$username" \
       --arg pass_val "$password" \
-      --arg tag_val "pxy-mieru - $username" \
+      --arg tag_val "nyx-mieru - $username" \
       '{
         activeProfile: "default",
         socks5Port: 1080,
@@ -728,7 +728,7 @@ claims:
 OLRTC_EOF
 
     # olcbox URI
-    local olcrtc_uri="olcrtc://jitsi?datachannel&user=${username}&pass=${password}@${OLRTC_ROOM_URL}#${OLRTC_CRYPTO_KEY}\$pxy-olcrtc - ${username}"
+    local olcrtc_uri="olcrtc://jitsi?datachannel&user=${username}&pass=${password}@${OLRTC_ROOM_URL}#${OLRTC_CRYPTO_KEY}\$nyx-olcrtc - ${username}"
     echo "$olcrtc_uri" > "$BASE_DIR/$username/${username}_olcrtc.uri"
 
     # Текстовый файл с параметрами

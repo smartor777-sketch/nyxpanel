@@ -20,7 +20,7 @@ OLRTC_USERS_FILE="/etc/olcrtc/users.json"
 OLRTC_CONFIG="/root/.config/olcrtc/server.yaml"
 OLRTC_SERVICE="olcrtc"
 OLRTC_ICE="ws://nyx.kuban-forum.ru:30001/ice"
-OLRTC_ROOM_URL="https://meet.egovm.ru/pxy-oootubww.ikill.baby"
+OLRTC_ROOM_URL="https://meet.egovm.ru/nyx-oootubww.ikill.baby"
 OLRTC_CRYPTO_KEY="2967bab5e92bb2c9ceef2e0e9b7b65d1dabca7d7b2db8c005250a591d2ce4b31"
 
 XRAY_CONFIG="/usr/local/etc/xray/config.json"
@@ -249,7 +249,7 @@ add_hy2_user() {
     jq --arg user "$username" --arg pass "$password" '.auth.userpass[$user] = $pass' "$HY2_CONFIG" > /tmp/hy2_config.tmp && mv /tmp/hy2_config.tmp "$HY2_CONFIG"
     systemctl restart hysteria-server
     local user_dir="$BASE_DIR/$username"
-    local tag_name="pxy-hy2 - $username"
+    local tag_name="nyx-hy2 - $username"
     local auth_str="${username}:${password}"
     jq -n --arg tag "$tag_name" --arg srv "$SERVER_DOMAIN" --argjson port "$server_port" --arg pass "$auth_str" --arg obfs_type "$obfs_type" --arg obfs_pass "$obfs_pass" \
       '{"outbounds": [{"type": "hysteria2", "tag": $tag, "server": $srv, "server_port": $port} + (if $obfs_type != "" and $obfs_type != "null" and $obfs_pass != "" and $obfs_pass != "null" then {obfs: {type: $obfs_type, password: $obfs_pass}} else {} end) + {"password": $pass, "tls": {"enabled": true, "server_name": $srv}}]}' \
@@ -312,7 +312,7 @@ add_naive_user() {
     if [ -f "$BASE_DIR/$username/${username}_naive.json" ]; then echo -e "${YELLOW}Naive exists${NC}"; return 1; fi
     if [ ! -f "$NAIVE_CONFIG" ]; then echo -e "${RED}Caddy config not found${NC}"; return 1; fi
     local password=$(openssl rand -hex 12)
-    local tag_name="pxy-naive - $username"
+    local tag_name="nyx-naive - $username"
     sed -i "/forward_proxy {/a\\   basic_auth $username $password" "$NAIVE_CONFIG"
     systemctl reload caddy
     jq -n --arg tag "$tag_name" --arg srv "$SERVER_DOMAIN" --argjson port "$NAIVE_PORT" --arg user "$username" --arg pass "$password" \
@@ -333,10 +333,10 @@ add_mieru_user() {
     init_mieru_config
     jq --arg name "$username" --arg pass "$password" '.users += [{"name": $name, "password": $pass}]' "$MIERU_CONFIG" > "${MIERU_CONFIG}.tmp" && mv "${MIERU_CONFIG}.tmp" "$MIERU_CONFIG"
     apply_mieru_config
-    jq -n --arg tag "pxy-mieru - $username" --arg srv "$SERVER_DOMAIN" --argjson port 444 --arg user "$username" --arg pass "$password" \
+    jq -n --arg tag "nyx-mieru - $username" --arg srv "$SERVER_DOMAIN" --argjson port 444 --arg user "$username" --arg pass "$password" \
       '{"outbounds": [{"type": "mieru", "tag": $tag, "server": $srv, "server_port": $port, "transport": "TCP", "username": $user, "password": $pass}]}' \
       > "$BASE_DIR/$username/${username}_mieru.json"
-    jq -n --arg sip "$MIERU_IP" --arg sdom "$SERVER_DOMAIN" --arg pr "$MIERU_PORTS" --arg user "$username" --arg pass "$password" --arg tag "pxy-mieru - $username" \
+    jq -n --arg sip "$MIERU_IP" --arg sdom "$SERVER_DOMAIN" --arg pr "$MIERU_PORTS" --arg user "$username" --arg pass "$password" --arg tag "nyx-mieru - $username" \
       '{"activeProfile": "default", "socks5Port": 1080, "loggingLevel": "INFO", "profiles": [{"profileName": $tag, "user": {"name": $user, "password": $pass}, "servers": [{"ipAddress": $sip, "domainName": $sdom, "portBindings": [{"portRange": $pr, "protocol": "TCP"}]}]}]}' \
       > "$BASE_DIR/$username/${username}_mieru_standalone.json"
     cat > "$BASE_DIR/$username/${username}_nekobox.txt" << EOF
@@ -376,7 +376,7 @@ add_olcrtc_user() {
   "claims_pass": "${password}"
 }
 OLRTC_EOF
-    local olcrtc_uri="olcrtc://jitsi?datachannel&user=${username}&pass=${password}@${OLRTC_ROOM_URL}#${OLRTC_CRYPTO_KEY}\$pxy-olcrtc - ${username}"
+    local olcrtc_uri="olcrtc://jitsi?datachannel&user=${username}&pass=${password}@${OLRTC_ROOM_URL}#${OLRTC_CRYPTO_KEY}\$nyx-olcrtc - ${username}"
     echo "$olcrtc_uri" > "$BASE_DIR/$username/${username}_olcrtc.uri"
     cat > "$BASE_DIR/$username/${username}_olcrtc.txt" << OLRTC_TXT
 === olcRTC ===
