@@ -136,7 +136,7 @@
 
   <div class="card">
     <h2 data-i18n="traffic">Traffic</h2>
-        <p style="font-size:0.78rem;color:var(--muted);margin-bottom:0.8rem" data-i18n="trafficNote">Считается трафик: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG.</p>
+        <p style="font-size:0.78rem;color:var(--muted);margin-bottom:0.8rem" data-i18n="trafficNote">Считается трафик: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG, Trojan.</p>
     <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center">
       <select id="userSelect" style="padding:0.4rem 0.8rem;border-radius:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--fg)">
         <option value="" data-i18n="allUsers">All Users</option>
@@ -149,6 +149,11 @@
         <button class="small period-btn" data-days="14" data-i18n="week">Week</button>
         <button class="small period-btn" data-days="60" data-i18n="month">Month</button>
         <button class="small period-btn" data-days="0" data-i18n="all">All</button>
+      </div>
+      <div class="btn-group" style="display:flex;gap:2px" id="protoFilters">
+        {% for key, pname, _, _ in protocols %}
+        <button class="small proto-filter active" data-proto="{{ key }}" title="{{ pname }}">{{ pname.split('+')[0] }}</button>
+        {% endfor %}
       </div>
     </div>
     <div class="chart-container">
@@ -164,6 +169,12 @@
   .btn-group .period-btn:last-child { border-radius: 0 6px 6px 0; border-right: none; }
   .btn-group .period-btn.active { background: var(--btn-period-active-bg); border-color: var(--btn-period-active-bg); color: #fff; }
   .btn-group .period-btn:hover { filter: brightness(0.95); }
+  .btn-group .proto-filter { border-radius: 0; border-right: 1px solid var(--btn-period-border); background: var(--btn-period-bg); color: var(--btn-period-fg); font-size: 0.75rem; padding: 0.25rem 0.5rem; }
+  .btn-group .proto-filter:first-child { border-radius: 6px 0 0 6px; }
+  .btn-group .proto-filter:last-child { border-radius: 0 6px 6px 0; border-right: none; }
+  .btn-group .proto-filter.active { background: var(--btn-period-active-bg); border-color: var(--btn-period-active-bg); color: #fff; }
+  .btn-group .proto-filter.inactive { opacity: 0.5; }
+  .btn-group .proto-filter:hover { filter: brightness(0.95); }
   .pagination { display:flex;gap:2px;flex-wrap:wrap; }
   .pagination button { padding:0.2rem 0.5rem;border-radius:4px;border:1px solid var(--border);background:var(--input-bg);color:var(--fg);font-size:0.75rem;cursor:pointer; }
   .pagination button:hover { background:var(--border); }
@@ -239,7 +250,7 @@ const _t = {
     expiryCol: 'Срок', passCol: 'Пароль', actCol: 'Действ.', exportCol: 'Экспорт',
     noUsers: 'Пользователей пока нет',
     perPage10: '10 на стр.', perPage25: '25 на стр.', perPage50: '50 на стр.',
-    traffic: 'Трафик', trafficNote: 'Считается трафик: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG.', allUsers: 'Все пользователи',
+    traffic: 'Трафик', trafficNote: 'Считается трафик: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG, Trojan.', allUsers: 'Все пользователи',
     today: 'Сегодня', week: 'Неделя', month: 'Месяц', all: 'Всё',
     upload: 'Загрузка', download: 'Скачивание', total: 'Всего',
     active: 'активен', disabled: 'отключён', set: 'задать',
@@ -468,6 +479,13 @@ function copySub(name) {
   });
 }
 
+const getSelectedProtos = () => {
+  const btns = document.querySelectorAll('#protoFilters .proto-filter');
+  const sel = new Set();
+  btns.forEach(b => { if (b.classList.contains('active')) sel.add(b.dataset.proto); });
+  return sel;
+};
+
 async function loadTraffic() {
   const user = document.getElementById('userSelect').value;
   const reqDays = document.querySelector('.period-btn.active')?.dataset.days || '14';
@@ -478,7 +496,11 @@ async function loadTraffic() {
       : '/self/api/traffic?days=' + fetchDays;
     const res = await fetch(url);
     if (!res.ok) return;
-    const data = await res.json();
+    let data = await res.json();
+    const selectedProtos = getSelectedProtos();
+    if (selectedProtos.size > 0 && selectedProtos.size < document.querySelectorAll('#protoFilters .proto-filter').length) {
+      data = data.filter(d => selectedProtos.has(d.protocol));
+    }
     if (trafficChart) trafficChart.destroy();
 
     const noMsg = document.getElementById('noTrafficMsg');
@@ -555,6 +577,13 @@ document.querySelectorAll('.period-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
+    loadTraffic();
+  });
+});
+document.querySelectorAll('#protoFilters .proto-filter').forEach(btn => {
+  btn.addEventListener('click', () => {
+    btn.classList.toggle('active');
+    btn.classList.toggle('inactive');
     loadTraffic();
   });
 });
