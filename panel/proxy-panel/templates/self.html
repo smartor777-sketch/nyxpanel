@@ -48,6 +48,11 @@
   .btn-group button:first-child { border-radius: 6px 0 0 6px; }
   .btn-group button:last-child { border-radius: 0 6px 6px 0; border-right: none; }
   .btn-group .active { background: var(--btn-active); border-color: var(--btn-active); color: #fff; }
+  .btn-group .proto-filter { border-radius: 0; border-right: 1px solid var(--border); background: var(--input-bg); color: var(--fg); font-size: 0.75rem; padding: 0.2rem 0.45rem; }
+  .btn-group .proto-filter:first-child { border-radius: 6px 0 0 6px; }
+  .btn-group .proto-filter:last-child { border-radius: 0 6px 6px 0; border-right: none; }
+  .btn-group .proto-filter.active { background: var(--btn-active); border-color: var(--btn-active); color: #fff; }
+  .btn-group .proto-filter.inactive { opacity: 0.45; }
   .toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
   .theme-btn { background: var(--btn-theme-bg); color: var(--btn-theme-fg); border: 1px solid var(--btn-theme-border); padding: 0.3rem 0.6rem; font-size: 1rem; cursor: pointer; border-radius: 6px; }
   .theme-btn:hover { filter: brightness(0.95); }
@@ -168,13 +173,18 @@
 
   <div class="card">
     <h2 data-i18n="traffic">Traffic</h2>
-        <p style="font-size:0.78rem;color:var(--muted);margin-bottom:0.8rem" data-i18n="trafficNote">Считается трафик: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG.</p>
+        <p style="font-size:0.78rem;color:var(--muted);margin-bottom:0.8rem" data-i18n="trafficNote">Считается трафик: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG, Trojan.</p>
     <div class="toolbar">
       <div class="btn-group">
         <button class="period-btn active" data-days="2" data-i18n="today">Today</button>
         <button class="period-btn" data-days="14" data-i18n="week">Week</button>
         <button class="period-btn" data-days="60" data-i18n="month">Month</button>
         <button class="period-btn" data-days="0" data-i18n="all">All</button>
+      </div>
+      <div class="btn-group" id="protoFilters" style="display:none">
+        {% for key, pname, _, _ in protocols_list %}
+        <button class="proto-filter active" data-proto="{{ key }}" title="{{ pname }}">{{ pname.split('+')[0] }}</button>
+        {% endfor %}
       </div>
     </div>
     <div class="chart-container">
@@ -217,7 +227,7 @@ const _t = {
     usage: 'Использование', totalTraffic: 'Всего трафика', limit: 'Лимит',
     configs: 'Конфигурации', config: 'Config', subscription: 'Подписка',
     copyUrl: '\u{1F517} Скопировать URL', noConfigs: 'Нет доступных конфигураций',
-    traffic: 'Трафик', trafficNote: 'Считается трафик: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG.', today: 'Сегодня', week: 'Неделя', month: 'Месяц', all: 'Всё',
+    traffic: 'Трафик', trafficNote: 'Считается трафик: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG, Trojan.', today: 'Сегодня', week: 'Неделя', month: 'Месяц', all: 'Всё',
     upload: 'Загрузка', download: 'Скачивание', copied: '\u2705 Скопировано!',
     currentPeriod: 'Текущий', prevPeriod: 'Прошлый', noTraffic: 'Нет данных о трафике'
   },en: {
@@ -230,7 +240,7 @@ const _t = {
     usage: 'Usage', totalTraffic: 'Total Traffic', limit: 'Limit',
     configs: 'Configurations', config: 'Config', subscription: 'Subscription',
     copyUrl: '\u{1F517} Copy URL', noConfigs: 'No configurations available',
-    traffic: 'Traffic', trafficNote: 'Traffic is tracked for: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG.', today: 'Today', week: 'Week', month: 'Month', all: 'All',
+    traffic: 'Traffic', trafficNote: 'Traffic is tracked for: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG, Trojan.', today: 'Today', week: 'Week', month: 'Month', all: 'All',
     upload: 'Upload', download: 'Download', copied: '\u2705 Copied!',
     currentPeriod: 'Current', prevPeriod: 'Previous', noTraffic: 'No traffic data'
   }
@@ -255,6 +265,13 @@ setLang(getLang());
 const fmtBytes = v => !v ? '0 B' : v >= 1073741824 ? (v/1073741824).toFixed(1)+' GB' : v >= 1048576 ? (v/1048576).toFixed(1)+' MB' : (v/1024).toFixed(1)+' KB';
 const currentUser = '{{ user.username }}';
 
+const getSelectedProtos = () => {
+  const btns = document.querySelectorAll('#protoFilters .proto-filter');
+  const sel = new Set();
+  btns.forEach(b => { if (b.classList.contains('active')) sel.add(b.dataset.proto); });
+  return sel;
+};
+
 async function loadTraffic() {
   const days = document.querySelector('.period-btn.active')?.dataset.days || '14';
   try {
@@ -262,7 +279,11 @@ async function loadTraffic() {
     const url = '/self/api/v1/traffic/' + encodeURIComponent(currentUser) + '?days=' + fetchDays;
     const res = await fetch(url);
     if (!res.ok) return;
-    const data = await res.json();
+    let data = await res.json();
+    const selectedProtos = getSelectedProtos();
+    if (selectedProtos.size > 0 && selectedProtos.size < document.querySelectorAll('#protoFilters .proto-filter').length) {
+      data = data.filter(d => selectedProtos.has(d.protocol));
+    }
     if (trafficChart) trafficChart.destroy();
 
     const noMsg = document.getElementById('noTrafficMsg');
@@ -333,6 +354,15 @@ async function loadTraffic() {
     }
   } catch(e) { console.log('Traffic chart error:', e); }
 }
+
+document.getElementById('protoFilters').style.display = '';
+document.querySelectorAll('#protoFilters .proto-filter').forEach(btn => {
+  btn.addEventListener('click', () => {
+    btn.classList.toggle('active');
+    btn.classList.toggle('inactive');
+    loadTraffic();
+  });
+});
 
 document.querySelectorAll('.period-btn').forEach(btn => {
   btn.addEventListener('click', () => {

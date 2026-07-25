@@ -23,6 +23,14 @@ OLRTC_ICE="ws://nyx.kuban-forum.ru:30001/ice"
 OLRTC_ROOM_URL="https://meet.egovm.ru/nyx-oootubww.ikill.baby"
 OLRTC_CRYPTO_KEY="<REPLACE_WITH_YOUR_KEY>"
 
+TROJAN_CONFIG="/etc/sing-box/config.json"
+TROJAN_USERS_FILE="/etc/sing-box/trojan_users.json"
+TROJAN_PORT=9443
+TROJAN_CERT="/root/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/nyx.kuban-forum.ru/nyx.kuban-forum.ru.crt"
+TROJAN_KEY="/root/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/nyx.kuban-forum.ru/nyx.kuban-forum.ru.key"
+SINGBOX_SERVICE="sing-box-naive"
+TROJAN_SERVICE="trojan-go"
+
 XRAY_CONFIG="/usr/local/etc/xray/config.json"
 VLESS_USERS_FILE="/etc/xray/users.json"
 XRAY_SERVICE="xray"
@@ -129,6 +137,10 @@ del_user() {
         jq --arg user "$username" 'del(.[$user])' "$VLESS_USERS_FILE" > /tmp/vless_users.tmp && mv /tmp/vless_users.tmp "$VLESS_USERS_FILE"
         update_xray_config
     fi
+    if [ -f "$target_dir/${username}_troyan.json" ] && [ -f "$TROJAN_USERS_FILE" ]; then
+        jq --arg user "$username" 'del(.[$user])' "$TROJAN_USERS_FILE" > /tmp/trojan_users.tmp && mv /tmp/trojan_users.tmp "$TROJAN_USERS_FILE"
+        update_trojango_config
+    fi
     rm -rf "$target_dir"
     echo -e "${GREEN}User '$username' fully deleted${NC}"
 }
@@ -138,7 +150,7 @@ remove_protocol() {
     local protocol=$2
     if [ -z "$username" ] || [ -z "$protocol" ]; then
         echo -e "${RED}Usage: remove_protocol <username> <protocol>${NC}"
-        echo -e "${YELLOW}Protocols: hy2, awg, naive, mieru, olcrtc, vless${NC}"
+        echo -e "${YELLOW}Protocols: hy2, awg, naive, mieru, olcrtc, vless, troy${NC}"
         return 1
     fi
     if ! check_user_exists "$username"; then return 1; fi
@@ -200,9 +212,19 @@ remove_protocol() {
             else
                 echo -e "${YELLOW}VLESS not found for $username${NC}"
             fi ;;
+        troy)
+            if [ -f "$user_dir/${username}_troyan.json" ]; then
+                jq --arg user "$username" 'del(.[$user])' "$TROJAN_USERS_FILE" > /tmp/trojan_users.tmp && mv /tmp/trojan_users.tmp "$TROJAN_USERS_FILE"
+                update_trojango_config
+                systemctl restart "$TROJAN_SERVICE"
+                rm -f "$user_dir/${username}_troyan.json" "$user_dir/${username}_troyan.uri" "$user_dir/${username}_troyan.png"
+                echo -e "${GREEN}Trojan removed for $username${NC}"
+            else
+                echo -e "${YELLOW}Trojan not found for $username${NC}"
+            fi ;;
         *)
             echo -e "${RED}Unknown protocol: $protocol${NC}"
-            echo -e "${YELLOW}Valid: hy2, awg, naive, mieru, olcrtc, vless${NC}"
+            echo -e "${YELLOW}Valid: hy2, awg, naive, mieru, olcrtc, vless, troy${NC}"
             return 1 ;;
     esac
 }
@@ -218,6 +240,7 @@ list_users() {
         [ -f "$BASE_DIR/$user/${user}_mieru.json" ] && echo "   - Mieru"
         [ -f "$BASE_DIR/$user/${user}_olcrtc.json" ] && echo "   - olcRTC"
         [ -f "$BASE_DIR/$user/${user}_vless.uri" ] && echo "   - VLESS+XHTTP+REALITY"
+        [ -f "$BASE_DIR/$user/${user}_troyan.json" ] && echo "   - Trojan"
     done < "$REGISTRY_FILE"
 }
 
@@ -409,17 +432,62 @@ add_vless_user() {
     echo -e "${GREEN}VLESS added for $username${NC}"
 }
 
+update_trojango_config() {
+    python3 -c "
+import json
+config_file = '/etc/trojan-go/config.json'
+users_file = '$TROJAN_USERS_FILE'
+
+passwords = []
+try:
+    with open(users_file) as f:
+        udict = json.load(f)
+        passwords = list(udict.values())
+except:
+    pass
+
+with open(config_file) as f:
+    cfg = json.load(f)
+
+cfg['password'] = passwords
+
+with open(config_file, 'w') as f:
+    json.dump(cfg, f, indent=2)
+" 2>/dev/null
+}
+
+add_trojan_user() {
+    local username=$1
+    if [ -z "$username" ]; then read -p "Username: " username; fi
+    if ! check_user_exists "$username"; then return 1; fi
+    if [ -f "$BASE_DIR/$username/${username}_troyan.json" ]; then echo -e "${YELLOW}Trojan already exists for $username${NC}"; return 1; fi
+    local password=$(openssl rand -hex 12)
+    mkdir -p "$(dirname "$TROJAN_USERS_FILE")"
+    if [ ! -f "$TROJAN_USERS_FILE" ]; then echo '{}' > "$TROJAN_USERS_FILE"; fi
+    jq --arg user "$username" --arg pass "$password" '.[$user] = $pass' "$TROJAN_USERS_FILE" > /tmp/trojan_users.tmp && mv /tmp/trojan_users.tmp "$TROJAN_USERS_FILE"
+    update_trojango_config
+    systemctl restart "$TROJAN_SERVICE"
+    local tag_name="nyx-trojan - $username"
+    jq -n --arg tag "$tag_name" --arg srv "$SERVER_DOMAIN" --argjson port "$TROJAN_PORT" --arg pass "$password" \
+      '{"outbounds": [{"type": "trojan", "tag": $tag, "server": $srv, "server_port": $port, "password": $pass, "tls": {"enabled": true, "server_name": $srv}}]}' \
+      > "$BASE_DIR/$username/${username}_troyan.json"
+    local link="trojan://${password}@${SERVER_DOMAIN}:${TROJAN_PORT}?security=tls&sni=${SERVER_DOMAIN}&type=tcp&headerType=none#${username}"
+    echo "$link" > "$BASE_DIR/$username/${username}_troyan.uri"
+    generate_qr "$link" "$BASE_DIR/$username/${username}_troyan.png"
+    echo -e "${GREEN}Trojan added for $username on port $TROJAN_PORT${NC}"
+}
+
 # CLI
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     init
     if [ $# -gt 0 ]; then
         case "$1" in
-            add_user|del_user|add_hy2_user|add_awg_user|add_naive_user|add_mieru_user|add_olcrtc_user|add_vless_user)
+            add_user|del_user|add_hy2_user|add_awg_user|add_naive_user|add_mieru_user|add_olcrtc_user|add_vless_user|add_trojan_user)
                 "$1" "$2" ;;
             list_users|list) list_users ;;
             remove_protocol) remove_protocol "$3" "$2" ;;
             *)
-                echo "Usage: $0 {add_user|del_user|list_users|remove_protocol|add_hy2_user|add_awg_user|add_naive_user|add_mieru_user|add_olcrtc_user|add_vless_user} [username]"
+                echo "Usage: $0 {add_user|del_user|list_users|remove_protocol|add_hy2_user|add_awg_user|add_naive_user|add_mieru_user|add_olcrtc_user|add_vless_user|add_trojan_user} [username]"
                 exit 1 ;;
         esac
         exit $?

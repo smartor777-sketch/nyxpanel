@@ -23,6 +23,7 @@ PROTOCOLS = [
     ("mieru",  "Mieru",           "_mieru.json",  "_mieru.png"),
     ("olcrtc", "olcRTC",          "_olcrtc.json", "_olcrtc.png"),
     ("vless",  "VLESS+XHTTP+REALITY", "_vless.uri", "_vless.png"),
+    ("troy",   "Trojan",              "_troyan.json", "_troyan.png"),
 ]
 
 SCRIPTS = {
@@ -40,6 +41,8 @@ SCRIPTS = {
     "del_olcrtc":    ["bash", "/root/proxy_manager.sh", "remove_protocol", "olcrtc"],
     "add_vless":     ["bash", "/root/proxy_manager.sh", "add_vless_user"],
     "del_vless":     ["bash", "/root/proxy_manager.sh", "remove_protocol", "vless"],
+    "add_troy":      ["bash", "/root/proxy_manager.sh", "add_trojan_user"],
+    "del_troy":      ["bash", "/root/proxy_manager.sh", "remove_protocol", "troy"],
 }
 
 # --- SQLite ---
@@ -197,7 +200,7 @@ def proto_add(name, proto):
         return redirect("/self/login")
     script_map = {
         "hy2": "add_hy2", "awg": "add_awg", "naive": "add_naive",
-        "mieru": "add_mieru", "olcrtc": "add_olcrtc", "vless": "add_vless",
+        "mieru": "add_mieru", "olcrtc": "add_olcrtc", "vless": "add_vless", "troy": "add_troy",
     }
     sname = script_map.get(proto)
     if not sname:
@@ -383,7 +386,7 @@ def self_dashboard():
     total = (traffic["up"] or 0) + (traffic["down"] or 0)
     limit = row["traffic_limit_bytes"] or 0
     percent = round(total / limit * 100, 1) if limit > 0 else None
-    return render_template("self.html", user=row, protocols=protos, traffic=total, percent=percent, version=PANEL_VERSION)
+    return render_template("self.html", user=row, protocols=protos, traffic=total, percent=percent, version=PANEL_VERSION, protocols_list=PROTOCOLS)
 
 @app.route("/self/config/<proto>")
 @app.route("/self/config/<name>/<proto>")
@@ -498,6 +501,13 @@ def api_subscription(name):
                     j = json.loads(content)
                     o = j['outbounds'][0]
                     links.append(f"hy2://{o['password']}@{o['server']}:{o['server_port']}?obfs={o['obfs']['type']}&obfs-password={o['obfs']['password']}#Hy2-{name}")
+                except:
+                    pass
+            elif cfg_suffix == "_troyan.json":
+                try:
+                    j = json.loads(content)
+                    o = j['outbounds'][0]
+                    links.append(f"trojan://{o['password']}@{o['server']}:{o['server_port']}?security=tls&sni={o['sni']}&type=tcp&headerType=none#Troyan-{name}")
                 except:
                     pass
     import base64
