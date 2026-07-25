@@ -150,11 +150,15 @@ def call_script(name, username):
     try:
         proc = subprocess.run(
             cmd + [username],
-            capture_output=True, text=True, timeout=120, env=env
+            capture_output=True, encoding="utf-8", timeout=120, env=env
         )
+        out = proc.stdout or ""
+        err = proc.stderr or ""
+        out = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', out).strip()
+        err = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', err).strip()
         if proc.returncode == 0:
-            return True, proc.stdout or "OK"
-        return False, proc.stderr or proc.stdout or "Error"
+            return True, out or "OK"
+        return False, err or out or "Error"
     except subprocess.TimeoutExpired:
         return False, "Timeout"
     except Exception as e:
