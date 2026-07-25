@@ -11,7 +11,7 @@ REGISTRY_FILE="$BASE_DIR/.registry"
 # Пути к конфигам серверов
 HY2_CONFIG="/etc/hysteria/config.json"
 AWG_CONFIG="/etc/amnezia/amneziawg/awg0.conf" 
-NAIVE_CONFIG="/etc/caddy/Caddyfile.naive"  
+NAIVE_CONFIG="/etc/sing-box/config.json"
 AWG_INTERFACE="awg0"
 
 # Параметры сервера
@@ -187,11 +187,12 @@ del_user() {
         echo -e "${GREEN}Удален из AmneziaWG.${NC}"
     fi
 
-    # 3. Удаляем из Caddyfile (NaiveProxy)
+    # 3. Удаляем из sing-box (NaiveProxy)
     if [ -f "$NAIVE_CONFIG" ]; then
-        sed -i "/basic_auth ${username} /d" "$NAIVE_CONFIG"
-        systemctl reload caddy
-        echo -e "${GREEN}Удален из Caddy (NaiveProxy).${NC}"
+        jq --arg user "$username" 'del(.inbounds[0].users[] | select(.username == $user))' \
+          "$NAIVE_CONFIG" > /tmp/naive_config.tmp && mv /tmp/naive_config.tmp "$NAIVE_CONFIG"
+        systemctl restart sing-box-naive
+        echo -e "${GREEN}Удален из sing-box (NaiveProxy).${NC}"
     fi
 
     # 4. Удаляем из Mieru (если есть)
@@ -356,8 +357,9 @@ remove_protocol() {
             ;;
         naive)
             if [ -f "$NAIVE_CONFIG" ]; then
-                sed -i "/basic_auth ${username} /d" "$NAIVE_CONFIG"
-                systemctl reload caddy-naive
+                jq --arg user "$username" 'del(.inbounds[0].users[] | select(.username == $user))' \
+                  "$NAIVE_CONFIG" > /tmp/naive_config.tmp && mv /tmp/naive_config.tmp "$NAIVE_CONFIG"
+                systemctl restart sing-box-naive
             fi
             rm -f "$BASE_DIR/$username/${username}_naive.json"
             rm -f "$BASE_DIR/$username/${username}_naive.png"
@@ -537,17 +539,19 @@ add_naive_user() {
     echo -e "${YELLOW}Генерируем настройки NaiveProxy для '$username'...${NC}"
 
     if [ ! -f "$NAIVE_CONFIG" ]; then
-        echo -e "${RED}Конфиг Caddy Naive не найден по пути $NAIVE_CONFIG${NC}"
+        echo -e "${RED}Конфиг sing-box Naive не найден по пути $NAIVE_CONFIG${NC}"
         return 1
     fi
 
     local password=$(openssl rand -hex 12)
     local tag_name="nyx-naive - $username"
 
-    # Добавляем basic_auth в Caddyfile.naive
-    sed -i "/forward_proxy {/a\\        basic_auth $username $password" "$NAIVE_CONFIG"
+    # Добавляем пользователя в sing-box config.json
+    jq --arg user "$username" --arg pass "$password" \
+      '.inbounds[0].users += [{"username": $user, "password": $pass}]' \
+      "$NAIVE_CONFIG" > /tmp/naive_config.tmp && mv /tmp/naive_config.tmp "$NAIVE_CONFIG"
 
-    systemctl reload caddy-naive
+    systemctl restart sing-box-naive
 
     jq -n \
       --arg tag_val "$tag_name" \

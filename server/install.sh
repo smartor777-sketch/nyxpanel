@@ -168,74 +168,64 @@ systemctl daemon-reload
 systemctl enable --now xray
 info "Xray установлен (PK: ${REALITY_PUBLIC})"
 
-# --- 3. NaiveProxy + Caddy с forward_proxy (klzgrad/forwardproxy@naive) ---
-info "=== Шаг 3: Установка NaiveProxy + Caddy (forward_proxy) ==="
+# --- 3. NaiveProxy + sing-box ---
+info "=== Шаг 3: Установка NaiveProxy (sing-box) ==="
 
-# Устанавливаем Go если нет
-if ! command -v go &>/dev/null; then
-    echo 'deb http://deb.debian.org/debian/ testing main non-free-firmware' >/etc/apt/sources.list.d/testing.list
-    printf 'Package: *\nPin: release a=testing\nPin-Priority: 100\n' >/etc/apt/preferences.d/testing-pin
-    apt-get update -qq > /dev/null 2>&1
-    apt-get install -y -qq -t testing golang-go > /dev/null 2>&1
-fi
+SINGBOX_VERSION="1.12.4"
+curl -sL "https://github.com/SagerNet/sing-box/releases/download/v${SINGBOX_VERSION}/sing-box-${SINGBOX_VERSION}-linux-amd64.tar.gz" -o /tmp/sing-box.tar.gz
+tar xzf /tmp/sing-box.tar.gz -C /tmp
+install -m 755 /tmp/sing-box-${SINGBOX_VERSION}-linux-amd64/sing-box /usr/local/bin/sing-box
+rm -rf /tmp/sing-box*
+info "sing-box v${SINGBOX_VERSION} установлен"
 
-# Устанавливаем xcaddy
-export PATH=$HOME/go/bin:$PATH
-go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
+NAIVE_PASSWORD=$(openssl rand -hex 12)
+mkdir -p /etc/sing-box
 
-# Собираем Caddy с klzgrad/forwardproxy@naive
-$HOME/go/bin/xcaddy build v2.8.4 --with github.com/caddyserver/forwardproxy=github.com/klzgrad/forwardproxy@naive --output /usr/local/bin/caddy
-chmod +x /usr/local/bin/caddy
-info "Caddy v2.8.4 с klzgrad/forwardproxy@naive собран и установлен"
-
-mkdir -p /etc/caddy
-cat > /etc/caddy/Caddyfile.naive << CADDY_EOF
+cat > /etc/sing-box/config.json << SB_EOF
 {
-    email ${EMAIL}
-    admin off
-}
-
-${DOMAIN}:8443 {
-    tls /etc/letsencrypt/live/${DOMAIN}/fullchain.pem /etc/letsencrypt/live/${DOMAIN}/privkey.pem
-    
-    route {
-        forward_proxy {
-            basic_auth
-            hide_ip
-            hide_via
-            probe_resistance
+  "log": {
+    "level": "warn",
+    "timestamp": true
+  },
+  "inbounds": [
+    {
+      "type": "naive",
+      "tag": "naive",
+      "listen": "::",
+      "listen_port": 8443,
+      "users": [
+        {
+          "username": "initial",
+          "password": "${NAIVE_PASSWORD}"
         }
-        reverse_proxy https://zarazaex.xyz {
-            header_up Host {upstream_hostport}
-            header_up X-Forwarded-Host {host}
-            transport http {
-                tls_insecure_skip_verify
-            }
-        }
+      ],
+      "tls": {
+        "enabled": true,
+        "certificate_path": "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem",
+        "key_path": "/etc/letsencrypt/live/${DOMAIN}/privkey.pem"
+      }
     }
+  ]
 }
-CADDY_EOF
+SB_EOF
 
-cat > /etc/systemd/system/caddy-naive.service << 'SVCEOF'
+cat > /etc/systemd/system/sing-box-naive.service << 'SVCEOF'
 [Unit]
-Description=Caddy NaiveProxy
+Description=sing-box NaiveProxy server
 After=network-online.target
 [Service]
-Type=notify
-User=root
-ExecStart=/usr/local/bin/caddy run --config /etc/caddy/Caddyfile.naive --adapter caddyfile
-ExecReload=/usr/local/bin/caddy reload --config /etc/caddy/Caddyfile.naive --adapter caddyfile --force
+Type=simple
+ExecStart=/usr/local/bin/sing-box run -c /etc/sing-box/config.json
 Restart=always
-RestartSec=5s
-LimitNOFILE=1048576
-AmbientCapabilities=CAP_NET_BIND_SERVICE
+RestartSec=3
+LimitNOFILE=65535
 [Install]
 WantedBy=multi-user.target
 SVCEOF
 
 systemctl daemon-reload
-systemctl enable --now caddy-naive
-info "Caddy (NaiveProxy forward) установлен на порту 8443"
+systemctl enable --now sing-box-naive
+info "sing-box NaiveProxy установлен на порту 8443"
 
 # --- 3b. Caddy для панели (на 443) ---
 info "=== Шаг 3b: Установка Caddy для панели ==="
@@ -576,7 +566,7 @@ info "=== Шаг 9: Service Watchdog ==="
 
 cat > /usr/local/bin/service-watchdog.sh << 'WDEOF'
 #!/bin/bash
-SERVICES="xray caddy hysteria2 mita olcrtc awg-quick@awg0"
+SERVICES="xray caddy sing-box-naive hysteria2 mita olcrtc awg-quick@awg0"
 LOG="/var/log/service-watchdog.log"
 MAX_LOG_LINES=1000
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') $1" >> "$LOG"; }
@@ -657,7 +647,7 @@ echo ""
 echo -e "${GREEN}=========================================${NC}"
 echo -e "${GREEN}  NYX Panel — Установка завершена!${NC}"
 echo -e "${GREEN}=========================================${NC}"
-echo -e "Панель: ${CYAN}https://${DOMAIN}:8443/self/login${NC}"
+echo -e "Панель: ${CYAN}https://${DOMAIN}/self/login${NC}"
 echo -e "Логин:  ${CYAN}admin${NC}  Пароль: ${CYAN}${PANEL_PASS}${NC}"
 echo -e "Reality PK: ${YELLOW}${REALITY_PUBLIC}${NC}"
 echo -e "Short ID:   ${YELLOW}${SHORT_ID}${NC}"
@@ -665,6 +655,6 @@ echo -e "Hy2 obfs:   ${YELLOW}${OBFSC_PASS}${NC}"
 echo -e "Hy2 init:   ${YELLOW}initial_user:${INIT_PASS}${NC}"
 echo ""
 echo -e "Сервисы:"
-for svc in xray caddy hysteria2 mita olcrtc panel; do
+for svc in xray caddy sing-box-naive hysteria2 mita olcrtc panel; do
     echo -e "  $svc: ${CYAN}$(systemctl is-active $svc 2>/dev/null || echo 'n/a')${NC}"
 done
