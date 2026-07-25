@@ -35,12 +35,6 @@ Users can change their own password from their dashboard:
 - **Protocols**: Xray (VLESS), sing-box (Hysteria2), WireGuard (AmneziaWG), Mieru, NaiveProxy
 - **Clients**: OlcboxME (Kotlin Multiplatform), oRTC (Go WebRTC tunnel)
 
-## Servers
-
-| Environment | IP | Domain | Port |
-|-------------|-----|--------|------|
-| Production | 203.0.113.30 | panel.example.com | 443 |
-| Development | 203.0.113.20 | vpn.example.com | 8443 |
 
 ## License
 
