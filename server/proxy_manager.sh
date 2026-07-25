@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ==============================================================================
-# ПРОКСИ-МЕНЕДЖЕР (Версия 0.8 - Hysteria 2 + AmneziaWG + NaiveProxy + Mieru + olcRTC + VLESS+XHTTP+REALITY) 
+# ПРОКСИ-МЕНЕДЖЕР (Версия 0.9 - Hysteria 2 + AmneziaWG + NaiveProxy(sing-box) + Mieru + olcRTC + VLESS+XHTTP+REALITY) 
 # ==============================================================================
 
 # --- НАСТРОЙКИ ---
