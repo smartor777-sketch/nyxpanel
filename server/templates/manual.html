@@ -2,8 +2,13 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NYX Panel тАФ Guide</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#0c1a2d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
+<title>NYX Panel — Guide</title>
 <style>
   :root { --bg: #0c1a2d; --fg: #d4e5f7; --card: #132640; --border: #1e3a5f; --input-bg: #132640; --heading: #7dd3fc; --muted: #93c5fd; --accent: #38bdf8; --accent-hover: #0ea599; --danger: #f87171; --proto-yes: #34d399; --proto-no: #64748b; --status-active-bg: #064e3b; --status-active-fg: #34d399; --btn-active: #0ea599; --link: #7dd3fc; --link-hover: #93c5fd; --code-bg: #0c1a2d; --code-fg: #d4e5f7; --highlight: #c084fc; --h2-border: #1e3a5f; --btn-logout-bg: #1e293b; --btn-logout-fg: #94a3b8; --btn-logout-border: #334155; --btn-theme-bg: #1e293b; --btn-theme-fg: #94a3b8; --btn-theme-border: #334155; --btn-lang-bg: #1e293b; --btn-lang-fg: #94a3b8; --btn-lang-border: #334155; }
   [data-theme="light"] { --bg: #eaf2fb; --fg: #1e3a5f; --card: #ffffff; --border: #c5ddf0; --input-bg: #dceaf7; --heading: #0358a8; --muted: #5a7fa0; --accent: #0284c7; --accent-hover: #0369a1; --danger: #dc2626; --proto-yes: #059669; --proto-no: #94a3b8; --status-active-bg: #ecfdf5; --status-active-fg: #059669; --btn-active: #0284c7; --link: #0358a8; --link-hover: #1e3a8a; --code-bg: #eaf2fb; --code-fg: #1e3a5f; --highlight: #7c3aed; --h2-border: #c5ddf0; --btn-logout-bg: #f1f5f9; --btn-logout-fg: #475569; --btn-logout-border: #cbd5e1; --btn-theme-bg: #f1f5f9; --btn-theme-fg: #475569; --btn-theme-border: #cbd5e1; --btn-lang-bg: #f1f5f9; --btn-lang-fg: #475569; --btn-lang-border: #cbd5e1; }
@@ -50,6 +55,15 @@
   .app-card .app-name { font-weight: 600; color: var(--fg); margin-bottom: 0.3rem; }
   .app-card .app-proto { font-size: 0.8rem; color: var(--muted); }
 .footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 1.5rem 0 0.5rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+@media (max-width: 640px) {
+  body { padding: 1rem; }
+  .header-bar { flex-direction: column; align-items: flex-start; }
+  .header-actions { width: 100%; justify-content: flex-end; flex-wrap: wrap; }
+  .protocol-grid { grid-template-columns: 1fr; }
+  .app-grid { grid-template-columns: 1fr; }
+  .card { padding: 1.2rem; }
+  .download-btn { display: block; text-align: center; }
+}
 </style>
 </head>
 <body>
@@ -61,8 +75,8 @@
     </div>
     <div class="header-actions">
       <button class="lang-btn" id="langBtn" onclick="toggleLang()"></button>
-      <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">ЁЯМЩ</button>
-      <a href="javascript:history.back()" class="back-btn" data-i18n="back">тЖР Back</a>
+      <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
+      <a href="javascript:history.back()" class="back-btn" data-i18n="back">← Back</a>
     </div>
   </div>
 
@@ -92,15 +106,19 @@
       </div>
       <div class="protocol-card">
         <div class="name">olcRTC</div>
-        <div class="desc"><span class="tag tag-proxy">Proxy</span> <span data-i18n="protoOlcrtcDesc">WebRTC-based тАФ mobile only</span></div>
+        <div class="desc"><span class="tag tag-proxy">Proxy</span> <span data-i18n="protoOlcrtcDesc">WebRTC-based — mobile only</span></div>
+      </div>
+      <div class="protocol-card">
+        <div class="name">Trojan</div>
+        <div class="desc"><span class="tag tag-proxy">Proxy</span> <span data-i18n="protoTrojanDesc">TLS-disguised proxy protocol</span></div>
       </div>
     </div>
 
     <p data-i18n="s1Formats">Each configuration is available in <strong>three formats</strong>:</p>
     <ul>
-      <li data-i18n="s1Li1"><strong>Config file</strong> тАФ download the configuration file (Config button)</li>
-      <li data-i18n="s1Li2"><strong>QR code</strong> тАФ scan with your phone app (QR button)</li>
-      <li data-i18n="s1Li3"><strong>Subscription link</strong> тАФ copy the URL and paste into your app; it will auto-load settings. Click <strong>"Copy URL"</strong> to copy the subscription link.</li>
+      <li data-i18n="s1Li1"><strong>Config file</strong> — download the configuration file (Config button)</li>
+      <li data-i18n="s1Li2"><strong>QR code</strong> — scan with your phone app (QR button)</li>
+      <li data-i18n="s1Li3"><strong>Subscription link</strong> — copy the URL and paste into your app; it will auto-load settings. Click <strong>"Copy URL"</strong> to copy the subscription link.</li>
     </ul>
   </div>
 
@@ -115,7 +133,10 @@
     <p data-i18n="vlessDesc">This is the primary target for DPI blocking. It may sometimes fail to connect or hang. If you experience issues, try switching to another protocol.</p>
 
     <h3 data-i18n="otherTitle">Other protocols</h3>
-    <p data-i18n="otherDesc">Hysteria 2, NaiveProxy, AmneziaWG, and Mieru work over standard internet connections (Wi-Fi, Ethernet).</p>
+    <p data-i18n="otherDesc">Hysteria 2, NaiveProxy, AmneziaWG, Mieru, and Trojan work over standard internet connections (Wi-Fi, Ethernet).</p>
+
+    <h3>Trojan</h3>
+    <p data-i18n="trojanDesc">Disguises traffic as regular HTTPS traffic, making it difficult to detect. Works over TLS, providing reliable censorship bypass.</p>
   </div>
 
   <div class="card">
@@ -129,15 +150,15 @@
       </div>
       <div class="app-card">
         <div class="app-name">Happ / Hiddify</div>
-        <div class="app-proto">VLESS, Hysteria 2, NaiveProxy</div>
+        <div class="app-proto">VLESS, Hysteria 2, NaiveProxy, Trojan</div>
       </div>
       <div class="app-card">
         <div class="app-name">v2RayTun</div>
-        <div class="app-proto">VLESS, Hysteria 2, NaiveProxy</div>
+        <div class="app-proto">VLESS, Hysteria 2, NaiveProxy, Trojan</div>
       </div>
       <div class="app-card">
-        <div class="app-name">Exclave</div>
-        <div class="app-proto">VLESS, Hysteria 2, NaiveProxy</div>
+        <div class="app-name"><a href="https://github.com/ExclaveNetwork/Exclave/releases/download/0.17.46/Exclave-0.17.46-arm64-v8a.apk">Exclave</a></div>
+        <div class="app-proto">VLESS, Hysteria 2, NaiveProxy, Trojan</div>
       </div>
       <div class="app-card">
         <div class="app-name">AmneziaWG</div>
@@ -147,14 +168,14 @@
 
     <div class="note">
       <strong data-i18n="noteTitle">OlcboxME for olcRTC:</strong><br>
-      <a href="{{ apk_url | default('#') }}" class="download-btn" data-i18n="downloadBtn">тмЗ Download OlcboxME APK</a>
+      <a href="{{ apk_url | default('#') }}" class="download-btn" data-i18n="downloadBtn">⬇ Download OlcboxME APK</a>
     </div>
 
     <h3 data-i18n="windowsTitle">Windows</h3>
     <div class="app-grid">
       <div class="app-card">
         <div class="app-name">Happ / Hiddify / NekoBox / v2RayTun</div>
-        <div class="app-proto">VLESS, Hysteria 2, NaiveProxy</div>
+        <div class="app-proto">VLESS, Hysteria 2, NaiveProxy, Trojan</div>
       </div>
       <div class="app-card">
         <div class="app-name">AmneziaWG</div>
@@ -162,7 +183,7 @@
       </div>
       <div class="app-card">
         <div class="app-name">NekoBox</div>
-        <div class="app-proto" data-i18n="appNekoProto">Mieru (manual parameter entry)</div>
+        <div class="app-proto">Vless, AmneziaWG, Mieru, Trojan <span data-i18n="appNekoProtoSuffix">(manual parameter entry)</span></div>
       </div>
       <div class="app-card">
         <div class="app-name"><a href="/static/OlcboxME-1.0.1.exe">OlcboxME</a></div>
@@ -174,13 +195,13 @@
       </div>
     </div>
 
-    <p data-i18n="olcrtcWindows">For olcRTC on Windows, a console SOCKS5 client (<code>olcrtc-windows-amd64.exe</code>) is available тАФ <a href="/self/olcrtc-windows">download and setup instructions</a>.</p>
+    <p data-i18n="olcrtcWindows">For olcRTC on Windows, a console SOCKS5 client (<code>olcrtc-windows-amd64.exe</code>) is available — <a href="/self/olcrtc-windows">download and setup instructions</a>.</p>
   </div>
 
   <hr>
 
   <p style="text-align:center;color:var(--muted);font-size:0.85rem">
-    NYX Panel тАФ <a href="javascript:history.back()" data-i18n="footerBack">Back to Dashboard</a>
+    NYX Panel — <a href="javascript:history.back()" data-i18n="footerBack">Back to Dashboard</a>
   </p>
 </div>
 
@@ -197,39 +218,42 @@ function toggleTheme() { setTheme(getTheme() === 'dark' ? 'light' : 'dark'); }
 
 const _t = {
   ru: {
-    guideTitle: 'NYX Panel тАФ ╨У╨░╨╣╨┤', guideSubtitle: '╨а╤Г╨║╨╛╨▓╨╛╨┤╤Б╤В╨▓╨╛ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤П', back: 'тЖР ╨Э╨░╨╖╨░╨┤',
-    s1Title: '1. ╨Э╨░╤З╨░╨╗╨╛ ╤А╨░╨▒╨╛╤В╤Л',
-    s1Intro: 'NYX Panel ╨┐╤А╨╡╨┤╨╛╤Б╤В╨░╨▓╨╗╤П╨╡╤В ╨┤╨╛╤Б╤В╤Г╨┐ ╨║ ╨┐╤А╨╛╨║╤Б╨╕ ╨╕ VPN ╨║╨╛╨╜╤Д╨╕╨│╤Г╤А╨░╤Ж╨╕╤П╨╝ ╨┤╨╗╤П ╤Б╨╗╨╡╨┤╤Г╤О╤Й╨╕╤Е ╨┐╤А╨╛╤В╨╛╨║╨╛╨╗╨╛╨▓:',
-    protoVlessDesc: '╨С╤Л╤Б╤В╤А╤Л╨╣, ╤Б╨╛╨▓╤А╨╡╨╝╨╡╨╜╨╜╤Л╨╣ ╨┐╤А╨╛╨║╤Б╨╕-╨┐╤А╨╛╤В╨╛╨║╨╛╨╗',
-    protoHy2Desc: '╨Т╤Л╤Б╨╛╨║╨╛╤Б╨║╨╛╤А╨╛╤Б╤В╨╜╨╛╨╣ UDP-╨┐╤А╨╛╨║╤Б╨╕',
-    protoNaiveDesc: '╨Я╤А╨╛╨║╤Б╨╕ ╨╜╨░ ╨╛╤Б╨╜╨╛╨▓╨╡ Chrome ╨┤╨╗╤П ╤Б╤В╨░╨▒╨╕╨╗╤М╨╜╨╛╤Б╤В╨╕',
-    protoAwgDesc: '╨г╤Б╨╕╨╗╨╡╨╜╨╜╤Л╨╣ WireGuard VPN',
-    protoMieruDesc: '╨Ы╤С╨│╨║╨╕╨╣ ╨┐╤А╨╛╨║╤Б╨╕-╨┐╤А╨╛╤В╨╛╨║╨╛╨╗',
-    protoOlcrtcDesc: '╨Э╨░ ╨╛╤Б╨╜╨╛╨▓╨╡ WebRTC тАФ ╤В╨╛╨╗╤М╨║╨╛ ╨╝╨╛╨▒╨╕╨╗╤М╨╜╤Л╨╡ ╤Г╤Б╤В╤А╨╛╨╣╤Б╤В╨▓╨░',
-    s1Formats: '╨Ъ╨░╨╢╨┤╨░╤П ╨║╨╛╨╜╤Д╨╕╨│╤Г╤А╨░╤Ж╨╕╤П ╨┤╨╛╤Б╤В╤Г╨┐╨╜╨░ ╨▓ <strong>╤В╤А╤С╤Е ╤Д╨╛╤А╨╝╨░╤В╨░╤Е</strong>:',
-    s1Li1: '<strong>╨д╨░╨╣╨╗ ╨║╨╛╨╜╤Д╨╕╨│╤Г╤А╨░╤Ж╨╕╨╕</strong> тАФ ╤Б╨║╨░╤З╨░╨╣╤В╨╡ ╤Д╨░╨╣╨╗ (╨║╨╜╨╛╨┐╨║╨░ Config)',
-    s1Li2: '<strong>QR-╨║╨╛╨┤</strong> тАФ ╨╛╤В╤Б╨║╨░╨╜╨╕╤А╤Г╨╣╤В╨╡ ╨┐╤А╨╕╨╗╨╛╨╢╨╡╨╜╨╕╨╡╨╝ (╨║╨╜╨╛╨┐╨║╨░ QR)',
-    s1Li3: '<strong>╨б╤Б╤Л╨╗╨║╨░ ╨┐╨╛╨┤╨┐╨╕╤Б╨║╨╕</strong> тАФ ╤Б╨║╨╛╨┐╨╕╤А╤Г╨╣╤В╨╡ URL ╨╕ ╨▓╤Б╤В╨░╨▓╤М╤В╨╡ ╨▓ ╨┐╤А╨╕╨╗╨╛╨╢╨╡╨╜╨╕╨╡; ╨╜╨░╤Б╤В╤А╨╛╨╣╨║╨╕ ╨┐╨╛╨┤╨│╤А╤Г╨╖╤П╤В╤Б╤П ╨░╨▓╤В╨╛╨╝╨░╤В╨╕╤З╨╡╤Б╨║╨╕. ╨Э╨░╨╢╨╝╨╕╤В╨╡ <strong>"╨б╨║╨╛╨┐╨╕╤А╨╛╨▓╨░╤В╤М URL"</strong> ╤З╤В╨╛╨▒╤Л ╤Б╨║╨╛╨┐╨╕╤А╨╛╨▓╨░╤В╤М ╤Б╤Б╤Л╨╗╨║╤Г.',
-    s2Title: '2. ╨Ш╤Б╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╨╜╨╕╨╡ ╨┐╤А╨╛╤В╨╛╨║╨╛╨╗╨╛╨▓',
-    olcrtcDesc: '╨а╨░╨╖╤А╨░╨▒╨╛╤В╨░╨╜ ╨╕╤Б╨║╨╗╤О╤З╨╕╤В╨╡╨╗╤М╨╜╨╛ ╨┤╨╗╤П <strong>╨╝╨╛╨▒╨╕╨╗╤М╨╜╤Л╤Е ╤Б╨╡╤В╨╡╨╣</strong> (4G/5G). <strong>Wi-Fi ╨┤╨╛╨╗╨╢╨╡╨╜ ╨▒╤Л╤В╤М ╨▓╤Л╨║╨╗╤О╤З╨╡╨╜</strong> ╨┤╨╗╤П ╨║╨╛╤А╤А╨╡╨║╤В╨╜╨╛╨╣ ╤А╨░╨▒╨╛╤В╤Л ╤Н╤В╨╛╨│╨╛ ╨┐╤А╨╛╤В╨╛╨║╨╛╨╗╨░.',
-    vlessDesc: '╨н╤В╨╛ ╨╛╤Б╨╜╨╛╨▓╨╜╨░╤П ╤Ж╨╡╨╗╤М DPI-╨▒╨╗╨╛╨║╨╕╤А╨╛╨▓╨╛╨║. ╨Ш╨╜╨╛╨│╨┤╨░ ╨╝╨╛╨╢╨╡╤В ╨╜╨╡ ╨┐╨╛╨┤╨║╨╗╤О╤З╨░╤В╤М╤Б╤П ╨╕╨╗╨╕ ╨╖╨░╨▓╨╕╤Б╨░╤В╤М. ╨Х╤Б╨╗╨╕ ╨▓╨╛╨╖╨╜╨╕╨║╨╗╨╕ ╨┐╤А╨╛╨▒╨╗╨╡╨╝╤Л, ╨┐╨╛╨┐╤А╨╛╨▒╤Г╨╣╤В╨╡ ╨┐╨╡╤А╨╡╨║╨╗╤О╤З╨╕╤В╤М╤Б╤П ╨╜╨░ ╨┤╤А╤Г╨│╨╛╨╣ ╨┐╤А╨╛╤В╨╛╨║╨╛╨╗.',
-    otherTitle: '╨Ф╤А╤Г╨│╨╕╨╡ ╨┐╤А╨╛╤В╨╛╨║╨╛╨╗╤Л',
-    otherDesc: 'Hysteria 2, NaiveProxy, AmneziaWG ╨╕ Mieru ╤А╨░╨▒╨╛╤В╨░╤О╤В ╤З╨╡╤А╨╡╨╖ ╤Б╤В╨░╨╜╨┤╨░╤А╤В╨╜╤Л╨╡ ╨╕╨╜╤В╨╡╤А╨╜╨╡╤В-╨┐╨╛╨┤╨║╨╗╤О╤З╨╡╨╜╨╕╤П (Wi-Fi, Ethernet).',
-    s3Title: '3. ╨а╨╡╨║╨╛╨╝╨╡╨╜╨┤╤Г╨╡╨╝╤Л╨╡ ╨┐╤А╨╕╨╗╨╛╨╢╨╡╨╜╨╕╤П',
+    guideTitle: 'NYX Panel — Гайд', guideSubtitle: 'Руководство пользователя', back: '← Назад',
+    s1Title: '1. Начало работы',
+    s1Intro: 'NYX Panel предоставляет доступ к прокси и VPN конфигурациям для следующих протоколов:',
+    protoVlessDesc: 'Быстрый, современный прокси-протокол',
+    protoHy2Desc: 'Высокоскоростной UDP-прокси',
+    protoNaiveDesc: 'Прокси на основе Chrome для стабильности',
+    protoAwgDesc: 'Усиленный WireGuard VPN',
+    protoMieruDesc: 'Лёгкий прокси-протокол',
+    protoOlcrtcDesc: 'На основе WebRTC — только мобильные устройства',
+    protoTrojanDesc: 'Протокол прокси, маскирующийся под HTTPS-трафик',
+    s1Formats: 'Каждая конфигурация доступна в <strong>трёх форматах</strong>:',
+    s1Li1: '<strong>Файл конфигурации</strong> — скачайте файл (кнопка Config)',
+    s1Li2: '<strong>QR-код</strong> — отсканируйте приложением (кнопка QR)',
+    s1Li3: '<strong>Ссылка подписки</strong> — скопируйте URL и вставьте в приложение; настройки подгрузятся автоматически. Нажмите <strong>"Скопировать URL"</strong> чтобы скопировать ссылку.',
+    s2Title: '2. Использование протоколов',
+    olcrtcDesc: 'Разработан исключительно для <strong>мобильных сетей</strong> (4G/5G). <strong>Wi-Fi должен быть выключен</strong> для корректной работы этого протокола.',
+    vlessDesc: 'Это основная цель DPI-блокировок. Иногда может не подключаться или зависать. Если возникли проблемы, попробуйте переключиться на другой протокол.',
+    otherTitle: 'Другие протоколы',
+    otherDesc: 'Hysteria 2, NaiveProxy, AmneziaWG, Mieru и Trojan работают через стандартные интернет-подключения (Wi-Fi, Ethernet).',
+    trojanDesc: 'Маскирует трафик под обычный HTTPS, что затрудняет его обнаружение. Работает через TLS, обеспечивая надёжное обход блокировок.',
+    s3Title: '3. Рекомендуемые приложения',
     androidTitle: 'Android',
     windowsTitle: 'Windows',
     appOlcrtc: 'olcRTC',
     appAwg: 'AmneziaWG (VPN)',
-    appNekoProto: 'Mieru (╤А╤Г╤З╨╜╨╛╨╣ ╨▓╨▓╨╛╨┤ ╨┐╨░╤А╨░╨╝╨╡╤В╤А╨╛╨▓)',
-    noteTitle: 'OlcboxME ╨┤╨╗╤П olcRTC:',
-    downloadBtn: 'тмЗ ╨б╨║╨░╤З╨░╤В╤М OlcboxME APK',
-    olcrtcFallback: '╨Ф╨╗╤П ╨╕╤Б╨║╨╗╤О╤З╨╕╤В╨╡╨╗╤М╨╜╤Л╤Е ╤Б╨╗╤Г╤З╨░╨╡╨▓, ╨╡╤Б╨╗╨╕ ╤Г ╨Т╨░╤Б ╨╜╨╡ ╤А╨░╨▒╨╛╤В╨░╤О╤В ╨╛╤Б╤В╨░╨╗╤М╨╜╤Л╨╡ ╨┐╤А╨╛╤В╨╛╨║╨╛╨╗╤Л, ╨Т╤Л ╨╝╨╛╨╢╨╡╤В╨╡ ╨╕╤Б╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╤М <strong>╨┐╤А╨╕╨╗╨╛╨╢╨╡╨╜╨╕╨╡ OlcboxME ╨┤╨╗╤П Windows</strong> ╨╕╨╗╨╕ <strong>╨║╨╛╨╜╤Б╨╛╨╗╤М╨╜╤Г╤О ╤Г╤В╨╕╨╗╨╕╤В╤Г</strong>.',
-    appOlcrtcWin: 'olcRTC (╨║╨╛╨╜╤Б╨╛╨╗╤М╨╜╤Л╨╣ SOCKS5)',
-    olcrtcWindows: '╨Ф╨╗╤П olcRTC ╨╜╨░ Windows ╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜ ╨║╨╛╨╜╤Б╨╛╨╗╤М╨╜╤Л╨╣ SOCKS5-╨║╨╗╨╕╨╡╨╜╤В (<code>olcrtc-windows-amd64.exe</code>) тАФ <a href="/self/olcrtc-windows">╤Б╨║╨░╤З╨░╤В╤М ╨╕ ╨╕╨╜╤Б╤В╤А╤Г╨║╤Ж╨╕╤П</a>.',
-    footerBack: '╨Э╨░ ╨│╨╗╨░╨▓╨╜╤Г╤О'
+    appNekoProto: 'Mieru (ручной ввод параметров)',
+    appNekoProtoSuffix: '(ручной ввод параметров)',
+    noteTitle: 'OlcboxME для olcRTC:',
+    downloadBtn: '⬇ Скачать OlcboxME APK',
+    olcrtcFallback: 'Для <strong>исключительных случаев</strong>, если у Вас не работают остальные протоколы, Вы можете использовать <strong>приложение OlcboxME для Windows</strong> или <strong>консольную утилиту</strong>.',
+    appOlcrtcWin: 'olcRTC (консольный SOCKS5)',
+    olcrtcWindows: 'Для olcRTC на Windows доступен консольный SOCKS5-клиент (<code>olcrtc-windows-amd64.exe</code>) — <a href="/self/olcrtc-windows">скачать и инструкция</a>.',
+    footerBack: 'На главную'
   },
   en: {
-    guideTitle: 'NYX Panel Guide', guideSubtitle: 'User manual', back: 'тЖР Back',
+    guideTitle: 'NYX Panel Guide', guideSubtitle: 'User manual', back: '← Back',
     s1Title: '1. Getting Started',
     s1Intro: 'NYX Panel provides access to proxy and VPN configurations for the following protocols:',
     protoVlessDesc: 'Fast, modern proxy protocol',
@@ -237,27 +261,30 @@ const _t = {
     protoNaiveDesc: 'Chrome-based proxy for stability',
     protoAwgDesc: 'Hardened WireGuard VPN',
     protoMieruDesc: 'Lightweight proxy protocol',
-    protoOlcrtcDesc: 'WebRTC-based тАФ mobile only',
+    protoOlcrtcDesc: 'WebRTC-based — mobile only',
+    protoTrojanDesc: 'TLS-disguised proxy protocol',
     s1Formats: 'Each configuration is available in <strong>three formats</strong>:',
-    s1Li1: '<strong>Config file</strong> тАФ download the configuration file (Config button)',
-    s1Li2: '<strong>QR code</strong> тАФ scan with your phone app (QR button)',
-    s1Li3: '<strong>Subscription link</strong> тАФ copy the URL and paste into your app; it will auto-load settings. Click <strong>"Copy URL"</strong> to copy the subscription link.',
+    s1Li1: '<strong>Config file</strong> — download the configuration file (Config button)',
+    s1Li2: '<strong>QR code</strong> — scan with your phone app (QR button)',
+    s1Li3: '<strong>Subscription link</strong> — copy the URL and paste into your app; it will auto-load settings. Click <strong>"Copy URL"</strong> to copy the subscription link.',
     s2Title: '2. Protocol Usage',
     olcrtcDesc: 'Designed exclusively for <strong>mobile networks</strong> (4G/5G). <strong>Wi-Fi must be turned off</strong> for this protocol to work properly.',
     vlessDesc: 'This is the primary target for DPI blocking. It may sometimes fail to connect or hang. If you experience issues, try switching to another protocol.',
     otherTitle: 'Other protocols',
-    otherDesc: 'Hysteria 2, NaiveProxy, AmneziaWG, and Mieru work over standard internet connections (Wi-Fi, Ethernet).',
+    otherDesc: 'Hysteria 2, NaiveProxy, AmneziaWG, Mieru, and Trojan work over standard internet connections (Wi-Fi, Ethernet).',
+    trojanDesc: 'Disguises traffic as regular HTTPS, making it difficult to detect. Works over TLS, providing reliable censorship bypass.',
     s3Title: '3. Recommended Apps',
     androidTitle: 'Android',
     windowsTitle: 'Windows',
     appOlcrtc: 'olcRTC',
     appAwg: 'AmneziaWG (VPN)',
     appNekoProto: 'Mieru (manual parameter entry)',
+    appNekoProtoSuffix: '(manual parameter entry)',
     noteTitle: 'OlcboxME for olcRTC:',
-    downloadBtn: 'тмЗ Download OlcboxME APK',
+    downloadBtn: '⬇ Download OlcboxME APK',
     olcrtcFallback: 'For exceptional cases where other protocols do not work, you can use the <strong>OlcboxME Windows application</strong> or the <strong>console utility</strong>.',
     appOlcrtcWin: 'olcRTC (console SOCKS5)',
-    olcrtcWindows: 'For olcRTC on Windows, a console SOCKS5 client (<code>olcrtc-windows-amd64.exe</code>) is available тАФ <a href="/self/olcrtc-windows">download and setup instructions</a>.',
+    olcrtcWindows: 'For olcRTC on Windows, a console SOCKS5 client (<code>olcrtc-windows-amd64.exe</code>) is available — <a href="/self/olcrtc-windows">download and setup instructions</a>.',
     footerBack: 'Back to Dashboard'
   }
 };
