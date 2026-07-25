@@ -3,7 +3,7 @@
 # Deploy to /usr/local/bin/service-watchdog.sh
 # Add to crontab: */5 * * * * /usr/local/bin/service-watchdog.sh
 
-SERVICES="xray caddy hysteria-server hysteria2 mita olcrtc awg-quick@awg0"
+SERVICES="xray caddy hysteria-server hysteria2 mita olcrtc awg-quick@awg0 trojan-go"
 LOG="/var/log/service-watchdog.log"
 MAX_LOG_LINES=1000
 
