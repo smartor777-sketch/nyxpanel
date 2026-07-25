@@ -21,7 +21,7 @@ OLRTC_CONFIG="/root/.config/olcrtc/server.yaml"
 OLRTC_SERVICE="olcrtc"
 OLRTC_ICE="ws://vpn.example.com:30001/ice"
 OLRTC_ROOM_URL="https://meet.egovm.ru/retired.invalid"
-OLRTC_CRYPTO_KEY="<olrtc_crypto_key>"
+OLRTC_CRYPTO_KEY="<REPLACE_WITH_YOUR_KEY>"
 
 XRAY_CONFIG="/usr/local/etc/xray/config.json"
 VLESS_USERS_FILE="/etc/xray/users.json"

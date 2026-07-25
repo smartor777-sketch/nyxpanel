@@ -6,7 +6,7 @@
 |----------|----------|
 | IP | 203.0.113.30 |
 | Хост | prod.example.com |
-| Домен | retired.invalid |
+| Домен | retired.invalid → panel.example.com |
 | OS | Ubuntu 22.04+ (предположительно) |
 | Назначение | Рабочий, через него идут соединения |
 

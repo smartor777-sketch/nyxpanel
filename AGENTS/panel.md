@@ -5,7 +5,7 @@ Flask-панель управления. Исходники: `panel/proxy-panel.
 ## Текущее состояние
 
 Базовый Flask + Caddy reverse proxy.
-- URL: `https://retired.invalid:8443/panel/`
+- URL: `https://<YOUR_DOMAIN>:8443/panel/`
 - Логин: `admin` / `admin123`
 - Базовая аутентификация через Caddy
 

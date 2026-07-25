@@ -32,9 +32,9 @@
                     "serverNames": [
                         "www.microsoft.com"
                     ],
-                    "privateKey": "<реальти_приватный_ключ>",
+                    "privateKey": "<YOUR_PRIVATE_KEY>",
                     "shortIds": [
-                        "2e30b986cabb4bca",
+                        "<YOUR_SHORT_ID>",
                         ""
                     ]
                 }

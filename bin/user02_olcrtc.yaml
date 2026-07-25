@@ -4,16 +4,16 @@ auth:
 net:
   transport: datachannel
   dns: 8.8.8.8:53
-  ice: ws://retired.invalid:30001/ice
-server: ws://retired.invalid:30001
+  ice: ws://<YOUR_DOMAIN>:30001/ice
+server: ws://<YOUR_DOMAIN>:30001
 room:
-  id: https://meet.egovm.ru/pxy-retired.invalid
+  id: https://meet.egovm.ru/pxy-<YOUR_DOMAIN>
 crypto:
-  key: "<olrtc_crypto_key>"
+  key: "<YOUR_OLRTC_CRYPTO_KEY>"
 socks:
   host: 127.0.0.1
   port: 1082
 data: C:\olcrtc_data
 claims:
   user: user02
-  pass: <пароль_olcrtc_2>
+  pass: <PASSWORD>

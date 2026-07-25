@@ -39,7 +39,7 @@ Users can change their own password from their dashboard:
 
 | Environment | IP | Domain | Port |
 |-------------|-----|--------|------|
-| Production | 203.0.113.30 | retired.invalid | 8443 |
+| Production | 203.0.113.30 | panel.example.com | 443 |
 | Development | 203.0.113.20 | vpn.example.com | 8443 |
 
 ## License

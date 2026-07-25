@@ -35,8 +35,8 @@
 - Архитектура: [`ARCHITECTURE.md`](ARCHITECTURE.md)
 
 ### Prod
-- Сервер: `203.0.113.30` (prod.example.com), домен `retired.invalid`
-- Панель: `https://retired.invalid:8443/panel/`
+- Сервер: `203.0.113.30` (prod.example.com), домен `panel.example.com`
+- Панель: `https://panel.example.com/self/login`
 - Рабочий, через него идут соединения
 
 ### Dev (стенд)
