@@ -26,3 +26,5 @@ deploy.ps1
 *.pyc
 __pycache__/
 nyxpanel-git/
+olcrtc_tmp
+olcrtc_tmp.exe
