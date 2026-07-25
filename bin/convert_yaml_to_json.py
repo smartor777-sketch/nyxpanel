@@ -5,7 +5,7 @@ import json
 import glob
 
 BASE_DIR = '/root/proxy_users'
-OLRTC_ROOM_URL = 'https://meet.egovm.ru/pxy-76t05pyu.ikill.baby'
+OLRTC_ROOM_URL = 'https://meet.egovm.ru/nyx-76t05pyu.ikill.baby'
 OLRTC_CRYPTO_KEY = '<olrtc_crypto_key>'
 
 for user_dir in glob.glob(f'{BASE_DIR}/*'):

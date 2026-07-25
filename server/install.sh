@@ -44,7 +44,7 @@ rm -f /var/lib/dpkg/info/mita.*
 apt-get -f -y install 2>/dev/null || true
 
 apt-get update -qq
-apt-get install -y -qq curl wget jq qrencode unzip python3 python3-pip ufw gnupg2 lsb-release ca-certificates socat net-tools htop > /dev/null 2>&1
+apt-get install -y -qq curl wget jq yq qrencode unzip python3 python3-pip ufw gnupg2 lsb-release ca-certificates socat net-tools htop > /dev/null 2>&1
 
 # Swap 2GB
 if [ ! -f /swapfile ]; then
@@ -168,28 +168,93 @@ systemctl daemon-reload
 systemctl enable --now xray
 info "Xray установлен (PK: ${REALITY_PUBLIC})"
 
-# --- 3. Caddy ---
-info "=== Шаг 3: Установка Caddy ==="
+# --- 3. NaiveProxy + Caddy с forward_proxy (klzgrad/forwardproxy@naive) ---
+info "=== Шаг 3: Установка NaiveProxy + Caddy (forward_proxy) ==="
 
+# Устанавливаем Go если нет
+if ! command -v go &>/dev/null; then
+    echo 'deb http://deb.debian.org/debian/ testing main non-free-firmware' >/etc/apt/sources.list.d/testing.list
+    printf 'Package: *\nPin: release a=testing\nPin-Priority: 100\n' >/etc/apt/preferences.d/testing-pin
+    apt-get update -qq > /dev/null 2>&1
+    apt-get install -y -qq -t testing golang-go > /dev/null 2>&1
+fi
+
+# Устанавливаем xcaddy
+export PATH=$HOME/go/bin:$PATH
+go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
+
+# Собираем Caddy с klzgrad/forwardproxy@naive
+$HOME/go/bin/xcaddy build v2.8.4 --with github.com/caddyserver/forwardproxy=github.com/klzgrad/forwardproxy@naive --output /usr/local/bin/caddy
+chmod +x /usr/local/bin/caddy
+info "Caddy v2.8.4 с klzgrad/forwardproxy@naive собран и установлен"
+
+mkdir -p /etc/caddy
+cat > /etc/caddy/Caddyfile.naive << CADDY_EOF
+{
+    email ${EMAIL}
+    admin off
+}
+
+${DOMAIN}:8443 {
+    tls /etc/letsencrypt/live/${DOMAIN}/fullchain.pem /etc/letsencrypt/live/${DOMAIN}/privkey.pem
+    
+    route {
+        forward_proxy {
+            basic_auth
+            hide_ip
+            hide_via
+            probe_resistance
+        }
+        reverse_proxy https://zarazaex.xyz {
+            header_up Host {upstream_hostport}
+            header_up X-Forwarded-Host {host}
+            transport http {
+                tls_insecure_skip_verify
+            }
+        }
+    }
+}
+CADDY_EOF
+
+cat > /etc/systemd/system/caddy-naive.service << 'SVCEOF'
+[Unit]
+Description=Caddy NaiveProxy
+After=network-online.target
+[Service]
+Type=notify
+User=root
+ExecStart=/usr/local/bin/caddy run --config /etc/caddy/Caddyfile.naive --adapter caddyfile
+ExecReload=/usr/local/bin/caddy reload --config /etc/caddy/Caddyfile.naive --adapter caddyfile --force
+Restart=always
+RestartSec=5s
+LimitNOFILE=1048576
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+
+systemctl daemon-reload
+systemctl enable --now caddy-naive
+info "Caddy (NaiveProxy forward) установлен на порту 8443"
+
+# --- 3b. Caddy для панели (на 443) ---
+info "=== Шаг 3b: Установка Caddy для панели ==="
 apt-get install -y -qq debian-keyring debian-archive-keyring apt-transport-https > /dev/null 2>&1
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' 2>/dev/null | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg 2>/dev/null || true
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' > /etc/apt/sources.list.d/caddy-stable.list 2>/dev/null || true
 apt-get update -qq > /dev/null 2>&1
-
-# Переустановка, если бинарник или сервис отсутствуют (напр. после ручной зачистки)
 if ! command -v caddy &>/dev/null || [ ! -f /lib/systemd/system/caddy.service ]; then
     dpkg --purge caddy 2>/dev/null || true
     apt-get install -y -qq caddy > /dev/null 2>&1
 fi
 
 mkdir -p /etc/caddy
-
 cat > /etc/caddy/Caddyfile << CADDY_EOF
 {
     email ${EMAIL}
 }
 
-${DOMAIN}:443, ${DOMAIN}:8443 {
+${DOMAIN}:443 {
     handle /self* {
         reverse_proxy 127.0.0.1:${PANEL_PORT}
     }
@@ -206,7 +271,7 @@ ${DOMAIN}:443, ${DOMAIN}:8443 {
 CADDY_EOF
 
 systemctl enable --now caddy
-info "Caddy установлен"
+info "Caddy (панель) установлен"
 
 # --- 4. Hysteria 2 ---
 info "=== Шаг 4: Установка Hysteria 2 ==="
@@ -458,6 +523,18 @@ else
     chmod +x /root/proxy_manager.sh
     info "proxy_manager.sh скачан с GitHub"
 fi
+
+# Патчим proxy_manager.sh под этот сервер
+SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || curl -s icanhazip.com 2>/dev/null || hostname -I | awk '{print $1}')
+sed -i "s/SERVER_DOMAIN=\".*\"/SERVER_DOMAIN=\"$DOMAIN\"/" /root/proxy_manager.sh
+sed -i "s|HY2_CONFIG=\"/etc/hysteria/config.yaml\"|HY2_CONFIG=\"/etc/hysteria/config.json\"|" /root/proxy_manager.sh
+sed -i "s/systemctl restart hysteria-server/systemctl restart hysteria2/g" /root/proxy_manager.sh
+sed -i "s/VLESS_HOST=\".*\"/VLESS_HOST=\"$DOMAIN\"/" /root/proxy_manager.sh
+sed -i "s/VLESS_PORT=\".*\"/VLESS_PORT=\"$VLESS_PORT\"/" /root/proxy_manager.sh
+sed -i "s/MIERU_IP=\".*\"/MIERU_IP=\"$SERVER_IP\"/" /root/proxy_manager.sh
+sed -i "s|OLRTC_ICE=\"ws://.*:30001/ice\"|OLRTC_ICE=\"ws://$DOMAIN:30001/ice\"|" /root/proxy_manager.sh
+sed -i "s|OLRTC_ROOM_URL=\".*\"|OLRTC_ROOM_URL=\"https://meet.egovm.ru/nyx-$DOMAIN\"|" /root/proxy_manager.sh
+info "proxy_manager.sh настроен под домен $DOMAIN"
 
 cat > /etc/systemd/system/panel.service << 'SVCEOF'
 [Unit]
