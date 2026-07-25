@@ -745,7 +745,7 @@ info "=== Шаг 9: Service Watchdog ==="
 
 cat > /usr/local/bin/service-watchdog.sh << 'WDEOF'
 #!/bin/bash
-SERVICES="xray caddy hysteria-server hysteria2 mita olcrtc awg-quick@awg0"
+SERVICES="xray caddy hysteria-server hysteria2 mita olcrtc awg-quick@awg0 trojan-go"
 LOG="/var/log/service-watchdog.log"
 MAX_LOG_LINES=1000
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') $1" >> "$LOG"; }
