@@ -29,11 +29,11 @@
                     "target": "1.1.1.1:443",
                     "serverNames": [
                         "",
-                        "76t05pyu.ikill.baby"
+                        "<YOUR_DOMAIN>"
                     ],
-                    "privateKey": "aGd92LnG7GGAkFq-n23apez8SG_bRJlDfn75yTlK6Wc",
+                    "privateKey": "<YOUR_PRIVATE_KEY>",
                     "shortIds": [
-                        "2e30b986cabb4bca",
+                        "<YOUR_SHORT_ID>",
                         ""
                     ]
                 }

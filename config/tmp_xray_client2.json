@@ -14,7 +14,7 @@
       "settings": {
         "vnext": [
           {
-            "address": "76t05pyu.ikill.baby",
+            "address": "<YOUR_DOMAIN>",
             "port": 443,
             "users": [
               {
@@ -32,8 +32,8 @@
         "realitySettings": {
           "serverName": "www.microsoft.com",
           "fingerprint": "chrome",
-          "shortId": "2e30b986cabb4bca",
-          "publicKey": "iqmUrTnhYDcm-hhuGJaze6dTGNIcvyMOyYIN7LB4kU4"
+          "shortId": "<YOUR_SHORT_ID>",
+          "publicKey": "<YOUR_PUBLIC_KEY>"
         }
       }
     }

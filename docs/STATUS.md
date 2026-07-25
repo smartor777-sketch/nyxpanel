@@ -7,7 +7,10 @@
 - **AWG**: reboot в новое ядро (6.12.95), модуль загружен, сервис active
 - **olcRTC**: собран с форка `smartor777-sketch/olcrtc-users`, сервис active
 - **DNS**: A-запись `nyx.kuban-forum.ru → 2.26.51.8` создана через masterhost
-- **Все 7 сервисов** (Xray, Caddy, Mita, AWG, Hy2, olcRTC, panel) active на dev
+- **Все 8 сервисов** (Xray, Caddy, sing-box-naive, Mita, AWG, Hy2, olcRTC, panel) active на dev
+- **Caddy**: пересобран с `xcaddy` + `github.com/caddyserver/forwardproxy` (forward_proxy + панель)
+- **sing-box**: готовый бинарник с GitHub Releases, Naive inbound на `:8443`
+- **Caddyfile**: `route { handle /panel* → :5000, forward_proxy {...}, reverse_proxy https://zarazaex.xyz }`
 - **proxy_manager_dev.sh**: обновлён и залит на dev, домен `nyx.kuban-forum.ru`
 - **Hy2**: переключён с self-signed на Let's Encrypt (Caddy certs), `systemd.path` для авто-синка сертификатов
 - **Hy2 auth**: single password → `auth.type: userpass` (per-user)
@@ -32,15 +35,22 @@
 - **PWA**: `manifest.json`, `service-worker.js`, иконки 192/512
 - **Перенаправление `/`**: корневой URL редиректит на `/self/login` (Middleware + Caddy)
 
+### Caddy → sing-box: переход NaiveProxy (25 Jul 2026)
+
+- **Проблема**: Caddy v2.8+ + `klzgrad/forwardproxy` перестал работать с Naive-клиентами (connection reset). forwardproxy шлёт стандартный HTTP CONNECT, Naive-клиент ждёт модифицированный CONNECT (с padding). Caddy не отличает.
+- **Решение**: sing-box `:8443` с NaiveProxy inbound — понимает Naive-вариант CONNECT
+- **Caddy**: больше не слушает `:8443`. Только `:443`: панель + forward_proxy (для обычных HTTPS-прокси) + reverse_proxy fallback
+- **Сборка Caddy**: теперь через `xcaddy` с `github.com/caddyserver/forwardproxy` (не apt!)
+- **sing-box**: готовый бинарник с GitHub Releases (не компилируется)
+- **Итог**: два параллельных входа — Caddy `:443` (обычный CONNECT + панель) и sing-box `:8443` (Naive)
+
 ### Миграция портов (24 Jul 2026)
 
 - **xray**: перенесён с 443 → **4433** (VLESS+Reality)
-- **Caddy**: слушает на **443** + **8443** + 80 (panel + NaiveProxy)
 - **UFW**: порт 4433 добавлен (`ufw allow 4433/tcp`)
 - **VLESS конфиги**: все `.uri` файлы обновлены (порт 443 → 4433)
 - **QR коды**: пересозданы для всех юзеров
 - **proxy_manager.sh**: `VLESS_PORT="4433"`
-- Результат: `https://panel.kuban-forum.ru/` (порт 443) работает без `:8443`
 
 ### В работе
 
@@ -84,6 +94,20 @@
 
 - **Панель под systemd**: на проде запуск через `panel.service` (`/etc/systemd/system/panel.service`,
   `Restart=always`), перезапуск — `systemctl restart panel`.
+
+## install.sh_status
+
+Файл `server/install.sh` — не соответствует текущей архитектуре:
+
+| Что в install.sh | Что надо |
+|-----------------|----------|
+| Caddy из apt (без forwardproxy) | Caddy из xcaddy с `github.com/caddyserver/forwardproxy` |
+| Caddyfile: только панельные маршруты | Caddyfile: `route { handle /panel*, forward_proxy, reverse_proxy fallback }` |
+| No sing-box LE cert sync | sing-box использует `/etc/letsencrypt/live/$DOMAIN/*` — те же certs, что Caddy |
+| Caddy :8080 (лишний блок) | Не нужен — всё на :443 |
+| Caddy :8443 не упомянут | Уже не нужен (Naive на sing-box) |
+
+**Нужно обновить**: Caddy сборку через xcaddy, Caddyfile с forward_proxy, fallback, sync certs для sing-box.
 
 ### Hopper (тест на стенде, только dev — НЕ в панели)
 
@@ -246,18 +270,111 @@ iptables nat POSTROUTING: MASQUERADE только «-s <overlay> -o <ens3>» (и
 - journald до 500 MB — запас с учётом 4-6 systemd-сервисов (Caddy, Xray, Hy2, AWG, panel, Mita);
   при достижении лимита journald удаляет самые старые записи.
 
+### Dev: установка сервисов (binary vs сборка)
+
+| Сервис | Источник бинарника | Компиляция? |
+|--------|--------------------|-------------|
+| **Caddy** | `xcaddy` сборка с `github.com/caddyserver/forwardproxy` | **Да** — стандартный binary c caddyserver.com не включает forwardproxy |
+| **sing-box** | GitHub Releases (`SagerNet/sing-box`) | **Нет** — готовый бинарник |
+| **xray** | GitHub Releases (`XTLS/Xray-core`) | **Нет** |
+| **Hysteria2** | GitHub Releases (`apernet/hysteria`) | **Нет** |
+| **Mieru (mita)** | GitHub Releases (`.deb`) | **Нет** |
+| **olcRTC** | GitHub Releases (`smartor777-sketch/olcrtc-users`) | **Нет** |
+| **AWG** | apt (`amneziawg`) | **Нет** (DKMS модуль) |
+
+⚠️ `install.sh` (в `server/`) не описывает текущую архитектуру — требует обновления (см. install.sh_status).
+
+## Архитектура Caddy + forward_proxy + sing-box + NaiveProxy
+
+### Схема
+
+```
+Интернет
+   │
+   ├── HTTPS proxy client → Caddy :443 (forward_proxy) →target site
+   │                        ↑ обычный CONNECT с Basic Auth
+   │
+   ├── Naive клиент → sing-box :8443 (Naive inbound) →target site
+   │                  ↑ Naive-модифицированный CONNECT
+   │
+   └── browser → Caddy :443 → /panel/* /user/* /self/* → Flask :5000
+                              ├─ fallback → zarazaex.xyz (остальное)
+```
+
+### Caddy на `:443` — точка входа (HTTPS)
+
+Принимает **все** HTTPS-соединения на 443 порту. Маршрутизация через `route { ... }`:
+
+```
+Запрос → Caddy :443
+         │
+         ├─ /panel/*, /user/*, /self/*, /samples/*, /static/* → Flask панель :5000
+         │
+         ├─ CONNECT-запрос (forward_proxy) → HTTPS-туннель к целевому хосту
+         │
+         └─ всё остальное → reverse_proxy на zarazaex.xyz (прикрытие)
+```
+
+### forward_proxy — Caddy как обычный HTTPS-прокси
+
+Это стандартный **HTTP CONNECT proxy**. Клиент (браузер curl) настраивается как HTTPS-прокси на `nyx.kuban-forum.ru:443`, передаёт логин/пароль (Basic Auth). Caddy открывает туннель.
+
+**Caddy НЕ знает про NaiveProxy** — он просто шлёт CONNECT.
+
+### NaiveProxy — надстройка поверх CONNECT
+
+NaiveProxy — не отдельный протокол, а **клиент** (Chromium-движок), который делает обычный HTTPS-CONNECT, но добавляет случайный padding и кастомные заголовки, чтобы обходить DPI.
+
+### Зачем sing-box на `:8443`?
+
+**Проблема:** Caddy + `klzgrad/forwardproxy` **сломали** Naive-клиенты с Caddy v2.8+. forwardproxy отправляет стандартный HTTP CONNECT, а Naive-клиент ждёт Naive-модифицированный CONNECT (с padding). Caddy их не отличает — шлёт обычный CONNECT. Naive-клиент получает connection reset.
+
+**Решение:** sing-box имеет встроенный **NaiveProxy inbound** — он понимает Naive-модифицированный CONNECT. Клиенты подключаются к `nyx.kuban-forum.ru:8443` напрямую с TLS. Sing-box принимает Naive-соединение, расшифровывает, маршрутизирует трафик.
+
+### Зачем держать Caddy, если sing-box всё умеет?
+
+Caddy — **легитимный HTTPS-сервер** с панелью и сайтом-заглушкой. Это прикрытие: сканер на `:443` видит сайт, а не просто открытый порт. Sing-box на `:8443` — скрытый порт только для Naive, не очевиден.
+
+### Caddyfile (dev)
+
+```caddy
+nyx.kuban-forum.ru:443 {
+    tls furi_wave@mail.ru
+
+    route {
+        handle /panel/* { reverse_proxy 127.0.0.1:5000 }
+        handle /user/*  { reverse_proxy 127.0.0.1:5000 }
+        handle /self/*  { reverse_proxy 127.0.0.1:5000 }
+        handle /samples/* { reverse_proxy 127.0.0.1:5000 }
+        handle /static/* { reverse_proxy 127.0.0.1:5000 }
+
+        forward_proxy {
+            basic_auth test    577a43faa9ce2c8199752c79
+            basic_auth 123     e9410cd68c75010ce087f108
+            # ...
+            hide_ip
+            hide_via
+            probe_resistance
+        }
+
+        reverse_proxy https://zarazaex.xyz {
+            header_up Host {upstream_hostport}
+        }
+    }
+}
+```
+
 ## Текущая конфигурация портов (Prod + Dev)
 
 | Сервис | Порт | Протокол | Назначение |
 |--------|------|----------|------------|
 | xray (VLESS+Reality) | **4433** | TCP | Прокси-трафик клиентов |
-| Caddy (panel) | **443** | TCP+TLS | `https://panel.kuban-forum.ru/` |
-| Caddy (panel) | **8443** | TCP+TLS | `https://panel.kuban-forum.ru:8443/` (legacy) |
+| Caddy | **443** | TCP+TLS | Панель (`/panel*`) + forward_proxy + fallback |
 | Caddy (http→https) | **80** | TCP | Редирект на HTTPS |
-| Caddy (NaiveProxy) | **8443** | TCP+TLS | forward_proxy (Naive) |
+| sing-box (NaiveProxy) | **8443** | TCP+TLS | NaiveProxy inbound |
 | Hysteria2 | **30000** | UDP | Hy2 трафик |
 | Mieru | **444-448** | TCP+UDP | Mieru трафик |
 | olcRTC | **39743** | UDP | WebRTC трафик |
 | AWG | — | UDP | WireGuard tunnel |
-| panel (Flask) | **5000** | TCP (localhost) | Внутренний API |
+| panel (Flask) | **5000** | TCP (localhost) | Внутренний API Flask |
 | xray API | **10085** | TCP (localhost) | gRPC stats |

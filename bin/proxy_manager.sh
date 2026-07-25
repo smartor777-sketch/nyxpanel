@@ -21,7 +21,7 @@ OLRTC_CONFIG="/root/.config/olcrtc/server.yaml"
 OLRTC_SERVICE="olcrtc"
 OLRTC_ICE="ws://nyx.kuban-forum.ru:30001/ice"
 OLRTC_ROOM_URL="https://meet.egovm.ru/nyx-oootubww.ikill.baby"
-OLRTC_CRYPTO_KEY="2967bab5e92bb2c9ceef2e0e9b7b65d1dabca7d7b2db8c005250a591d2ce4b31"
+OLRTC_CRYPTO_KEY="<REPLACE_WITH_YOUR_KEY>"
 
 XRAY_CONFIG="/usr/local/etc/xray/config.json"
 VLESS_USERS_FILE="/etc/xray/users.json"

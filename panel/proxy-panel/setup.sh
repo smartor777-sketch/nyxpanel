@@ -33,14 +33,14 @@ systemctl enable --now panel.service
 
 echo "==> Panel running on http://127.0.0.1:5000"
 
-if grep -q "panel.76t05pyu.ikill.baby" /etc/caddy/Caddyfile 2>/dev/null; then
+if grep -q "panel.<YOUR_DOMAIN>" /etc/caddy/Caddyfile 2>/dev/null; then
     echo "==> Panel already in Caddyfile"
 else
     echo "==> Adding panel to Caddyfile"
     cat >> /etc/caddy/Caddyfile << 'CADDY'
 
 # Proxy Panel
-panel.76t05pyu.ikill.baby:8443 {
+panel.<YOUR_DOMAIN>:8443 {
     basicauth {
         admin $2a$14$CHANGEME
     }
@@ -53,7 +53,7 @@ fi
 echo ""
 echo "============================================"
 echo "  Panel installed!"
-echo "  URL: https://panel.76t05pyu.ikill.baby:8443"
+echo "  URL: https://panel.<YOUR_DOMAIN>:8443"
 echo ""
 echo "  Set password:"
 echo "    caddy hash-password --plaintext 'yourpass'"

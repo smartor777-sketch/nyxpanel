@@ -3,11 +3,11 @@ auth:
   provider: jitsi
 claims:
   user: "Katya"
-  pass: "katya_olc_2024"
+  pass: "<PASSWORD>"
 room:
-  id: "https://meet.egovm.ru/pxy-76t05pyu.ikill.baby"
+  id: "https://meet.egovm.ru/pxy-<YOUR_DOMAIN>"
 crypto:
-  key: "2967bab5e92bb2c9ceef2e0e9b7b65d1dabca7d7b2db8c005250a591d2ce4b31"
+  key: "<YOUR_OLRTC_CRYPTO_KEY>"
 net:
   transport: datachannel
   dns: "8.8.8.8:53"

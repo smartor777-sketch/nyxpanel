@@ -6,7 +6,7 @@
 |----------|----------|
 | IP | 31.76.8.29 |
 | Хост | MyServer-1.play2go.cloud |
-| Домен | 76t05pyu.ikill.baby |
+| Домен | 76t05pyu.ikill.baby → panel.kuban-forum.ru |
 | OS | Ubuntu 22.04+ (предположительно) |
 | Назначение | Рабочий, через него идут соединения |
 

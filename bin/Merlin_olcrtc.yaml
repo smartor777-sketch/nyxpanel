@@ -4,16 +4,16 @@ auth:
 net:
   transport: datachannel
   dns: 8.8.8.8:53
-  ice: ws://76t05pyu.ikill.baby:30001/ice
-server: ws://76t05pyu.ikill.baby:30001
+  ice: ws://<YOUR_DOMAIN>:30001/ice
+server: ws://<YOUR_DOMAIN>:30001
 room:
-  id: https://meet.egovm.ru/pxy-76t05pyu.ikill.baby
+  id: https://meet.egovm.ru/pxy-<YOUR_DOMAIN>
 crypto:
-  key: "2967bab5e92bb2c9ceef2e0e9b7b65d1dabca7d7b2db8c005250a591d2ce4b31"
+  key: "<YOUR_OLRTC_CRYPTO_KEY>"
 socks:
   host: 127.0.0.1
   port: 1082
 data: C:\olcrtc_data
 claims:
   user: Merlin
-  pass: 8725d376b7a58b657a870400
+  pass: <PASSWORD>

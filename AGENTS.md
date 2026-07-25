@@ -35,8 +35,8 @@
 - Архитектура: [`ARCHITECTURE.md`](ARCHITECTURE.md)
 
 ### Prod
-- Сервер: `31.76.8.29` (MyServer-1.play2go.cloud), домен `76t05pyu.ikill.baby`
-- Панель: `https://76t05pyu.ikill.baby:8443/panel/`
+- Сервер: `31.76.8.29` (MyServer-1.play2go.cloud), домен `panel.kuban-forum.ru`
+- Панель: `https://panel.kuban-forum.ru/self/login`
 - Рабочий, через него идут соединения
 
 ### Dev (стенд)
