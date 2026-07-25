@@ -305,7 +305,7 @@ auth:
   users_file: /etc/olcrtc/users.json
 
 crypto:
-  key: "<olrtc_crypto_key>"
+  key: "<YOUR_OLRTC_CRYPTO_KEY>"
 
 socks:
   host: 127.0.0.1

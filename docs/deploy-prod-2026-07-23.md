@@ -65,16 +65,18 @@ scp root@2.26.51.8:/opt/proxy-panel/app.py /opt/proxy-panel/app.py
 # Скопировать шаблоны (через Python для сохранения UTF-8)
 scp root@2.26.51.8:/opt/proxy-panel/templates/self.html /opt/proxy-panel/templates/self.html
 scp root@2.26.51.8:/opt/proxy-panel/templates/self_admin.html /opt/proxy-panel/templates/self_admin.html
-scp root@2.26.51.8:/opt/proxy-panel/templates/index.html /opt/proxy-panel/templates/index.html
+scp root@2.26.51.8:/opt/proxy-panel/templates/self_login.html /opt/proxy-panel/templates/self_login.html
+scp root@2.26.51.8:/opt/proxy-panel/templates/manual.html /opt/proxy-panel/templates/manual.html
+scp root@2.26.51.8:/opt/proxy-panel/templates/olcrtc_windows.html /opt/proxy-panel/templates/olcrtc_windows.html
 
 # ИЛИ через Python на prod (надёжнее для UTF-8):
 python3 -c "
 import urllib.request, base64
-files = ['self.html', 'self_admin.html', 'index.html']
+files = ['self.html', 'self_admin.html', 'self_login.html', 'manual.html', 'olcrtc_windows.html']
 for f in files:
     url = 'http://2.26.51.8:5000/panel/api/v1/template/' + f  # если есть такой маршрут
     # Альтернатива: scp с -T для сохранения encoding
-"
+""
 ```
 
 ### Шаг 4: Перезапуск Flask

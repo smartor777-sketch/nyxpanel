@@ -73,7 +73,7 @@ rm -f /usr/local/bin/service-watchdog.sh
 rm -rf /var/log/service-watchdog.log
 
 # LE cert для старого домена
-rm -rf /etc/letsencrypt/live/76t05pyu.ikill.baby
+rm -rf /etc/letsencrypt/live/<YOUR_DOMAIN>
 
 # Таймеры
 rm -f /etc/systemd/system/sync-hy2-cert.*

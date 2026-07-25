@@ -4,7 +4,7 @@
     {
       "type": "vless",
       "tag": "pxy-vless - test",
-      "server": "76t05pyu.ikill.baby",
+      "server": "<YOUR_DOMAIN>",
       "server_port": 443,
       "uuid": "6276429c-b022-4425-880f-81d04a45802c",
       "flow": "xtls-rprx-vision",
@@ -18,8 +18,8 @@
         },
         "reality": {
           "enabled": true,
-          "public_key": "iqmUrTnhYDcm-hhuGJaze6dTGNIcvyMOyYIN7LB4kU4",
-          "short_id": "2e30b986cabb4bca"
+          "public_key": "<YOUR_PUBLIC_KEY>",
+          "short_id": "<YOUR_SHORT_ID>"
         }
       }
     }

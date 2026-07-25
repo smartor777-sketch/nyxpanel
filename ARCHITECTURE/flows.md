@@ -3,91 +3,84 @@
 ## Подключение пользователя (клиент → прокси)
 
 ```
-Клиент (olcbox/olcRTC/Xray/Hysteria2)
-       │
-       ▼
-  Прокси-сервер
-       │
-       ├── VLESS+XHTTP+REALITY (443)
-       │     └── Xray → REALITY → XHTTP → VLESS
-       │
-       ├── Hysteria 2 (30000 UDP)
-       │     └── hysteria-server → userpass auth
-       │
-       ├── AmneziaWG (39743 UDP)
-       │     └── awg → WireGuard крипто
-       │
-       ├── NaiveProxy (80)
-       │     └── Caddy → forwardproxy
-       │
-       ├── Mieru (444-448)
-       │     └── mieru → AES-GCM туннель
-       │
-       └── olcRTC (30001 WS)
-             └── olcrtc → WebRTC → Jitsi Meet
-                   └── claims auth (user/pass)
+Клиент
+   │
+   ├── VLESS+REALITY → Xray :4433
+   │
+   ├── Hysteria 2 → hysteria2 :30000 UDP
+   │
+   ├── AmneziaWG → awg :39743 UDP
+   │
+   ├── NaiveProxy → sing-box :8443
+   │
+   ├── HTTPS CONNECT proxy → Caddy :443 (forward_proxy)
+   │     └── basic_auth + probe_resistance
+   │
+   ├── Mieru → mita :444-448
+   │
+   └── olcRTC → olcrtc :39743
+         └── WebRTC → Jitsi Meet
 ```
 
 ## Управление пользователем (админ → панель)
 
 ```
 Администратор
-       │
-       ├── SSH → bash proxy_manager.sh
-       │     ├── add_user
-       │     ├── del_user
-       │     └── status
-       │
-       └── Browser → https://76t05pyu.ikill.baby:8443/panel/
-             └── Flask → Caddy basicauth → SQLite
+   │
+   ├── SSH → bash proxy_manager.sh
+   │     ├── add_user
+   │     ├── del_user
+   │     └── status
+   │
+   └── Browser → https://panel.kuban-forum.ru/self/login
+         └── Flask → Caddy reverse proxy → SQLite
+```
+
+## Сбор трафика (collector)
+
+```
+Cron (*/5 * * * *)
+   │
+   ├── Xray StatsService (gRPC :10085) → statsquery -reset
+   ├── Hy2 trafficStats API (:30100)
+   ├── AWG show + pubkey map
+   │
+   ├── SQLite (traffic_log per user)
+   │
+   └── Flask → Chart.js dashboard
+```
+
+## Traffic flow (будущее, модульная архитектура)
+
+```
+Прокси-сервер
+   │
+   ▼
+Cron collector (python)
+   │
+   ├── Xray API → user stats
+   ├── Hy2 API → user stats
+   │
+   ▼
+SQLite
+   │
+   ▼
+Flask → Chart.js → Dashboard
 ```
 
 ## Аутентификация olcRTC
 
 ```
-olcRTC Client
-       │
-       ▼
-  ws://76t05pyu.ikill.baby:30001
-       │
-       ▼
-  Server (server.go)
-       │
-       ├── claims: user + pass
-       │
-       ▼
-  createFileAuthHook()
-       │
-       ├── Читает tmp_users.json
-       ├── Ищет user в JSON
-       │   ├── Найден? → проверяет pass
-       │   │   ├── Совпадает? → OK
-       │   │   └── Не совпадает? → PASSWORD_MISMATCH
-       │   └── Не найден? → USER_NOT_FOUND
-       │
-       ▼
-  Session → WebRTC подключение → Jitsi
-       │
-       ├── Обмен ключами (XChaCha20-Poly1305)
-       ├── smux мультиплексирование
-       └── TCP over DataChannel
-```
-
-## Traffic flow (будущее, Stage 1 панели)
-
-```
-Прокси-сервер
-       │
-       ▼
-  Cron collector (python/bash)
-       │
-       ├── iptables/nftables → traffic bytes
-       ├── Xray API → user stats
-       ├── Hy2 API → user stats
-       │
-       ▼
-  SQLite (на сервере или на панели)
-       │
-       ▼
-  Flask → Chart.js → Dashboard
+olcRTC Client → Server
+   │              │
+   ▼              ▼
+claims: user+pass → createFileAuthHook() → JSON users file
+   │
+   ├── Найден? → проверяет pass
+   │   ├── Совпадает? → OK
+   │   └── Не совпадает? → PASSWORD_MISMATCH
+   └── Не найден? → USER_NOT_FOUND
+   │
+   ▼
+Session → WebRTC → Jitsi
 ```

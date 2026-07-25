@@ -2,12 +2,12 @@
 
 ## Описание
 
-**NYX Panel** — мультипротокольная система управления прокси/VPN сервером. Управляет 6 протоколами через Bash-скрипты, Flask-панель и включает клиентские приложения (olcbox KMP, olcRTC).
+**NYX Panel** — мультипротокольная система управления прокси/VPN сервером. Управляет 7 протоколами через Bash-скрипты, Flask-панель и включает клиентские приложения (olcbox KMP, olcRTC).
 
 ## Стек технологий
 
-- **Сервер:** Ubuntu 22.04+, Xray (VLESS+XHTTP+REALITY), Hysteria2, AmneziaWG, Caddy (NaiveProxy + reverse proxy), Mieru, olcRTC
-- **Панель:** Flask + SQLite + Caddy (basicauth reverse proxy)
+- **Сервер:** Debian 12/13 (bookworm/trixie), Xray (VLESS+XHTTP+REALITY), Hysteria2, AmneziaWG, Caddy (forward_proxy + reverse proxy), sing-box (NaiveProxy), Mieru, olcRTC
+- **Панель:** Flask + SQLite + Caddy (reverse proxy на :443)
 - **Клиенты:** Kotlin Multiplatform (olcbox), Go (olcRTC tunnel)
 - **Скрипты:** Bash + Python (jq, yq, qrencode, awg)
 - **Языки:** Bash, Python, Go, Kotlin, Java (JNI C)

@@ -1,8 +1,8 @@
 # Серверная конфигурация
 
 > Дата: 2026-07-17
-> Сервер: `31.76.8.29` (MyServer-1.play2go.cloud)
-> Домен: `76t05pyu.ikill.baby`
+> Сервер: `<YOUR_SERVER_IP>` (MyServer-1.play2go.cloud)
+> Домен: `<YOUR_DOMAIN>`
 
 ---
 
@@ -27,13 +27,13 @@
 **Network:** `xhttp`, path `/vless`
 **Security:** `reality`
 **SNI:** `1.1.1.1`
-**Short ID:** `2e30b986cabb4bca`
-**Private Key:** `<реальти_приватный_ключ>`
+**Short ID:** `<YOUR_SHORT_ID>`
+**Private Key:** `<YOUR_PRIVATE_KEY>` <!-- НЕ КОММИТИТЬ РЕАЛЬНЫЙ КЛЮЧ -->
 **Public Key:** (вычисляется из private)
 
 Формат URI:
 ```
-vless://UUID@76t05pyu.ikill.baby:443?security=reality&type=xhttp&path=%2Fvless&sni=1.1.1.1&fp=chrome&pbk=...&sid=2e30b986cabb4bca&spx=%2Fdns-query%2F#NAME
+vless://UUID@<YOUR_DOMAIN>:443?security=reality&type=xhttp&path=%2Fvless&sni=1.1.1.1&fp=chrome&pbk=...&sid=<YOUR_SHORT_ID>&spx=%2Fdns-query%2F#NAME
 ```
 
 ---
@@ -42,7 +42,7 @@ vless://UUID@76t05pyu.ikill.baby:443?security=reality&type=xhttp&path=%2Fvless&s
 
 **Сервис:** `hysteria-server.service`
 **Порт:** `30000`
-**Obfs:** `salamander`, пароль `c8fb2a6e302b52f06a05c3455a5927a6`
+**Obfs:** `salamander`, пароль `<YOUR_OBFS_PASSWORD>`
 **TLS:** `/etc/proxy-certs/fullchain.pem`
 **Masquerade:** `https://zarazaex.xyz/`
 **Auth:** userpass
@@ -78,17 +78,17 @@ vless://UUID@76t05pyu.ikill.baby:443?security=reality&type=xhttp&path=%2Fvless&s
 **Бинарь:** `/root/pj/olcrtc/build/olcrtc-linux-amd64`
 **Конфиг:** `/root/.config/olcrtc/server.yaml`
 **Режим:** `srv` + `auth.provider: jitsi`
-**Комната:** `https://meet.egovm.ru/pxy-76t05pyu.ikill.baby`
-**Ключ:** `<olrtc_crypto_key>`
+**Комната:** `https://meet.egovm.ru/pxy-<YOUR_DOMAIN>`
+**Ключ:** `<YOUR_OLRTC_CRYPTO_KEY>`
 **Транспорт:** `datachannel`
 **Auth:** users_file (`/etc/olcrtc/users.json`)
 
 **Пользователи:**
 | Имя | Пароль |
 |-----|--------|
-| Katya | `<пароль_katya>` |
-| test | `1086403b6dfc7c62cd10e4c4` |
-| Merlin | `<пароль_olcrtc_2>` |
+| Katya | `<PASSWORD>` |
+| test | `<PASSWORD>` |
+| Merlin | `<PASSWORD>` |
 
 **Формат olcbox URI:**
 ```
@@ -101,9 +101,9 @@ mode: cnc
 auth:
   provider: jitsi
 room:
-  id: "https://meet.egovm.ru/pxy-76t05pyu.ikill.baby"
+  id: "https://meet.egovm.ru/pxy-<YOUR_DOMAIN>"
 crypto:
-  key: "<olrtc_crypto_key>"
+  key: "<YOUR_OLRTC_CRYPTO_KEY>"
 claims:
   user: USERNAME
   pass: PASSWORD
@@ -123,7 +123,7 @@ socks:
 
 **Модуль forward_proxy** (NaiveProxy):
 - HTTP/SOCKS5 forward proxy с basicauth
-- `https://76t05pyu.ikill.baby:8443/`
+- `https://<YOUR_DOMAIN>:8443/`
 - Пользователи: `Merlin` (2 пароля), `pxy04d7`
 
 **Маршруты:**
@@ -135,8 +135,8 @@ socks:
 ## Web-панель
 
 **Сервис:** `panel.service`
-**URL:** `https://76t05pyu.ikill.baby:8443/panel/`
-**Логин:** `admin` / `admin123`
+**URL:** `https://<YOUR_DOMAIN>:8443/panel/`
+**Логин:** `admin` / `<ADMIN_PASSWORD>`
 **Бэкенд:** Python 3 + Flask (`/opt/proxy-panel/app.py`)
 **Шаблон:** `/opt/proxy-panel/templates/index.html`
 **Caddy basicauth:** `$2a$14$or1W8yhOEefhPzxI1ZhReu...` (bcrypt)
@@ -182,7 +182,7 @@ socks:
 
 | Параметр | Значение |
 |----------|----------|
-| `SERVER_DOMAIN` | `76t05pyu.ikill.baby` |
+| `SERVER_DOMAIN` | `<YOUR_DOMAIN>` |
 | `BASE_DIR` | `/root/proxy_users` |
 | `HY2_CONFIG` | `/etc/hysteria/config.yaml` |
 | `AWG_CONFIG` | `/etc/amnezia/amneziawg/awg0.conf` |
@@ -190,13 +190,13 @@ socks:
 | `XRAY_CONFIG` | `/usr/local/etc/xray/config.json` |
 | `MIERU_CONFIG` | `/etc/mita/server.json` |
 | `OLRTC_USERS_FILE` | `/etc/olcrtc/users.json` |
-| `OLRTC_ROOM_URL` | `https://meet.egovm.ru/pxy-76t05pyu.ikill.baby` |
-| `OLRTC_CRYPTO_KEY` | `<olrtc_crypto_key>` |
+| `OLRTC_ROOM_URL` | `https://meet.egovm.ru/pxy-<YOUR_DOMAIN>` |
+| `OLRTC_CRYPTO_KEY` | `<YOUR_OLRTC_CRYPTO_KEY>` |
 | `VLESS_USERS_FILE` | `/etc/xray/users.json` |
-| `VLESS_HOST` | `76t05pyu.ikill.baby` |
+| `VLESS_HOST` | `<YOUR_DOMAIN>` |
 | `VLESS_PORT` | `443` |
-| `VLESS_PUBLIC_KEY` | `iqmUrTnhYDcm-hhuGJaze6dTGNIcvyMOyYIN7LB4kU4` |
-| `VLESS_SHORT_ID` | `2e30b986cabb4bca` |
+| `VLESS_PUBLIC_KEY` | `<YOUR_PUBLIC_KEY>` |
+| `VLESS_SHORT_ID` | `<YOUR_SHORT_ID>` |
 
 ### CLI-команды
 
@@ -267,7 +267,6 @@ bash /root/proxy_manager.sh list_users
 | Merlin | hy2, awg, mieru, naive, olcrtc, vless | `/root/proxy_users/Merlin/` |
 | Katya | awg, olcrtc | `/root/proxy_users/Katya/` |
 | test | awg, olcrtc, vless | `/root/proxy_users/test/` |
-| vless | vless | `/root/proxy_users/vless/` |
 
 ---
 

@@ -39,7 +39,7 @@ Users can change their own password from their dashboard:
 
 | Environment | IP | Domain | Port |
 |-------------|-----|--------|------|
-| Production | 31.76.8.29 | 76t05pyu.ikill.baby | 8443 |
+| Production | 31.76.8.29 | panel.kuban-forum.ru | 443 |
 | Development | 2.26.51.8 | nyx.kuban-forum.ru | 8443 |
 
 ## License

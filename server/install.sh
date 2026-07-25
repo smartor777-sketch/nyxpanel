@@ -60,6 +60,7 @@ ufw default allow outgoing > /dev/null 2>&1
 ufw allow 22/tcp > /dev/null 2>&1
 ufw allow 80/tcp > /dev/null 2>&1
 ufw allow 443/tcp > /dev/null 2>&1
+ufw allow 8080/tcp > /dev/null 2>&1
 ufw allow ${VLESS_PORT}/tcp > /dev/null 2>&1
 ufw allow 8443/tcp > /dev/null 2>&1
 ufw allow ${HY2_PORT}/udp > /dev/null 2>&1
@@ -227,41 +228,149 @@ systemctl daemon-reload
 systemctl enable --now sing-box-naive
 info "sing-box NaiveProxy установлен на порту 8443"
 
-# --- 3b. Caddy для панели (на 443) ---
-info "=== Шаг 3b: Установка Caddy для панели ==="
-apt-get install -y -qq debian-keyring debian-archive-keyring apt-transport-https > /dev/null 2>&1
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' 2>/dev/null | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg 2>/dev/null || true
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' > /etc/apt/sources.list.d/caddy-stable.list 2>/dev/null || true
-apt-get update -qq > /dev/null 2>&1
-if ! command -v caddy &>/dev/null || [ ! -f /lib/systemd/system/caddy.service ]; then
-    dpkg --purge caddy 2>/dev/null || true
-    apt-get install -y -qq caddy > /dev/null 2>&1
+# --- 3b. Caddy (forward_proxy + панель + fallback) ---
+info "=== Шаг 3b: Caddy сборка с forwardproxy ==="
+
+GO_VERSION="${GO_VERSION:-1.22.5}"
+CADDY_FORWARD_VERSION="${CADDY_FORWARD_VERSION:-latest}"
+
+# Go (если нет)
+if ! command -v go &>/dev/null; then
+    curl -sL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -o /tmp/go.tar.gz
+    rm -rf /usr/local/go
+    tar -C /usr/local -xzf /tmp/go.tar.gz
+    export PATH=$PATH:/usr/local/go/bin
+    echo 'export PATH=$PATH:/usr/local/go/bin' > /etc/profile.d/go.sh
+    rm -f /tmp/go.tar.gz
+    info "Go ${GO_VERSION} установлен"
 fi
 
-mkdir -p /etc/caddy
+export PATH=$PATH:/root/go/bin:/usr/local/go/bin
+
+# xcaddy
+if ! command -v xcaddy &>/dev/null; then
+    go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
+fi
+
+# Сборка Caddy с forwardproxy
+xcaddy build --with github.com/caddyserver/forwardproxy@${CADDY_FORWARD_VERSION} -o /usr/local/bin/caddy
+info "Caddy собран с forwardproxy $(caddy version 2>/dev/null || true)"
+
+cat > /etc/systemd/system/caddy.service << 'SVCEOF'
+[Unit]
+Description=Caddy
+Documentation=https://caddyserver.com/docs/
+After=network.target network-online.target
+Requires=network-online.target
+[Service]
+Type=notify
+User=root
+ExecStart=/usr/local/bin/caddy run --config /etc/caddy/Caddyfile
+ExecReload=/usr/local/bin/caddy reload --config /etc/caddy/Caddyfile
+TimeoutStopSec=5s
+LimitNOFILE=1048576
+LimitNPROC=512
+PrivateTmp=true
+ProtectSystem=full
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+
+mkdir -p /etc/caddy /var/www/html
+
+# Fallback-страница (фейк)
+cat > /var/www/html/index.html << 'FALLBACK'
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ООО "НКТ-Консалтинг" — Аудит и бухгалтерское сопровождение</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,-apple-system,sans-serif;background:#f5f5f5;color:#333;display:flex;flex-direction:column;min-height:100vh}
+header{background:#1a237e;color:#fff;padding:2rem 1rem;text-align:center}
+header h1{font-size:1.5rem;margin-bottom:.5rem}
+header p{opacity:.9;font-size:.9rem}
+main{flex:1;max-width:1000px;margin:0 auto;padding:2rem 1rem;width:100%}
+.services{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:1rem;margin-bottom:2rem}
+.card{background:#fff;border-radius:8px;padding:1.5rem;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.card h3{color:#1a237e;margin-bottom:.5rem;font-size:1rem}
+.card p{font-size:.9rem;color:#666;line-height:1.5}
+.about{background:#fff;border-radius:8px;padding:1.5rem;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.about h2{color:#1a237e;font-size:1.1rem;margin-bottom:1rem}
+.about p{line-height:1.6;font-size:.9rem;color:#444}
+footer{background:#333;color:#999;text-align:center;padding:1.5rem;font-size:.8rem;margin-top:2rem}
+</style>
+</head>
+<body>
+<header>
+<h1>ООО "НКТ-Консалтинг"</h1>
+<p>Аудит • Бухгалтерское сопровождение • Налоговый консалтинг</p>
+</header>
+<main>
+<div class="services">
+<div class="card"><h3>Аудиторские проверки</h3><p>Обязательный и инициативный аудит бухгалтерской отчётности. Оценка налоговых рисков.</p></div>
+<div class="card"><h3>Бухгалтерское обслуживание</h3><p>Полное ведение бухгалтерского и налогового учёта. Подготовка и сдача отчётности.</p></div>
+<div class="card"><h3>Налоговый консалтинг</h3><p>Оптимизация налогообложения. Защита при налоговых проверках. Досудебное урегулирование.</p></div>
+</div>
+<div class="about">
+<h2>О компании</h2>
+<p>"НКТ-Консалтинг" оказывает профессиональные услуги в области аудита, бухгалтерского учёта и налогового консалтинга с 2014 года. Наши специалисты имеют аттестаты аудиторов и многолетний опыт работы с предприятиями различных отраслей.</p>
+<p style="margin-top:1rem;color:#999;font-size:.85rem">Краснодарский край, г. Краснодар. Лицензия Минфина РФ № 1234567890.</p>
+</div>
+</main>
+<footer>&copy; 2000-2026 ООО "НКТ-Консалтинг". Все права защищены.</footer>
+</body>
+</html>
+FALLBACK
+info "Fallback-страница создана (/var/www/html/index.html)"
+
+ADMIN_PROXY_PASS=$(openssl rand -hex 12)
+
 cat > /etc/caddy/Caddyfile << CADDY_EOF
 {
     email ${EMAIL}
 }
 
 ${DOMAIN}:443 {
-    handle /self* {
-        reverse_proxy 127.0.0.1:${PANEL_PORT}
-    }
+    tls ${EMAIL}
 
-    handle /static/* {
-        root * /opt/proxy-panel
+    route {
+        handle /panel/* {
+            reverse_proxy 127.0.0.1:${PANEL_PORT}
+        }
+        handle /user/* {
+            reverse_proxy 127.0.0.1:${PANEL_PORT}
+        }
+        handle /self/* {
+            reverse_proxy 127.0.0.1:${PANEL_PORT}
+        }
+        handle /samples/* {
+            reverse_proxy 127.0.0.1:${PANEL_PORT}
+        }
+        handle /static/* {
+            root * /opt/proxy-panel
+            file_server
+        }
+
+        forward_proxy {
+            basic_auth admin ${ADMIN_PROXY_PASS}
+            hide_ip
+            hide_via
+            probe_resistance
+        }
+
+        root * /var/www/html
         file_server
-    }
-
-    handle / {
-        redir /self/login 302
     }
 }
 CADDY_EOF
 
+systemctl daemon-reload
 systemctl enable --now caddy
-info "Caddy (панель) установлен"
+info "Caddy установлен на порту 443 (forward_proxy + панель + fallback)"
 
 # --- 4. Hysteria 2 ---
 info "=== Шаг 4: Установка Hysteria 2 ==="
@@ -617,7 +726,7 @@ DOMAIN=$(ls "$CERT_DIR" 2>/dev/null | head -1)
 SRC="$CERT_DIR/$DOMAIN"; DST="/etc/proxy-certs"; CHANGED=0
 [ -f "$SRC/fullchain.pem" ] && [ "$SRC/fullchain.pem" -nt "$DST/fullchain.pem" ] && cp "$SRC/fullchain.pem" "$DST/fullchain.pem" && CHANGED=1
 [ -f "$SRC/privkey.pem" ] && [ "$SRC/privkey.pem" -nt "$DST/privkey.pem" ] && cp "$SRC/privkey.pem" "$DST/privkey.pem" && CHANGED=1
-[ "$CHANGED" -eq 1 ] && chown hysteria:hysteria "$DST"/*.pem 2>/dev/null && systemctl restart hysteria2 && echo "$(date) Synced cert" >> /var/log/hy2-cert-sync.log
+[ "$CHANGED" -eq 1 ] && chown hysteria:hysteria "$DST"/*.pem 2>/dev/null && systemctl restart hysteria2 sing-box-naive && echo "$(date) Synced cert" >> /var/log/hy2-cert-sync.log
 CERT_EOF
 chmod +x /usr/local/bin/sync-hy2-cert.sh
 
@@ -653,6 +762,8 @@ echo -e "Reality PK: ${YELLOW}${REALITY_PUBLIC}${NC}"
 echo -e "Short ID:   ${YELLOW}${SHORT_ID}${NC}"
 echo -e "Hy2 obfs:   ${YELLOW}${OBFSC_PASS}${NC}"
 echo -e "Hy2 init:   ${YELLOW}initial_user:${INIT_PASS}${NC}"
+echo -e "Caddy proxy: ${CYAN}admin${NC}:${CYAN}${ADMIN_PROXY_PASS}${NC}"
+echo -e "Naive proxy: ${CYAN}initial${NC}:${CYAN}${NAIVE_PASSWORD}${NC}"
 echo ""
 echo -e "Сервисы:"
 for svc in xray caddy sing-box-naive hysteria2 mita olcrtc panel; do
