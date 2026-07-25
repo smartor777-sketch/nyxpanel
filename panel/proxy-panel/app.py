@@ -7,7 +7,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("PANEL_SECRET", os.urandom(16).hex())
-PANEL_VERSION = "1.06"
+PANEL_VERSION = "1.07"
 
 BASE_DIR = Path("/root/proxy_users")
 REGISTRY = BASE_DIR / ".registry"
