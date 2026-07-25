@@ -30,6 +30,13 @@ OLRTC_ICE="ws://<YOUR_DOMAIN>:30001/ice"
 OLRTC_ROOM_URL="https://meet.egovm.ru/nyx-<YOUR_DOMAIN>"
 OLRTC_CRYPTO_KEY="<REPLACE_WITH_YOUR_KEY>"
 
+# Trojan
+TROJAN_USERS_FILE="/etc/sing-box/trojan_users.json"
+TROJAN_PORT=9443
+TROJAN_CERT="/root/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/<YOUR_DOMAIN>/<YOUR_DOMAIN>.crt"
+TROJAN_KEY="/root/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/<YOUR_DOMAIN>/<YOUR_DOMAIN>.key"
+TROJAN_SERVICE="trojan-go"
+
 # VLESS+XHTTP+REALITY
 XRAY_CONFIG="/usr/local/etc/xray/config.json"
 VLESS_USERS_FILE="/etc/xray/users.json"
@@ -228,6 +235,15 @@ del_user() {
         echo -e "${GREEN}Удален из VLESS+XHTTP+REALITY.${NC}"
     fi
 
+    # 7b. Удаляем из Trojan (если есть)
+    if [ -f "$target_dir/${username}_troyan.json" ] && [ -f "$TROJAN_USERS_FILE" ]; then
+        jq --arg user "$username" 'del(.[$user])' \
+          "$TROJAN_USERS_FILE" > /tmp/trojan_users.tmp && mv /tmp/trojan_users.tmp "$TROJAN_USERS_FILE"
+        update_trojango_config
+        systemctl restart "$TROJAN_SERVICE"
+        echo -e "${GREEN}Удален из Trojan.${NC}"
+    fi
+
     # 8. Удаляем папку с ключами и файлами
     rm -rf "$target_dir"
     echo -e "${GREEN}Папка пользователя удалена.${NC}"
@@ -251,6 +267,7 @@ list_users() {
         [ -f "$BASE_DIR/$user/${user}_mieru.json" ] && echo "   - Mieru (✓)"
         [ -f "$BASE_DIR/$user/${user}_olcrtc.json" ] && echo "   - olcRTC (✓)"
         [ -f "$BASE_DIR/$user/${user}_vless.uri" ] && echo "   - VLESS+XHTTP+REALITY (✓)"
+        [ -f "$BASE_DIR/$user/${user}_troyan.json" ] && echo "   - Trojan (✓)"
     done < "$REGISTRY_FILE"
 }
 
@@ -263,7 +280,7 @@ remove_protocol() {
     if ! check_user_exists "$username"; then return 1; fi
 
     if [ -n "$proto" ]; then
-        case "|hy2|awg|naive|mieru|olcrtc|vless|" in
+        case "|hy2|awg|naive|mieru|olcrtc|vless|troy|" in
             *"|$proto|"*) selected_proto=$proto ;;
             *) echo "Unknown protocol: $proto" >&2; return 1 ;;
         esac
@@ -291,6 +308,9 @@ remove_protocol() {
         fi
         if [ -f "$BASE_DIR/$username/${username}_vless.uri" ]; then
             protocols+=("vless"); protocol_names+=("VLESS+XHTTP+REALITY")
+        fi
+        if [ -f "$BASE_DIR/$username/${username}_troyan.json" ]; then
+            protocols+=("troy"); protocol_names+=("Trojan")
         fi
 
         for i in "${!protocols[@]}"; do
@@ -326,6 +346,7 @@ remove_protocol() {
         mieru) selected_name="Mieru" ;;
         olcrtc) selected_name="olcRTC" ;;
         vless) selected_name="VLESS+XHTTP+REALITY" ;;
+        troy) selected_name="Trojan" ;;
     esac
 
     echo -e "${YELLOW}Удаляем конфигурацию '$selected_name' для '$username'...${NC}"
@@ -397,7 +418,17 @@ remove_protocol() {
             rm -f "$BASE_DIR/$username/${username}_vless.uri"
             rm -f "$BASE_DIR/$username/${username}_vless.png"
             echo -e "${GREEN}Конфигурация VLESS+XHTTP+REALITY удалена.${NC}"
-            ;;    
+            ;;
+        troy)
+            if [ -f "$TROJAN_USERS_FILE" ]; then
+                jq --arg user "$username" 'del(.[$user])' \
+                  "$TROJAN_USERS_FILE" > /tmp/trojan_users.tmp && mv /tmp/trojan_users.tmp "$TROJAN_USERS_FILE"
+                update_trojango_config
+                systemctl restart "$TROJAN_SERVICE"
+            fi
+            rm -f "$BASE_DIR/$username/${username}_troyan.json" "$BASE_DIR/$username/${username}_troyan.uri" "$BASE_DIR/$username/${username}_troyan.png"
+            echo -e "${GREEN}Конфигурация Trojan удалена.${NC}"
+            ;;
     esac
 
     echo -e "${GREEN}Готово! Конфигурация '$selected_name' для пользователя '$username' удалена.${NC}"
@@ -855,6 +886,59 @@ add_vless_user() {
     echo -e "${GREEN}• ${username}_vless.png — QR-код${NC}"
 }
 
+# --- Trojan ---
+update_trojango_config() {
+    python3 -c "
+import json
+config_file = '/etc/trojan-go/config.json'
+users_file = '$TROJAN_USERS_FILE'
+
+passwords = []
+try:
+    with open(users_file) as f:
+        udict = json.load(f)
+        passwords = list(udict.values())
+except:
+    pass
+
+with open(config_file) as f:
+    cfg = json.load(f)
+
+cfg['password'] = passwords
+
+with open(config_file, 'w') as f:
+    json.dump(cfg, f, indent=2)
+" 2>/dev/null
+}
+
+add_trojan_user() {
+    local username=$1
+    if [ -z "$username" ]; then read -p "Введите имя пользователя: " username; fi
+    if ! check_user_exists "$username"; then return 1; fi
+    if [ -f "$BASE_DIR/$username/${username}_troyan.json" ]; then
+        echo -e "${YELLOW}Trojan уже добавлен для '$username'.${NC}"
+        return 1
+    fi
+
+    echo -e "${YELLOW}Генерируем настройки Trojan для '$username'...${NC}"
+
+    local password=$(openssl rand -hex 12)
+    mkdir -p "$(dirname "$TROJAN_USERS_FILE")"
+    if [ ! -f "$TROJAN_USERS_FILE" ]; then echo '{}' > "$TROJAN_USERS_FILE"; fi
+    jq --arg user "$username" --arg pass "$password" '.[$user] = $pass' "$TROJAN_USERS_FILE" > /tmp/trojan_users.tmp && mv /tmp/trojan_users.tmp "$TROJAN_USERS_FILE"
+    update_trojango_config
+    systemctl restart "$TROJAN_SERVICE"
+
+    local tag_name="nyx-trojan - $username"
+    jq -n --arg tag "$tag_name" --arg srv "$SERVER_DOMAIN" --argjson port "$TROJAN_PORT" --arg pass "$password" \
+      '{"outbounds": [{"type": "trojan", "tag": $tag, "server": $srv, "server_port": $port, "password": $pass, "tls": {"enabled": true, "server_name": $srv}}]}' \
+      > "$BASE_DIR/$username/${username}_troyan.json"
+    local link="trojan://${password}@${SERVER_DOMAIN}:${TROJAN_PORT}?security=tls&sni=${SERVER_DOMAIN}&type=tcp&headerType=none#${username}"
+    echo "$link" > "$BASE_DIR/$username/${username}_troyan.uri"
+    generate_qr "$link" "$BASE_DIR/$username/${username}_troyan.png"
+    echo -e "${GREEN}Готово! Trojan добавлен. Конфиг и QR сохранены.${NC}"
+}
+
 # --- ГЛАВНОЕ МЕНЮ ---
 show_menu() {
     clear
@@ -872,6 +956,7 @@ show_menu() {
     echo -e "${GREEN}8. Добавить Mieru пользователю${NC}"
     echo -e "${GREEN}9. Добавить olcRTC пользователю${NC}"
     echo -e "${GREEN}10. Добавить VLESS+XHTTP+REALITY пользователю${NC}"
+    echo -e "${GREEN}11. Добавить Trojan пользователю${NC}"
     echo -e "${CYAN}-----------------------------------------${NC}"
     echo -e "${RED}0. Выход${NC}"
     echo -e "${YELLOW}=========================================${NC}"
@@ -894,6 +979,7 @@ main_loop() {
             8) add_mieru_user ;;
             9) add_olcrtc_user ;;
             10) add_vless_user ;;
+            11) add_trojan_user ;;
             0) exit 0 ;;
             *) echo -e "${RED}Неверный выбор.${NC}" ;;
         esac
@@ -906,7 +992,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     init
     if [ $# -gt 0 ]; then
         case "$1" in
-            add_user|del_user|add_hy2_user|add_awg_user|add_naive_user|add_mieru_user|add_olcrtc_user|add_vless_user)
+            add_user|del_user|add_hy2_user|add_awg_user|add_naive_user|add_mieru_user|add_olcrtc_user|add_vless_user|add_trojan_user)
                 "$1" "$2" ;;
             sync_naive_users|sync_naive)
                 sync_naive_users ;;
@@ -915,7 +1001,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
             remove_protocol)
                 remove_protocol "$3" "$2" ;;
             *)
-                echo "Usage: $0 {add_user|del_user|list_users|remove_protocol|sync_naive_users|add_hy2_user|add_awg_user|add_naive_user|add_mieru_user|add_olcrtc_user|add_vless_user} [username] [protocol]"
+                echo "Usage: $0 {add_user|del_user|list_users|remove_protocol|sync_naive_users|add_hy2_user|add_awg_user|add_naive_user|add_mieru_user|add_olcrtc_user|add_vless_user|add_trojan_user} [username] [protocol]"
                 exit 1 ;;
         esac
         exit $?

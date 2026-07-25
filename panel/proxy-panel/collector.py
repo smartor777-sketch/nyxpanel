@@ -78,8 +78,56 @@ def collect_all():
     except Exception as e:
         print(f"awg err: {e}")
 
+    # ── Troy (API returns cumulative totals → compute delta) ──
+    troy_data = {}
+    troy_last_path = "/opt/proxy-panel/troy_last.json"
+    troy_last = {}
+    if os.path.exists(troy_last_path):
+        try:
+            with open(troy_last_path) as f:
+                troy_last = json.load(f)
+        except Exception:
+            troy_last = {}
+    try:
+        r = subprocess.run(
+            ["trojan-go", "-api", "list", "-api-addr", "127.0.0.1:10000"],
+            capture_output=True, text=True, timeout=10
+        )
+        if r.returncode == 0:
+            import hashlib
+            troy_users_file = "/etc/sing-box/trojan_users.json"
+            if os.path.exists(troy_users_file):
+                with open(troy_users_file) as f:
+                    users_map = json.load(f)  # {username: password}
+                hash_to_user = {}
+                for uname, pwd in users_map.items():
+                    h = hashlib.sha224(pwd.encode()).hexdigest()
+                    hash_to_user[h] = uname
+                current_totals = {}
+                for entry in json.loads(r.stdout):
+                    h = entry.get("status", {}).get("user", {}).get("hash", "")
+                    if h and h in hash_to_user:
+                        uname = hash_to_user[h]
+                        tt = entry.get("status", {}).get("traffic_total", {})
+                        cu = int(tt.get("upload_traffic", 0))
+                        cd = int(tt.get("download_traffic", 0))
+                        current_totals[uname] = {"up": cu, "down": cd}
+                        prev = troy_last.get(uname, {"up": 0, "down": 0})
+                        du = max(0, cu - prev.get("up", 0))
+                        dd = max(0, cd - prev.get("down", 0))
+                        if du > 0 or dd > 0:
+                            troy_data[uname] = {"up": du, "down": dd}
+                # persist current totals for next run
+                try:
+                    with open(troy_last_path, "w") as f:
+                        json.dump(current_totals, f)
+                except Exception as e:
+                    print(f"troy persist err: {e}")
+    except Exception as e:
+        print(f"troy err: {e}")
+
     # ── Merge and store ──
-    sources = [("vless", xray_data), ("hy2", hy2_data), ("awg", awg_data)]
+    sources = [("vless", xray_data), ("hy2", hy2_data), ("awg", awg_data), ("troy", troy_data)]
 
     for proto, src_data in sources:
         for username, vals in src_data.items():
