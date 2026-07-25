@@ -585,6 +585,48 @@ add_naive_user() {
     echo -e "${GREEN}Конфиг (${username}_naive.json) и QR-код сохранены в папке $BASE_DIR/$username${NC}"
 }
 
+# Синхронизация всех naive-юзеров из proxy_users/*/*_naive.json → sing-box config.json
+# Используется при миграции или если юзеры добавлялись через пanel напрямую
+sync_naive_users() {
+    echo -e "${YELLOW}Синхронизация naive-юзеров в sing-box...${NC}"
+
+    if [ ! -d "$BASE_DIR" ]; then
+        echo -e "${RED}Директория $BASE_DIR не найдена${NC}"
+        return 1
+    fi
+
+    # Собираем всех юзеров из *_naive.json файлов
+    local users_json="[]"
+    for f in "$BASE_DIR"/*/*_naive.json; do
+        [ -f "$f" ] || continue
+        local user_pass
+        user_pass=$(jq -r '.outbounds[] | select(.type == "naive") | "\(.username) \(.password)"' "$f" 2>/dev/null)
+        if [ -n "$user_pass" ]; then
+            local user=$(echo "$user_pass" | awk '{print $1}')
+            local pass=$(echo "$user_pass" | awk '{print $2}')
+            if [ -n "$user" ] && [ -n "$pass" ]; then
+                users_json=$(echo "$users_json" | jq --arg u "$user" --arg p "$pass" '. + [{"username": $u, "password": $p}]')
+                echo -e "  ${GREEN}+ $user${NC}"
+            fi
+        fi
+    done
+
+    local count=$(echo "$users_json" | jq 'length')
+    if [ "$count" -eq 0 ]; then
+        echo -e "${YELLOW}Не найдено ни одного naive-юзера${NC}"
+        return 1
+    fi
+
+    echo -e "${GREEN}Найдено $count юзеров. Записываем в $NAIVE_CONFIG...${NC}"
+
+    # Обновляем sing-box config — заменяем весь массив users
+    jq --argjson users "$users_json" '.inbounds[0].users = $users' "$NAIVE_CONFIG" > /tmp/naive_config.tmp \
+        && mv /tmp/naive_config.tmp "$NAIVE_CONFIG"
+
+    systemctl restart sing-box-naive
+    echo -e "${GREEN}sing-box перезапущен. Синхронизировано $count юзеров.${NC}"
+}
+
 add_mieru_user() {
     local username=$1
     if [ -z "$username" ]; then read -p "Введите имя пользователя: " username; fi
@@ -866,12 +908,14 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         case "$1" in
             add_user|del_user|add_hy2_user|add_awg_user|add_naive_user|add_mieru_user|add_olcrtc_user|add_vless_user)
                 "$1" "$2" ;;
+            sync_naive_users|sync_naive)
+                sync_naive_users ;;
             list_users|list)
                 list_users ;;
             remove_protocol)
                 remove_protocol "$3" "$2" ;;
             *)
-                echo "Usage: $0 {add_user|del_user|list_users|remove_protocol|add_hy2_user|add_awg_user|add_naive_user|add_mieru_user|add_olcrtc_user|add_vless_user} [username] [protocol]"
+                echo "Usage: $0 {add_user|del_user|list_users|remove_protocol|sync_naive_users|add_hy2_user|add_awg_user|add_naive_user|add_mieru_user|add_olcrtc_user|add_vless_user} [username] [protocol]"
                 exit 1 ;;
         esac
         exit $?
