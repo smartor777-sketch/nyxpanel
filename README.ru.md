@@ -26,7 +26,7 @@
 | AmneziaWG | VPN | AmneziaWG клиент, NekoBox |
 | Mieru | Прокси | NekoBox |
 | NaiveProxy | Прокси | Happ, Hiddify, v2RayTun, Exclave |
-| olcRTC | Прокси | OlcboxME (только мобильные) |
+| olcRTC | Прокси | OlcboxME (только мобильные), используется форк [olcrtc-users](https://github.com/smartor777-sketch/olcrtc-users) |
 
 ## Управление паролями
 
