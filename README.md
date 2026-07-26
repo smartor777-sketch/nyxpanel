@@ -26,7 +26,7 @@ Multi-protocol proxy management panel with web interface.
 | AmneziaWG | VPN | AmneziaWG client, NekoBox |
 | Mieru | Proxy | NekoBox |
 | NaiveProxy | Proxy | Happ, Hiddify, v2RayTun, Exclave |
-| olcRTC | Proxy | OlcboxME (mobile only) |
+| olcRTC | Proxy | OlcboxME (mobile only), uses [olcrtc-users](https://github.com/smartor777-sketch/olcrtc-users) fork |
 
 ## Password Management
 
