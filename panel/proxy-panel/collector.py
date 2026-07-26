@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Traffic collector — pulls per-user metrics from protocol APIs"""
-import json, sqlite3, subprocess, datetime, os
+import json, sqlite3, subprocess, datetime, os, shutil
 from pathlib import Path
 
 DB_PATH = "/opt/proxy-panel/panel.db"
@@ -10,6 +10,17 @@ def get_db():
     db = sqlite3.connect(DB_PATH)
     db.execute("PRAGMA journal_mode=WAL")
     return db
+
+EXTRA_PATHS = ["/usr/local/bin", "/usr/bin", "/bin"]
+def which(cmd):
+    p = shutil.which(cmd)
+    if p:
+        return p
+    for d in EXTRA_PATHS:
+        fp = os.path.join(d, cmd)
+        if os.path.isfile(fp) and os.access(fp, os.X_OK):
+            return fp
+    return cmd
 
 def get_awg_pubkey_map():
     pk_map = {}
@@ -28,7 +39,7 @@ def collect_all():
     xray_data = {}
     try:
         r = subprocess.run(
-            ["xray", "api", "statsquery", "--server=127.0.0.1:10085",
+            [which("xray"), "api", "statsquery", "--server=127.0.0.1:10085",
              "-pattern", "user>>>", "-reset"],
             capture_output=True, text=True, timeout=10
         )
@@ -44,19 +55,37 @@ def collect_all():
     except Exception as e:
         print(f"xray err: {e}")
 
-    # ── Hy2 ──
+    # ── Hy2 (API returns cumulative totals → compute delta) ──
     hy2_data = {}
+    hy2_last_path = "/opt/proxy-panel/hy2_last.json"
+    hy2_last = {}
+    if os.path.exists(hy2_last_path):
+        try:
+            with open(hy2_last_path) as f:
+                hy2_last = json.load(f)
+        except Exception:
+            hy2_last = {}
     try:
         r = subprocess.run(
-            ["curl", "-s", "http://127.0.0.1:30100/traffic"],
+            [which("curl"), "-s", "http://127.0.0.1:30100/traffic"],
             capture_output=True, text=True, timeout=10
         )
         if r.returncode == 0:
+            current_totals = {}
             for username, vals in json.loads(r.stdout).items():
-                hy2_data[username] = {
-                    "up": vals.get("tx", vals.get("upload", 0)),
-                    "down": vals.get("rx", vals.get("download", 0)),
-                }
+                cu = int(vals.get("tx", vals.get("upload", 0)))
+                cd = int(vals.get("rx", vals.get("download", 0)))
+                current_totals[username] = {"up": cu, "down": cd}
+                prev = hy2_last.get(username, {"up": 0, "down": 0})
+                du = max(0, cu - prev.get("up", 0))
+                dd = max(0, cd - prev.get("down", 0))
+                if du > 0 or dd > 0:
+                    hy2_data[username] = {"up": du, "down": dd}
+            try:
+                with open(hy2_last_path, "w") as f:
+                    json.dump(current_totals, f)
+            except Exception as e:
+                print(f"hy2 persist err: {e}")
     except Exception as e:
         print(f"hy2 err: {e}")
 
@@ -66,7 +95,7 @@ def collect_all():
         pk_map = get_awg_pubkey_map()
         if pk_map:
             r = subprocess.run(
-                ["awg", "show", "awg0"],
+                [which("awg"), "show", "awg0"],
                 capture_output=True, text=True, timeout=10
             )
             if r.returncode == 0:
@@ -90,7 +119,7 @@ def collect_all():
             troy_last = {}
     try:
         r = subprocess.run(
-            ["trojan-go", "-api", "list", "-api-addr", "127.0.0.1:10000"],
+            [which("trojan-go"), "-api", "list", "-api-addr", "127.0.0.1:10000"],
             capture_output=True, text=True, timeout=10
         )
         if r.returncode == 0:
