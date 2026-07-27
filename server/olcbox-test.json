@@ -1,0 +1,14 @@
+{
+  "storage_id": "olcboxme-dev",
+  "name": "NYX Dev Jitsi",
+  "endpoint": {
+    "room_id": "https://nyx.kuban-forum.ru/test-room",
+    "key": "<olrtc_crypto_key>"
+  },
+  "auth_provider": "jitsi",
+  "transport": {
+    "type": "datachannel"
+  },
+  "claims_user": "test",
+  "claims_pass": "<claims_pass>"
+}
