@@ -232,19 +232,17 @@ info "sing-box NaiveProxy установлен на порту 8443"
 # --- 3b. Caddy (forward_proxy + панель + fallback) ---
 info "=== Шаг 3b: Caddy сборка с forwardproxy ==="
 
-GO_VERSION="${GO_VERSION:-1.22.5}"
+GO_VERSION="${GO_VERSION:-1.25.12}"
 CADDY_FORWARD_VERSION="${CADDY_FORWARD_VERSION:-latest}"
 
-# Go (если нет)
-if ! command -v go &>/dev/null; then
-    curl -sL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -o /tmp/go.tar.gz
-    rm -rf /usr/local/go
-    tar -C /usr/local -xzf /tmp/go.tar.gz
-    export PATH=$PATH:/usr/local/go/bin
-    echo 'export PATH=$PATH:/usr/local/go/bin' > /etc/profile.d/go.sh
-    rm -f /tmp/go.tar.gz
-    info "Go ${GO_VERSION} установлен"
-fi
+# Go (устанавливаем/обновляем до нужной версии)
+rm -rf /usr/local/go
+curl -sL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -o /tmp/go.tar.gz
+tar -C /usr/local -xzf /tmp/go.tar.gz
+export PATH=$PATH:/usr/local/go/bin
+echo 'export PATH=$PATH:/usr/local/go/bin' > /etc/profile.d/go.sh
+rm -f /tmp/go.tar.gz
+info "Go ${GO_VERSION} установлен"
 
 export PATH=$PATH:/root/go/bin:/usr/local/go/bin
 
@@ -254,7 +252,7 @@ if ! command -v xcaddy &>/dev/null; then
 fi
 
 # Сборка Caddy с forwardproxy
-xcaddy build --with github.com/caddyserver/forwardproxy@${CADDY_FORWARD_VERSION} -o /usr/local/bin/caddy
+xcaddy build --with github.com/caddyserver/forwardproxy@${CADDY_FORWARD_VERSION} --output /usr/local/bin/caddy
 info "Caddy собран с forwardproxy $(caddy version 2>/dev/null || true)"
 
 cat > /etc/systemd/system/caddy.service << 'SVCEOF'
