@@ -105,6 +105,10 @@ def init_db():
         db.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'")
     except sqlite3.OperationalError:
         pass
+    try:
+        db.execute("ALTER TABLE users ADD COLUMN can_reset_traffic INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
     db.commit()
     migrate_from_registry(db)
     db.close()
@@ -138,7 +142,7 @@ def get_file_users():
 
 def get_db_users():
     db = get_db()
-    rows = db.execute("SELECT username, expires_at, active FROM users WHERE username != 'admin' ORDER BY username").fetchall()
+    rows = db.execute("SELECT username, expires_at, active, can_reset_traffic FROM users WHERE username != 'admin' ORDER BY username").fetchall()
     db.close()
     users = []
     for row in rows:
@@ -151,6 +155,7 @@ def get_db_users():
             "protocols": protos,
             "active": bool(row["active"]),
             "expires_at": row["expires_at"],
+            "can_reset_traffic": bool(row["can_reset_traffic"]),
         })
     return users
 
@@ -294,6 +299,52 @@ def toggle_user(name):
     db.close()
     return redirect(request.referrer or url_for("index"))
 
+@app.route("/user/<name>/reset-traffic", methods=["POST"])
+def reset_traffic(name):
+    self_user = session.get("self_user")
+    role = session.get("self_role", "user")
+    if not self_user:
+        return redirect("/self/login")
+    if role != "admin":
+        db = get_db()
+        row = db.execute("SELECT can_reset_traffic FROM users WHERE username = ?", (self_user,)).fetchone()
+        can_reset = bool(row and row["can_reset_traffic"])
+        db.close()
+        if not can_reset or self_user != name:
+            return redirect(url_for("self_dashboard"))
+    db = get_db()
+    db.execute("DELETE FROM daily_traffic WHERE username = ?", (name,))
+    db.execute("DELETE FROM traffic_log WHERE username = ?", (name,))
+    db.commit()
+    db.close()
+    for f in ["awg_last.json", "hy2_last.json", "troy_last.json"]:
+        path = f"/opt/proxy-panel/{f}"
+        if os.path.exists(path):
+            try:
+                with open(path) as fh:
+                    data = json.load(fh)
+                if name in data or name.lower() in data:
+                    key = name if name in data else name.lower()
+                    del data[key]
+                    with open(path, "w") as fh:
+                        json.dump(data, fh)
+            except Exception:
+                pass
+    flash(f"Traffic reset for {name}", "ok")
+    return redirect(request.referrer or url_for("index"))
+
+@app.route("/user/<name>/set-reset-traffic", methods=["POST"])
+def set_reset_traffic(name):
+    if not is_admin():
+        return redirect("/self/login")
+    enabled = request.form.get("enabled") == "1"
+    db = get_db()
+    db.execute("UPDATE users SET can_reset_traffic = ? WHERE username = ?", (1 if enabled else 0, name))
+    db.commit()
+    db.close()
+    flash(f"Reset traffic {'enabled' if enabled else 'disabled'} for {name}", "ok")
+    return redirect(request.referrer or url_for("index"))
+
 @app.route("/user/<name>/password", methods=["POST"])
 def set_password(name):
     if not is_admin():
@@ -365,7 +416,7 @@ def self_dashboard():
         db_users = get_db_users()
         db.close()
         return render_template("self_admin.html", users=db_users, protocols=PROTOCOLS, admin_name=name, version=PANEL_VERSION)
-    row = db.execute("SELECT username, expires_at, active, created_at, traffic_limit_bytes FROM users WHERE username = ?", (name,)).fetchone()
+    row = db.execute("SELECT username, expires_at, active, created_at, traffic_limit_bytes, can_reset_traffic FROM users WHERE username = ?", (name,)).fetchone()
     if not row or not row["active"]:
         session.pop("self_user", None)
         return redirect(url_for("self_login"))
@@ -381,7 +432,7 @@ def self_dashboard():
     total = (traffic["up"] or 0) + (traffic["down"] or 0)
     limit = row["traffic_limit_bytes"] or 0
     percent = round(total / limit * 100, 1) if limit > 0 else None
-    return render_template("self.html", user=row, protocols=protos, traffic=total, percent=percent, version=PANEL_VERSION)
+    return render_template("self.html", user=row, protocols=protos, traffic=total, percent=percent, version=PANEL_VERSION, can_reset_traffic=bool(row["can_reset_traffic"]))
 
 @app.route("/self/config/<proto>")
 @app.route("/self/config/<name>/<proto>")

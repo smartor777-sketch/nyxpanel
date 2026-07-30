@@ -118,6 +118,7 @@
           <th data-i18n="expiryCol">Expiry</th>
           <th data-i18n="passCol">Pass</th>
           <th data-i18n="actCol">Act.</th>
+          <th data-i18n="resetCol">Reset</th>
           <th data-i18n="exportCol">Export</th>
         </tr>
       </thead>
@@ -258,8 +259,10 @@ const _t = {
     copySubUrl: 'Скопировать URL подписки', copied: '\u2705 Скопировано!',
     confirmRemove: 'Удалить', confirmFrom: 'у', confirmSetPwd: 'Установить пароль для входа для',
     confirmDelUser: 'Удалить пользователя', perPage: 'на стр.',
+    confirmReset: 'Сбросить статистику трафика для',
     totalEnd: 'всего', setPwd: 'Уст.', changePwd: 'Изм.',
     pwdSet: 'Пароль установлен', pwdNotSet: 'Без пароля',
+    resetCol: 'Сброс', resetTraffic: 'Сбросить трафик', userResetToggle: 'Разрешить сброс трафика юзеру',
     config: 'Config', configs: 'Конфигурации', subscription: 'Подписка',
     noConfigs: 'Нет доступных конфигураций', copyUrl: '\u{1F517} Скопировать URL',
     expires: 'Истекает', noExpiry: 'Без срока', limit: 'Лимит',
@@ -281,8 +284,10 @@ const _t = {
     copySubUrl: 'Copy Subscription URL', copied: '\u2705 Copied!',
     confirmRemove: 'Remove', confirmFrom: 'from', confirmSetPwd: 'Set dashboard password for',
     confirmDelUser: 'Delete user', perPage: 'per page',
+    confirmReset: 'Reset traffic stats for',
     totalEnd: 'total', setPwd: 'Set', changePwd: 'Edit',
     pwdSet: 'Password set', pwdNotSet: 'No password',
+    resetCol: 'Reset', resetTraffic: 'Reset traffic', userResetToggle: 'Allow user to reset traffic',
     currentPeriod: 'Current', prevPeriod: 'Previous', noTraffic: 'No traffic data'
   }
 };
@@ -361,6 +366,13 @@ function renderUsers() {
         '<form method="POST" action="/self/user/' + u.name + '/delete" onsubmit="return confirm(\'' + _('confirmDelUser') + ' ' + u.name + '?\')" style="display:inline">' +
           '<button class="small danger">' + _('del') + '</button></form>' +
       '</td>' +
+      '<td style="white-space:nowrap">' +
+        '<form method="POST" action="/self/user/' + u.name + '/reset-traffic" style="display:inline" onsubmit="return confirm(\'' + _('confirmReset') + ' ' + u.name + '?\')">' +
+          '<button class="small off-btn" title="' + _('resetTraffic') + '">\u{1F504}</button></form>' +
+        '<form method="POST" action="/self/user/' + u.name + '/set-reset-traffic" style="display:inline">' +
+          '<input type="hidden" name="enabled" value="' + (u.can_reset_traffic ? '0' : '1') + '">' +
+          '<button class="small ' + (u.can_reset_traffic ? 'toggle-on' : 'off-btn') + '" title="' + _('userResetToggle') + '">' + (u.can_reset_traffic ? 'R' : 'r') + '</button></form>' +
+      '</td>' +
       '<td>' + (hasExport ? '<div class="dropdown"><button class="small export-btn" onclick="toggleDropdown(event, \'dd-' + u.name + '\')">\u{25BE} ' + _('export_') + '</button><div id="dd-' + u.name + '" class="dropdown-menu" style="display:none">' +
         '<a href="#" onclick="copySub(\'' + u.name + '\');return false" class="dropdown-item">\u{1F517} ' + _('copySubUrl') + '</a>' +
         '<div class="dropdown-divider"></div>' + exportItems + '</div></div>' : '') +
@@ -413,6 +425,10 @@ function renderUsers() {
         ).join('') +
         '<hr class="uc-divider">' +
         '<form method="POST" action="/self/user/' + u.name + '/toggle" style="display:inline"><button class="small off-btn">' + (u.active ? _('off') : _('on')) + '</button></form>' +
+        '<form method="POST" action="/self/user/' + u.name + '/reset-traffic" style="display:inline" onsubmit="return confirm(\'' + _('confirmReset') + ' ' + u.name + '?\')"><button class="small off-btn">\u{1F504}</button></form>' +
+        '<form method="POST" action="/self/user/' + u.name + '/set-reset-traffic" style="display:inline">' +
+          '<input type="hidden" name="enabled" value="' + (u.can_reset_traffic ? '0' : '1') + '">' +
+          '<button class="small ' + (u.can_reset_traffic ? 'toggle-on' : 'off-btn') + '">' + (u.can_reset_traffic ? 'R' : 'r') + '</button></form>' +
         '<form method="POST" action="/self/user/' + u.name + '/delete" onsubmit="return confirm(\'' + _('confirmDelUser') + ' ' + u.name + '?\')" style="display:inline"><button class="small danger">' + _('del') + '</button></form>' +
       '</div>' +
       (hasExport ? '<div class="uc-export"><div class="dropdown"><button class="small export-btn" onclick="toggleDropdown(event, \'ddm-' + u.name + '\')" style="width:100%">\u{25BE} ' + _('export_') + '</button><div id="ddm-' + u.name + '" class="dropdown-menu" style="display:none">' +
