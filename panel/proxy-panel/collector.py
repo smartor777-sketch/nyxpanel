@@ -66,21 +66,25 @@ def collect_all():
         except Exception:
             hy2_last = {}
     try:
+        username_map = {}
+        for row in db.execute("SELECT username FROM users").fetchall():
+            username_map[row[0].lower()] = row[0]
         r = subprocess.run(
             [which("curl"), "-s", "http://127.0.0.1:30100/traffic"],
             capture_output=True, text=True, timeout=10
         )
         if r.returncode == 0:
             current_totals = {}
-            for username, vals in json.loads(r.stdout).items():
-                cu = int(vals.get("tx", vals.get("upload", 0)))
-                cd = int(vals.get("rx", vals.get("download", 0)))
-                current_totals[username] = {"up": cu, "down": cd}
-                prev = hy2_last.get(username, {"up": 0, "down": 0})
+            for raw_username, vals in json.loads(r.stdout).items():
+                uname = username_map.get(raw_username.lower(), raw_username)
+                cu = int(vals.get("rx", vals.get("upload", 0)))
+                cd = int(vals.get("tx", vals.get("download", 0)))
+                current_totals[uname] = {"up": cu, "down": cd}
+                prev = hy2_last.get(uname, {"up": 0, "down": 0})
                 du = max(0, cu - prev.get("up", 0))
                 dd = max(0, cd - prev.get("down", 0))
                 if du > 0 or dd > 0:
-                    hy2_data[username] = {"up": du, "down": dd}
+                    hy2_data[uname] = {"up": du, "down": dd}
             try:
                 with open(hy2_last_path, "w") as f:
                     json.dump(current_totals, f)
@@ -89,21 +93,46 @@ def collect_all():
     except Exception as e:
         print(f"hy2 err: {e}")
 
-    # ── AWG ──
+    # ── AWG (dump format: cumulative totals → compute delta) ──
     awg_data = {}
+    awg_last_path = "/opt/proxy-panel/awg_last.json"
+    awg_last = {}
+    if os.path.exists(awg_last_path):
+        try:
+            with open(awg_last_path) as f:
+                awg_last = json.load(f)
+        except Exception:
+            awg_last = {}
     try:
         pk_map = get_awg_pubkey_map()
         if pk_map:
             r = subprocess.run(
-                [which("awg"), "show", "awg0"],
+                [which("awg"), "show", "awg0", "dump"],
                 capture_output=True, text=True, timeout=10
             )
             if r.returncode == 0:
+                current_totals = {}
                 for line in r.stdout.strip().splitlines():
                     parts = line.strip().split()
-                    if len(parts) >= 3 and parts[0] in pk_map:
-                        uname = pk_map[parts[0]]
-                        awg_data[uname] = {"up": int(parts[2]), "down": int(parts[1])}
+                    if len(parts) < 8:
+                        continue
+                    pubkey = parts[0]
+                    if pubkey not in pk_map:
+                        continue
+                    uname = pk_map[pubkey]
+                    cu = int(parts[5])
+                    cd = int(parts[6])
+                    current_totals[uname] = {"up": cu, "down": cd}
+                    prev = awg_last.get(uname, {"up": 0, "down": 0})
+                    du = max(0, cu - prev.get("up", 0))
+                    dd = max(0, cd - prev.get("down", 0))
+                    if du > 0 or dd > 0:
+                        awg_data[uname] = {"up": du, "down": dd}
+                try:
+                    with open(awg_last_path, "w") as f:
+                        json.dump(current_totals, f)
+                except Exception as e:
+                    print(f"awg persist err: {e}")
     except Exception as e:
         print(f"awg err: {e}")
 
