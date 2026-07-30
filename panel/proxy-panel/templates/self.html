@@ -142,6 +142,11 @@
       </div>
       {% endif %}
     </div>
+    {% if can_reset_traffic %}
+    <form method="POST" action="/self/user/{{ user.username }}/reset-traffic" onsubmit="return confirm('Reset all traffic data for {{ user.username }}?')" style="margin-top:1rem">
+      <button type="submit" class="btn-logout" style="width:100%;text-align:center" data-i18n="resetTraffic">Reset Traffic</button>
+    </form>
+    {% endif %}
   </div>
 
   <div class="card">
@@ -229,7 +234,8 @@ const _t = {
     copyUrl: '\u{1F517} Скопировать URL', noConfigs: 'Нет доступных конфигураций',
     traffic: 'Трафик', trafficNote: 'Считается трафик: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG, Trojan.', today: 'Сегодня', week: 'Неделя', month: 'Месяц', all: 'Всё',
     upload: 'Загрузка', download: 'Скачивание', copied: '\u2705 Скопировано!',
-    currentPeriod: 'Текущий', prevPeriod: 'Прошлый', noTraffic: 'Нет данных о трафике'
+    currentPeriod: 'Текущий', prevPeriod: 'Прошлый', noTraffic: 'Нет данных о трафике',
+    resetTraffic: 'Сбросить статистику трафика'
   },en: {
     active: 'Active', disabled: 'Disabled', expires: 'Expires', noExpiry: 'No expiry',
     guide: 'Guide', support: 'Support',
@@ -242,7 +248,8 @@ const _t = {
     copyUrl: '\u{1F517} Copy URL', noConfigs: 'No configurations available',
     traffic: 'Traffic', trafficNote: 'Traffic is tracked for: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG, Trojan.', today: 'Today', week: 'Week', month: 'Month', all: 'All',
     upload: 'Upload', download: 'Download', copied: '\u2705 Copied!',
-    currentPeriod: 'Current', prevPeriod: 'Previous', noTraffic: 'No traffic data'
+    currentPeriod: 'Current', prevPeriod: 'Previous', noTraffic: 'No traffic data',
+    resetTraffic: 'Reset Traffic Stats'
   }
 };
 function getLang() { return localStorage.getItem(langKey) || 'ru'; }
