@@ -63,6 +63,10 @@
 .pwd-save-btn:hover { filter: brightness(0.95); }
 .pwd-cancel-btn { background: var(--btn-logout-bg); color: var(--btn-logout-fg); border: 1px solid var(--btn-logout-border); padding: 0.35rem 0.7rem; border-radius: 5px; font-size: 0.82rem; cursor: pointer; }
 .pwd-cancel-btn:hover { filter: brightness(0.95); }
+.toast { position:fixed; top:1rem; left:50%; transform:translateX(-50%); z-index:9999; padding:0.75rem 1.5rem; border-radius:8px; font-size:0.9rem; font-weight:600; border:1px solid; box-shadow:0 4px 16px rgba(0,0,0,0.3); animation:slideIn 0.3s ease; }
+.toast.ok { background:var(--flash-ok-bg); border-color:var(--flash-ok-border); color:var(--flash-ok-fg); }
+.toast.error { background:var(--flash-err-bg); border-color:var(--flash-err-border); color:var(--flash-err-fg); }
+@keyframes slideIn { from { opacity:0; transform:translateX(-50%) translateY(-20px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
 @media (max-width: 640px) {
   body { padding: 1rem; }
   .header-bar { flex-direction: column; align-items: flex-start; }
@@ -143,7 +147,7 @@
       {% endif %}
     </div>
     {% if can_reset_traffic %}
-    <form method="POST" action="/self/user/{{ user.username }}/reset-traffic" onsubmit="return confirm('Reset all traffic data for {{ user.username }}?')" style="margin-top:1rem">
+    <form id="resetForm" method="POST" action="/self/user/{{ user.username }}/reset-traffic" style="margin-top:1rem">
       <button type="submit" class="btn-logout" style="width:100%;text-align:center" data-i18n="resetTraffic">Reset Traffic</button>
     </form>
     {% endif %}
@@ -235,7 +239,7 @@ const _t = {
     traffic: 'Трафик', trafficNote: 'Считается трафик: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG, Trojan.', today: 'Сегодня', week: 'Неделя', month: 'Месяц', all: 'Всё',
     upload: 'Загрузка', download: 'Скачивание', copied: '\u2705 Скопировано!',
     currentPeriod: 'Текущий', prevPeriod: 'Прошлый', noTraffic: 'Нет данных о трафике',
-    resetTraffic: 'Сбросить статистику трафика'
+    resetTraffic: 'Сбросить трафик', confirmReset: 'Сбросить всю статистику трафика для', resetDoneMsg: 'Статистика трафика сброшена'
   },en: {
     active: 'Active', disabled: 'Disabled', expires: 'Expires', noExpiry: 'No expiry',
     guide: 'Guide', support: 'Support',
@@ -249,7 +253,7 @@ const _t = {
     traffic: 'Traffic', trafficNote: 'Traffic is tracked for: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG, Trojan.', today: 'Today', week: 'Week', month: 'Month', all: 'All',
     upload: 'Upload', download: 'Download', copied: '\u2705 Copied!',
     currentPeriod: 'Current', prevPeriod: 'Previous', noTraffic: 'No traffic data',
-    resetTraffic: 'Reset Traffic Stats'
+    resetTraffic: 'Reset Traffic', confirmReset: 'Reset all traffic stats for', resetDoneMsg: 'Traffic statistics reset'
   }
 };
 function getLang() { return localStorage.getItem(langKey) || 'ru'; }
@@ -420,8 +424,26 @@ async function changePwd() {
     }
   } catch(e) { msg.style.color = 'var(--status-expired-fg)'; msg.textContent = _('pwdErr'); }
 }
+function showToast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast ' + (type || 'ok');
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3000);
+}
+document.getElementById('resetForm')?.addEventListener('submit', async function(e) {
+  e.preventDefault();
+  if (!confirm(_('confirmReset') + ' ' + currentUser + '?')) return;
+  try {
+    const res = await fetch(this.action, { method: 'POST' });
+    if (res.ok || res.status === 302) {
+      showToast(_('resetDoneMsg'), 'ok');
+    }
+  } catch(e) { showToast(_('pwdErr'), 'error'); }
+});
 if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/static/service-worker.js'); }
 </script>
+<div id="toast" class="toast"></div>
 <div class="footer">
   &copy; 2026 Merlin.<br>
   <em>Crafting Dreams &amp; Magic</em>

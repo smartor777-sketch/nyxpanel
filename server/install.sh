@@ -528,18 +528,42 @@ systemctl enable --now olcrtc 2>/dev/null || true
 # --- 7. AmneziaWG ---
 info "=== Шаг 7: Установка AmneziaWG ==="
 
-# AmneziaWG есть в репозиториях Debian 13 (trixie) — PPA не нужен
-apt-get install -y -qq amneziawg amneziawg-tools 2>/dev/null || {
-    warn "amneziawg не установлен через apt"
-}
+AWG_INSTALLED=false
 
-# Если DKMS не собрался — пересобрать
-if ! lsmod | grep -q amneziawg; then
-    dkms autoinstall 2>/dev/null || true
-    modprobe awg 2>/dev/null || true
+# Пытаемся установить через apt (Debian 12, Ubuntu etc.)
+if apt-get install -y -qq amneziawg amneziawg-tools 2>/dev/null; then
+    AWG_INSTALLED=true
+else
+    warn "amneziawg не найден в apt, установка из GitHub..."
+
+    # Устанавливаем зависимости сборки
+    apt-get install -y -qq linux-headers-amd64 build-essential dkms curl unzip 2>/dev/null || true
+
+    # Скачиваем awg/awg-quick бинарники
+    AWG_TOOLS_URL=$(curl -sL "https://api.github.com/repos/amnezia-vpn/amneziawg-tools/releases/latest" | python3 -c "import sys,json; print([a['browser_download_url'] for a in json.load(sys.stdin).get('assets',[]) if 'ubuntu-22.04' in a['name']][0])" 2>/dev/null)
+    [ -n "$AWG_TOOLS_URL" ] && curl -sL "$AWG_TOOLS_URL" -o /tmp/awg-tools.zip && \
+        unzip -oq /tmp/awg-tools.zip -d /tmp/awg-tools && \
+        install -m 755 /tmp/awg-tools/ubuntu-*04-amneziawg-tools/awg /usr/local/bin/awg && \
+        install -m 755 /tmp/awg-tools/ubuntu-*04-amneziawg-tools/awg-quick /usr/local/bin/awg-quick && \
+        rm -rf /tmp/awg-tools* && AWG_INSTALLED=true
+
+    # Собираем ядерный модуль amneziawg через DKMS
+    if [ -d /usr/src/amneziawg-1.0.0 ]; then
+        dkms build -m amneziawg -v 1.0.0 2>/dev/null && dkms install -m amneziawg -v 1.0.0 2>/dev/null || true
+    else
+        cd /tmp
+        curl -sL "https://github.com/amnezia-vpn/amneziawg-linux-kernel-module/archive/refs/heads/master.tar.gz" -o awg-kmod.tar.gz && \
+        tar xzf awg-kmod.tar.gz && \
+        cp -r amneziawg-linux-kernel-module-master/src /usr/src/amneziawg-1.0.0 && \
+        dkms add -m amneziawg -v 1.0.0 2>/dev/null && \
+        dkms build -m amneziawg -v 1.0.0 2>/dev/null && dkms install -m amneziawg -v 1.0.0 2>/dev/null || true
+        rm -rf /tmp/awg-kmod* /tmp/amneziawg-linux-kernel-module-master* 2>/dev/null || true
+    fi
+
+    modprobe amneziawg 2>/dev/null || true
 fi
 
-if command -v awg &>/dev/null; then
+if [ "$AWG_INSTALLED" = true ] && command -v awg &>/dev/null; then
     AWG_SERVER_PRIV=$(awg genkey)
     NET_IFACE=$(ip route get 1.1.1.1 | awk '{print $5; exit}')
 
