@@ -11,8 +11,8 @@
 <title>NYX Panel - Admin</title>
 <script src="/static/chart.js"></script>
 <style>
-  :root { --bg: #0c1a2d; --fg: #d4e5f7; --card: #132640; --border: #1e3a5f; --input-bg: #132640; --heading: #7dd3fc; --muted: #93c5fd; --accent: #38bdf8; --accent-hover: #0ea599; --danger: #f87171; --danger-hover: #ef4444; --proto-yes: #34d399; --proto-no: #64748b; --user-name: #7dd3fc; --user-disabled: #475569; --status-active-bg: #064e3b; --status-active-fg: #34d399; --status-expired-bg: #450a0a; --status-expired-fg: #f87171; --flash-ok-bg: #064e3b; --flash-ok-border: #059669; --flash-ok-fg: #34d399; --flash-err-bg: #450a0a; --flash-err-border: #dc2626; --flash-err-fg: #f87171; --btn-active: #0ea599; --dropdown-bg: #132640; --dropdown-hover: #1e3a5f; --chart-grid: #132640; --chart-up: #7dd3fc; --chart-down: #34d399; --btn-add-bg: #1e3a5f; --btn-add-fg: #93c5fd; --btn-add-border: #2563eb; --btn-toggle-on-bg: #0c4a6e; --btn-toggle-on-fg: #7dd3fc; --btn-toggle-on-border: #38bdf8; --btn-toggle-off-bg: #1e293b; --btn-toggle-off-fg: #93c5fd; --btn-toggle-off-border: #334155; --btn-del-bg: #450a0a; --btn-del-fg: #fca5a5; --btn-del-border: #dc2626; --btn-off-bg: #1e293b; --btn-off-fg: #94a3b8; --btn-off-border: #334155; --btn-export-bg: #1e293b; --btn-export-fg: #93c5fd; --btn-export-border: #334155; --btn-set-bg: #1e293b; --btn-set-fg: #93c5fd; --btn-set-border: #334155; --btn-secondary-bg: #1e3a5f; --btn-secondary-fg: #93c5fd; --btn-secondary-border: #2563eb; --btn-logout-bg: #1e293b; --btn-logout-fg: #94a3b8; --btn-logout-border: #334155; --btn-theme-bg: #1e293b; --btn-theme-fg: #94a3b8; --btn-theme-border: #334155; --btn-period-bg: #1e293b; --btn-period-fg: #93c5fd; --btn-period-border: #334155; --btn-period-active-bg: #6366f1; --btn-lang-bg: #1e293b; --btn-lang-fg: #94a3b8; --btn-lang-border: #334155; }
-  [data-theme="light"] { --bg: #eaf2fb; --fg: #1e3a5f; --card: #ffffff; --border: #c5ddf0; --input-bg: #dceaf7; --heading: #0358a8; --muted: #5a7fa0; --accent: #0284c7; --accent-hover: #0369a1; --danger: #dc2626; --danger-hover: #b91c1c; --proto-yes: #059669; --proto-no: #94a3b8; --user-name: #0358a8; --user-disabled: #94a3b8; --status-active-bg: #ecfdf5; --status-active-fg: #059669; --status-expired-bg: #fef2f2; --status-expired-fg: #dc2626; --flash-ok-bg: #ecfdf5; --flash-ok-border: #6ee7b7; --flash-ok-fg: #047857; --flash-err-bg: #fef2f2; --flash-err-border: #fca5a5; --flash-err-fg: #dc2626; --btn-active: #0284c7; --dropdown-bg: #ffffff; --dropdown-hover: #f0f7ff; --chart-grid: #c5ddf0; --chart-up: #0284c7; --chart-down: #059669; --btn-add-bg: #dbeafe; --btn-add-fg: #1e40af; --btn-add-border: #93c5fd; --btn-toggle-on-bg: #bae6fd; --btn-toggle-on-fg: #0369a1; --btn-toggle-on-border: #7dd3fc; --btn-toggle-off-bg: #e0e7ff; --btn-toggle-off-fg: #3730a3; --btn-toggle-off-border: #a5b4fc; --btn-del-bg: #fee2e2; --btn-del-fg: #991b1b; --btn-del-border: #fca5a5; --btn-off-bg: #f1f5f9; --btn-off-fg: #475569; --btn-off-border: #cbd5e1; --btn-export-bg: #e0e7ff; --btn-export-fg: #3730a3; --btn-export-border: #a5b4fc; --btn-set-bg: #e0e7ff; --btn-set-fg: #3730a3; --btn-set-border: #a5b4fc; --btn-secondary-bg: #e8eef6; --btn-secondary-fg: #334155; --btn-secondary-border: #b8c9dc; --btn-logout-bg: #f1f5f9; --btn-logout-fg: #475569; --btn-logout-border: #cbd5e1; --btn-theme-bg: #f1f5f9; --btn-theme-fg: #475569; --btn-theme-border: #cbd5e1; --btn-period-bg: #e0e7ff; --btn-period-fg: #3730a3; --btn-period-border: #a5b4fc; --btn-period-active-bg: #6366f1; --btn-lang-bg: #f1f5f9; --btn-lang-fg: #475569; --btn-lang-border: #cbd5e1; }
+  :root { --bg: #0c1a2d; --fg: #d4e5f7; --card: #132640; --border: #1e3a5f; --input-bg: #132640; --heading: #7dd3fc; --muted: #93c5fd; --accent: #38bdf8; --accent-hover: #0ea599; --danger: #f87171; --danger-hover: #ef4444; --proto-yes: #34d399; --proto-no: #64748b; --user-name: #7dd3fc; --user-disabled: #475569; --status-active-bg: #064e3b; --status-active-fg: #34d399; --status-expired-bg: #450a0a; --status-expired-fg: #f87171; --flash-ok-bg: #064e3b; --flash-ok-border: #059669; --flash-ok-fg: #34d399; --flash-err-bg: #450a0a; --flash-err-border: #dc2626; --flash-err-fg: #f87171; --btn-active: #0ea599; --dropdown-bg: #132640; --dropdown-hover: #1e3a5f; --chart-grid: #132640; --chart-up: #7dd3fc; --chart-down: #34d399; --btn-add-bg: #1e3a5f; --btn-add-fg: #93c5fd; --btn-add-border: #2563eb; --btn-toggle-on-bg: #0c4a6e; --btn-toggle-on-fg: #7dd3fc; --btn-toggle-on-border: #38bdf8; --btn-toggle-off-bg: #1e293b; --btn-toggle-off-fg: #93c5fd; --btn-toggle-off-border: #334155; --btn-del-bg: #450a0a; --btn-del-fg: #fca5a5; --btn-del-border: #dc2626; --btn-off-bg: #1e293b; --btn-off-fg: #94a3b8; --btn-off-border: #334155; --btn-export-bg: #1e293b; --btn-export-fg: #93c5fd; --btn-export-border: #334155; --btn-set-bg: #1e293b; --btn-set-fg: #93c5fd; --btn-set-border: #334155; --btn-secondary-bg: #1e3a5f; --btn-secondary-fg: #93c5fd; --btn-secondary-border: #2563eb; --btn-logout-bg: #1e293b; --btn-logout-fg: #94a3b8; --btn-logout-border: #334155; --btn-theme-bg: #1e293b; --btn-theme-fg: #94a3b8; --btn-theme-border: #334155; --btn-period-bg: #1e293b; --btn-period-fg: #93c5fd; --btn-period-border: #334155; --btn-period-active-bg: #6366f1; --btn-lang-bg: #1e293b; --btn-lang-fg: #94a3b8; --btn-lang-border: #334155; --proto-hy2: #34d399; --proto-awg: #38bdf8; --proto-naive: #f472b6; --proto-mieru: #fbbf24; --proto-olcrtc: #a78bfa; --proto-vless: #fb923c; --proto-troy: #e879f9; }
+  [data-theme="light"] { --bg: #eaf2fb; --fg: #1e3a5f; --card: #ffffff; --border: #c5ddf0; --input-bg: #dceaf7; --heading: #0358a8; --muted: #5a7fa0; --accent: #0284c7; --accent-hover: #0369a1; --danger: #dc2626; --danger-hover: #b91c1c; --proto-yes: #059669; --proto-no: #94a3b8; --user-name: #0358a8; --user-disabled: #94a3b8; --status-active-bg: #ecfdf5; --status-active-fg: #059669; --status-expired-bg: #fef2f2; --status-expired-fg: #dc2626; --flash-ok-bg: #ecfdf5; --flash-ok-border: #6ee7b7; --flash-ok-fg: #047857; --flash-err-bg: #fef2f2; --flash-err-border: #fca5a5; --flash-err-fg: #dc2626; --btn-active: #0284c7; --dropdown-bg: #ffffff; --dropdown-hover: #f0f7ff; --chart-grid: #c5ddf0; --chart-up: #0284c7; --chart-down: #059669; --btn-add-bg: #dbeafe; --btn-add-fg: #1e40af; --btn-add-border: #93c5fd; --btn-toggle-on-bg: #bae6fd; --btn-toggle-on-fg: #0369a1; --btn-toggle-on-border: #7dd3fc; --btn-toggle-off-bg: #e0e7ff; --btn-toggle-off-fg: #3730a3; --btn-toggle-off-border: #a5b4fc; --btn-del-bg: #fee2e2; --btn-del-fg: #991b1b; --btn-del-border: #fca5a5; --btn-off-bg: #f1f5f9; --btn-off-fg: #475569; --btn-off-border: #cbd5e1; --btn-export-bg: #e0e7ff; --btn-export-fg: #3730a3; --btn-export-border: #a5b4fc; --btn-set-bg: #e0e7ff; --btn-set-fg: #3730a3; --btn-set-border: #a5b4fc; --btn-secondary-bg: #e8eef6; --btn-secondary-fg: #334155; --btn-secondary-border: #b8c9dc; --btn-logout-bg: #f1f5f9; --btn-logout-fg: #475569; --btn-logout-border: #cbd5e1; --btn-theme-bg: #f1f5f9; --btn-theme-fg: #475569; --btn-theme-border: #cbd5e1; --btn-period-bg: #e0e7ff; --btn-period-fg: #3730a3; --btn-period-border: #a5b4fc; --btn-period-active-bg: #6366f1; --btn-lang-bg: #f1f5f9; --btn-lang-fg: #475569; --btn-lang-border: #cbd5e1; --proto-hy2: #059669; --proto-awg: #0284c7; --proto-naive: #d946ef; --proto-mieru: #d97706; --proto-olcrtc: #7c3aed; --proto-vless: #ea580c; --proto-troy: #c026d3; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--fg); padding: 2rem; }
   .container { max-width: 1200px; margin: 0 auto; }
@@ -105,6 +105,11 @@
       </select>
       <div id="pagination" class="pagination"></div>
     </div>
+    <div class="proto-legend" id="protoLegend">
+      {% for key, pname, _, _ in protocols %}
+      <span class="legend-item"><span class="legend-dot" style="background:var(--proto-{{ key }})"></span>{{ pname.split('+')[0] }}</span>
+      {% endfor %}
+    </div>
     <div class="table-wrap">
     <table>
       <thead>
@@ -112,13 +117,10 @@
           <th>#</th>
           <th data-i18n="userCol">User</th>
           <th data-i18n="statusCol">Status</th>
-          {% for key, name, _, _ in protocols %}
-            <th>{{ name.split('+')[0] }}</th>
-          {% endfor %}
+          <th data-i18n="protoCol">Protocols</th>
           <th data-i18n="expiryCol">Expiry</th>
           <th data-i18n="passCol">Pass</th>
           <th data-i18n="actCol">Act.</th>
-          <th data-i18n="resetCol">Reset</th>
           <th data-i18n="exportCol">Export</th>
         </tr>
       </thead>
@@ -176,6 +178,10 @@
   .btn-group .proto-filter.active { background: var(--btn-period-active-bg); border-color: var(--btn-period-active-bg); color: #fff; }
   .btn-group .proto-filter.inactive { opacity: 0.5; }
   .btn-group .proto-filter:hover { filter: brightness(0.95); }
+  .proto-legend { display:flex;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.6rem;padding:0.4rem 0.6rem;background:var(--bg);border-radius:6px;font-size:0.78rem; }
+  .legend-item { display:inline-flex;align-items:center;gap:0.3rem;color:var(--muted); }
+  .legend-dot { width:10px;height:10px;border-radius:2px;display:inline-block; }
+  .proto-dot { display:inline-block;width:10px;height:10px;border-radius:2px;margin:0 1px; }
   .pagination { display:flex;gap:2px;flex-wrap:wrap; }
   .pagination button { padding:0.2rem 0.5rem;border-radius:4px;border:1px solid var(--border);background:var(--input-bg);color:var(--fg);font-size:0.75rem;cursor:pointer; }
   .pagination button:hover { background:var(--border); }
@@ -187,6 +193,10 @@
   .dropdown-item:hover { background:var(--dropdown-hover); }
   .dropdown-divider { border-top:1px solid var(--border); margin:0.25rem 0; }
 .footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 1.5rem 0 0.5rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+.toast { position:fixed; top:1rem; left:50%; transform:translateX(-50%); z-index:9999; padding:0.75rem 1.5rem; border-radius:8px; font-size:0.9rem; font-weight:600; border:1px solid; box-shadow:0 4px 16px rgba(0,0,0,0.3); animation:slideIn 0.3s ease; display:none; }
+.toast.ok { background:var(--flash-ok-bg); border-color:var(--flash-ok-border); color:var(--flash-ok-fg); }
+.toast.err { background:var(--flash-err-bg); border-color:var(--flash-err-border); color:var(--flash-err-fg); }
+@keyframes slideIn { from { opacity:0; transform:translateX(-50%) translateY(-20px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
 .users-cards { display: none; }
 .user-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.8rem; margin-bottom: 0.6rem; }
 .user-card .uc-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
@@ -248,7 +258,7 @@ const _t = {
     guide: 'Гайд', signOut: 'Выйти', admin: 'Админ',
     addUser: 'Добавить пользователя', usernamePH: 'Имя пользователя', add: 'Добавить',
     users: 'Пользователи', userCol: 'Пользователь', statusCol: 'Статус',
-    expiryCol: 'Срок', passCol: 'Пароль', actCol: 'Действ.', exportCol: 'Экспорт',
+    expiryCol: 'Срок', passCol: 'Пароль', actCol: 'Действ.', protoCol: 'Протоколы', exportCol: 'Экспорт',
     noUsers: 'Пользователей пока нет',
     perPage10: '10 на стр.', perPage25: '25 на стр.', perPage50: '50 на стр.',
     traffic: 'Трафик', trafficNote: 'Считается трафик: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG, Trojan.', allUsers: 'Все пользователи',
@@ -262,7 +272,7 @@ const _t = {
     confirmReset: 'Сбросить статистику трафика для',
     totalEnd: 'всего', setPwd: 'Уст.', changePwd: 'Изм.',
     pwdSet: 'Пароль установлен', pwdNotSet: 'Без пароля',
-    resetCol: 'Сброс', resetTraffic: 'Сбросить трафик', userResetToggle: 'Разрешить сброс трафика юзеру',
+    resetCol: 'Сброс',     resetTraffic: 'Сброс трафика', userResetToggle: 'Разрешить сброс трафика юзеру', resetOn: 'Сброс: вкл', resetOff: 'Сброс: выкл', resetDoneMsg: 'Статистика трафика сброшена',
     config: 'Config', configs: 'Конфигурации', subscription: 'Подписка',
     noConfigs: 'Нет доступных конфигураций', copyUrl: '\u{1F517} Скопировать URL',
     expires: 'Истекает', noExpiry: 'Без срока', limit: 'Лимит',
@@ -273,7 +283,7 @@ const _t = {
     guide: 'Guide', signOut: 'Sign Out', admin: 'Admin',
     addUser: 'Add User', usernamePH: 'Username', add: 'Add',
     users: 'Users', userCol: 'User', statusCol: 'Status',
-    expiryCol: 'Expiry', passCol: 'Pass', actCol: 'Act.', exportCol: 'Export',
+    expiryCol: 'Expiry', passCol: 'Pass', actCol: 'Act.', protoCol: 'Protocols', exportCol: 'Export',
     noUsers: 'No users yet',
     perPage10: '10 per page', perPage25: '25 per page', perPage50: '50 per page',
     traffic: 'Traffic', trafficNote: 'Traffic is tracked for: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG.', allUsers: 'All Users',
@@ -287,7 +297,7 @@ const _t = {
     confirmReset: 'Reset traffic stats for',
     totalEnd: 'total', setPwd: 'Set', changePwd: 'Edit',
     pwdSet: 'Password set', pwdNotSet: 'No password',
-    resetCol: 'Reset', resetTraffic: 'Reset traffic', userResetToggle: 'Allow user to reset traffic',
+    resetCol: 'Reset', resetTraffic: 'Reset traffic', userResetToggle: 'Allow user to reset traffic', resetOn: 'Reset: on', resetOff: 'Reset: off', resetDoneMsg: 'Traffic statistics reset',
     currentPeriod: 'Current', prevPeriod: 'Previous', noTraffic: 'No traffic data'
   }
 };
@@ -323,11 +333,12 @@ function renderUsers() {
   const tbody = document.getElementById('userTableBody');
   tbody.innerHTML = pageUsers.map((u, i) => {
     const idx = start + i + 1;
-    const protoHTML = {{ protocols | tojson }}.map(p => {
-      const key = p[0];
-      const active = u.protocols[key];
-      return '<td>' + (active ? '<span class="proto-yes">+</span>' : '<span class="proto-no">-</span>') + '</td>';
+    const protoColors = {{ protocols | tojson }}.map(p => {
+      const key = p[0], active = u.protocols[key];
+      const color = active ? 'var(--proto-' + key + ')' : 'var(--proto-no)';
+      return '<span class="proto-dot" style="background:' + color + ';opacity:' + (active ? '1' : '0.3') + '" title="' + p[1] + '"></span>';
     }).join('');
+    const protoHTML = '<td style="white-space:nowrap">' + protoColors + '</td>';
 
     const protocolsList = {{ protocols | tojson }};
     const actions = protocolsList.map(p => {
@@ -355,23 +366,23 @@ function renderUsers() {
       '<td><form method="POST" action="/self/user/' + u.name + '/expiry" style="display:flex;gap:2px">' +
         '<input class="expiry-input" name="expires" type="date" value="' + (u.expires_at ? u.expires_at.slice(0,10) : '') + '" placeholder="never">' +
         '<button class="small set-btn" type="submit">' + _('set') + '</button></form></td>' +
-      '<td><form method="POST" action="/self/user/' + u.name + '/password" style="display:flex;gap:2px" onsubmit="return confirm(\'' + _('confirmSetPwd') + ' ' + u.name + '?\')">' +
+      '<td style="white-space:nowrap"><form method="POST" action="/self/user/' + u.name + '/password" style="display:flex;gap:2px" onsubmit="return confirm(\'' + _('confirmSetPwd') + ' ' + u.name + '?\')">' +
         '<input class="expiry-input" name="password" type="text" placeholder="' + (u.has_password ? '****' : _('pwdNotSet')) + '">' +
         '<button class="small ' + (u.has_password ? 'toggle-on' : 'set-btn') + '" type="submit">' + (u.has_password ? _('changePwd') : _('setPwd')) + '</button>' +
         (u.has_password ? ' <span style="color:var(--proto-yes);font-size:0.85rem;margin-left:2px" title="' + _('pwdSet') + '">&#10003;</span>' : '') +
-        '</form></td>' +
+        '</form>' +
+        '<div style="display:flex;gap:2px;margin-top:2px">' +
+        '<form style="display:inline" onsubmit="return resetTraffic(event, \'' + u.name + '\')">' +
+          '<button class="small off-btn" title="' + _('resetTraffic') + '" style="font-size:0.7rem">' + _('resetTraffic') + '</button></form>' +
+        '<form method="POST" action="/self/user/' + u.name + '/set-reset-traffic" style="display:inline">' +
+          '<input type="hidden" name="enabled" value="' + (u.can_reset_traffic ? '0' : '1') + '">' +
+          '<button class="small ' + (u.can_reset_traffic ? 'toggle-on' : 'off-btn') + '" title="' + _('userResetToggle') + '" style="font-size:0.7rem">' + (u.can_reset_traffic ? _('resetOn') : _('resetOff')) + '</button></form>' +
+        '</div></td>' +
       '<td class="actions">' + actions +
         '<form method="POST" action="/self/user/' + u.name + '/toggle" style="display:inline">' +
           '<button class="small off-btn" title="' + (u.active ? _('off') : _('on')) + '">' + (u.active ? _('off') : _('on')) + '</button></form>' +
         '<form method="POST" action="/self/user/' + u.name + '/delete" onsubmit="return confirm(\'' + _('confirmDelUser') + ' ' + u.name + '?\')" style="display:inline">' +
           '<button class="small danger">' + _('del') + '</button></form>' +
-      '</td>' +
-      '<td style="white-space:nowrap">' +
-        '<form method="POST" action="/self/user/' + u.name + '/reset-traffic" style="display:inline" onsubmit="return confirm(\'' + _('confirmReset') + ' ' + u.name + '?\')">' +
-          '<button class="small off-btn" title="' + _('resetTraffic') + '">\u{1F504}</button></form>' +
-        '<form method="POST" action="/self/user/' + u.name + '/set-reset-traffic" style="display:inline">' +
-          '<input type="hidden" name="enabled" value="' + (u.can_reset_traffic ? '0' : '1') + '">' +
-          '<button class="small ' + (u.can_reset_traffic ? 'toggle-on' : 'off-btn') + '" title="' + _('userResetToggle') + '">' + (u.can_reset_traffic ? 'R' : 'r') + '</button></form>' +
       '</td>' +
       '<td>' + (hasExport ? '<div class="dropdown"><button class="small export-btn" onclick="toggleDropdown(event, \'dd-' + u.name + '\')">\u{25BE} ' + _('export_') + '</button><div id="dd-' + u.name + '" class="dropdown-menu" style="display:none">' +
         '<a href="#" onclick="copySub(\'' + u.name + '\');return false" class="dropdown-item">\u{1F517} ' + _('copySubUrl') + '</a>' +
@@ -416,7 +427,13 @@ function renderUsers() {
           '<input name="password" type="text" placeholder="' + (u.has_password ? '****' : _('pwdNotSet')) + '">' +
           '<button class="small ' + (u.has_password ? 'toggle-on' : 'set-btn') + '" type="submit">' + (u.has_password ? _('changePwd') : _('setPwd')) + '</button>' +
           (u.has_password ? ' <span style="color:var(--proto-yes)">&#10003;</span>' : '') +
-        '</form></div>' +
+        '</form>' +
+        '<div style="display:flex;gap:2px;margin-top:2px">' +
+        '<form style="display:inline" onsubmit="return resetTraffic(event, \'' + u.name + '\')"><button class="small off-btn" style="font-size:0.65rem">' + _('resetTraffic') + '</button></form>' +
+        '<form method="POST" action="/self/user/' + u.name + '/set-reset-traffic" style="display:inline">' +
+          '<input type="hidden" name="enabled" value="' + (u.can_reset_traffic ? '0' : '1') + '">' +
+          '<button class="small ' + (u.can_reset_traffic ? 'toggle-on' : 'off-btn') + '" style="font-size:0.65rem">' + (u.can_reset_traffic ? _('resetOn') : _('resetOff')) + '</button></form>' +
+        '</div></div>' +
       '<div class="uc-actions">' +
         protocolsList.map(p =>
           (u.protocols[p[0]]
@@ -425,10 +442,6 @@ function renderUsers() {
         ).join('') +
         '<hr class="uc-divider">' +
         '<form method="POST" action="/self/user/' + u.name + '/toggle" style="display:inline"><button class="small off-btn">' + (u.active ? _('off') : _('on')) + '</button></form>' +
-        '<form method="POST" action="/self/user/' + u.name + '/reset-traffic" style="display:inline" onsubmit="return confirm(\'' + _('confirmReset') + ' ' + u.name + '?\')"><button class="small off-btn">\u{1F504}</button></form>' +
-        '<form method="POST" action="/self/user/' + u.name + '/set-reset-traffic" style="display:inline">' +
-          '<input type="hidden" name="enabled" value="' + (u.can_reset_traffic ? '0' : '1') + '">' +
-          '<button class="small ' + (u.can_reset_traffic ? 'toggle-on' : 'off-btn') + '">' + (u.can_reset_traffic ? 'R' : 'r') + '</button></form>' +
         '<form method="POST" action="/self/user/' + u.name + '/delete" onsubmit="return confirm(\'' + _('confirmDelUser') + ' ' + u.name + '?\')" style="display:inline"><button class="small danger">' + _('del') + '</button></form>' +
       '</div>' +
       (hasExport ? '<div class="uc-export"><div class="dropdown"><button class="small export-btn" onclick="toggleDropdown(event, \'ddm-' + u.name + '\')" style="width:100%">\u{25BE} ' + _('export_') + '</button><div id="ddm-' + u.name + '" class="dropdown-menu" style="display:none">' +
@@ -604,6 +617,29 @@ document.querySelectorAll('#protoFilters .proto-filter').forEach(btn => {
   });
 });
 loadTraffic();
+
+function showToast(msg, type) {
+  let el = document.getElementById('toast');
+  if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; document.body.appendChild(el); }
+  el.textContent = msg;
+  el.className = 'toast ' + (type || 'ok');
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3000);
+}
+
+async function resetTraffic(e, name) {
+  e.preventDefault();
+  if (!confirm(_('confirmReset') + ' ' + name + '?')) return false;
+  try {
+    const res = await fetch('/self/user/' + name + '/reset-traffic', { method: 'POST' });
+    if (res.ok || res.status === 302) {
+      showToast(_('resetDoneMsg'), 'ok');
+    } else {
+      showToast(_('pwdErr'), 'err');
+    }
+  } catch(e) { showToast(_('pwdErr'), 'err'); }
+  return false;
+}
 </script>
 <div class="footer">
   &copy; 2026 Merlin.<br>
