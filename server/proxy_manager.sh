@@ -15,7 +15,7 @@ NAIVE_CONFIG="/etc/sing-box/config.json"
 AWG_INTERFACE="awg0"
 
 # Параметры сервера
-SERVER_DOMAIN="<YOUR_DOMAIN>"
+SERVER_DOMAIN="panel.kuban-forum.ru"
 AWG_SUBNET="10.9.9"
 NAIVE_PORT="8443" 
 MIERU_IP="31.76.8.29"
@@ -26,26 +26,27 @@ MIERU_CONFIG="/etc/mita/server.json"
 OLRTC_USERS_FILE="/etc/olcrtc/users.json"
 OLRTC_CONFIG="/root/.config/olcrtc/server.yaml"
 OLRTC_SERVICE="olcrtc"
-OLRTC_ICE="ws://<YOUR_DOMAIN>:30001/ice"
-OLRTC_ROOM_URL="https://meet.egovm.ru/nyx-<YOUR_DOMAIN>"
-OLRTC_CRYPTO_KEY="<REPLACE_WITH_YOUR_KEY>"
+OLRTC_ICE="ws://${SERVER_DOMAIN}:30001/ice"
+OLRTC_ROOM_URL=""
+OLRTC_CRYPTO_KEY=""
 
 # Trojan
 TROJAN_USERS_FILE="/etc/sing-box/trojan_users.json"
 TROJAN_PORT=9443
-TROJAN_CERT="/root/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/<YOUR_DOMAIN>/<YOUR_DOMAIN>.crt"
-TROJAN_KEY="/root/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/<YOUR_DOMAIN>/<YOUR_DOMAIN>.key"
+TROJAN_CERT="/root/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${SERVER_DOMAIN}/${SERVER_DOMAIN}.crt"
+TROJAN_KEY="/root/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${SERVER_DOMAIN}/${SERVER_DOMAIN}.key"
 TROJAN_SERVICE="trojan-go"
 
 # VLESS+XHTTP+REALITY
 XRAY_CONFIG="/usr/local/etc/xray/config.json"
 VLESS_USERS_FILE="/etc/xray/users.json"
 XRAY_SERVICE="xray"
-VLESS_HOST="<YOUR_DOMAIN>"
+VLESS_HOST="${SERVER_DOMAIN}"
 VLESS_PORT="443"
 VLESS_SNI="1.1.1.1"
 VLESS_PUBLIC_KEY="iqmUrTnhYDcm-hhuGJaze6dTGNIcvyMOyYIN7LB4kU4"
 VLESS_SHORT_ID="2e30b986cabb4bca"
+VLESS_PATH="%2Fvless"
 
 # Цвета
 GREEN='\033[1;92m'
@@ -56,6 +57,55 @@ CYAN='\033[1;96m'
 NC='\033[0m'
 
 # --- ИНИЦИАЛИЗАЦИЯ ---
+# Переопределяет константы выше актуальными значениями из серверных конфигов
+load_server_settings() {
+    local _d _cfg _p _port _shortid _priv _pub _path _room _key _tc _tk _ports
+
+    _d=$(grep -ohE '[A-Za-z0-9*.-]+\.kuban-forum\.ru' /etc/caddy/Caddyfile 2>/dev/null | head -1)
+    [ -z "$_d" ] && _d=$(grep -ohE '^[A-Za-z0-9*.-]+\.[A-Za-z]{2,}' /etc/caddy/Caddyfile 2>/dev/null | head -1)
+    [ -n "$_d" ] && SERVER_DOMAIN="$_d"
+    VLESS_HOST="$SERVER_DOMAIN"
+
+    if [ -f "$XRAY_CONFIG" ]; then
+        _port=$(jq -r '.inbounds[] | select(.protocol=="vless") | .port // empty' "$XRAY_CONFIG" 2>/dev/null | head -1)
+        _shortid=$(jq -r '.inbounds[] | select(.protocol=="vless") | .streamSettings.realitySettings.shortIds[0] // empty' "$XRAY_CONFIG" 2>/dev/null | head -1)
+        _priv=$(jq -r '.inbounds[] | select(.protocol=="vless") | .streamSettings.realitySettings.privateKey // empty' "$XRAY_CONFIG" 2>/dev/null | head -1)
+        _path=$(jq -r '.inbounds[] | select(.protocol=="vless") | .streamSettings.xhttpSettings.path // empty' "$XRAY_CONFIG" 2>/dev/null | head -1)
+        [ -n "$_port" ] && VLESS_PORT="$_port"
+        [ -n "$_shortid" ] && VLESS_SHORT_ID="$_shortid"
+        [ -n "$_path" ] && VLESS_PATH="${_path//\//%2F}"
+        if [ -n "$_priv" ] && command -v xray &>/dev/null; then
+            _pub=$(xray x25519 -i "$_priv" 2>/dev/null | sed -nE 's/.*\(PublicKey\): *([^ ]+).*/\1/p')
+            _pub="${_pub%=}"
+            [ -n "$_pub" ] && VLESS_PUBLIC_KEY="$_pub"
+        fi
+    fi
+
+    _cfg=""
+    for _p in /etc/olcrtc/server.yaml /root/.config/olcrtc/server.yaml; do
+        [ -f "$_p" ] && _cfg="$_p" && break
+    done
+    if [ -n "$_cfg" ]; then
+        _room=$(sed -nE 's/^[[:space:]]+id:[[:space:]]*"?([^"]*)"?.*/\1/p' "$_cfg" | head -1)
+        _key=$(sed -nE 's/^[[:space:]]+key:[[:space:]]*"?([^"]*)"?.*/\1/p' "$_cfg" | head -1)
+        [ -n "$_room" ] && OLRTC_ROOM_URL="$_room"
+        [ -n "$_key" ] && OLRTC_CRYPTO_KEY="$_key"
+        OLRTC_ICE="ws://${SERVER_DOMAIN}:30001/ice"
+    fi
+
+    if [ -f /etc/trojan-go/config.json ]; then
+        _tc=$(jq -r '.ssl.cert // empty' /etc/trojan-go/config.json 2>/dev/null)
+        _tk=$(jq -r '.ssl.key // empty' /etc/trojan-go/config.json 2>/dev/null)
+        [ -n "$_tc" ] && TROJAN_CERT="$_tc"
+        [ -n "$_tk" ] && TROJAN_KEY="$_tk"
+    fi
+
+    if [ -f "$MIERU_CONFIG" ]; then
+        _ports=$(jq -r '[.portBindings[]? | .portRange] | join(",")' "$MIERU_CONFIG" 2>/dev/null)
+        [ -n "$_ports" ] && MIERU_PORTS="$_ports"
+    fi
+}
+
 init() {
     mkdir -p "$BASE_DIR"
     touch "$REGISTRY_FILE"
@@ -64,6 +114,7 @@ init() {
     if ! command -v yq &> /dev/null; then echo -e "${RED}Ошибка: установите yq (apt install yq -y)${NC}"; exit 1; fi
     if ! command -v qrencode &> /dev/null; then echo -e "${RED}Ошибка: установите qrencode (apt install qrencode -y)${NC}"; exit 1; fi
     if ! command -v awg &> /dev/null; then echo -e "${RED}Ошибка: утилита awg не найдена. Установлен ли AmneziaWG?${NC}"; exit 1; fi
+    load_server_settings
 }
 
 # --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
@@ -875,7 +926,7 @@ add_vless_user() {
     update_xray_config
 
     # Генерируем vless:// URI
-    local link="vless://${uuid}@${VLESS_HOST}:${VLESS_PORT}?security=reality&type=xhttp&path=%2Fvless&sni=1.1.1.1&fp=chrome&pbk=${VLESS_PUBLIC_KEY}&sid=${VLESS_SHORT_ID}&spx=%2Fdns-query%2F#${username}"
+    local link="vless://${uuid}@${VLESS_HOST}:${VLESS_PORT}?security=reality&type=xhttp&path=${VLESS_PATH}&sni=1.1.1.1&fp=chrome&pbk=${VLESS_PUBLIC_KEY}&sid=${VLESS_SHORT_ID}&spx=%2Fdns-query%2F#${username}"
     echo "$link" > "$BASE_DIR/$username/${username}_vless.uri"
 
     # QR-код из URI
