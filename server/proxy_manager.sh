@@ -9,7 +9,7 @@ BASE_DIR="/root/proxy_users"
 REGISTRY_FILE="$BASE_DIR/.registry"
 
 # Пути к конфигам серверов
-HY2_CONFIG="/etc/hysteria/config.json"
+HY2_CONFIG="/etc/hysteria/config.yaml"
 AWG_CONFIG="/etc/amnezia/amneziawg/awg0.conf" 
 NAIVE_CONFIG="/etc/sing-box/config.json"
 AWG_INTERFACE="awg0"
@@ -33,8 +33,8 @@ OLRTC_CRYPTO_KEY=""
 # Trojan
 TROJAN_USERS_FILE="/etc/sing-box/trojan_users.json"
 TROJAN_PORT=9443
-TROJAN_CERT="/root/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${SERVER_DOMAIN}/${SERVER_DOMAIN}.crt"
-TROJAN_KEY="/root/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${SERVER_DOMAIN}/${SERVER_DOMAIN}.key"
+TROJAN_CERT="/var/lib/caddy/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${SERVER_DOMAIN}/${SERVER_DOMAIN}.crt"
+TROJAN_KEY="/var/lib/caddy/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${SERVER_DOMAIN}/${SERVER_DOMAIN}.key"
 TROJAN_SERVICE="trojan-go"
 
 # VLESS+XHTTP+REALITY
@@ -267,7 +267,7 @@ del_user() {
     if [ -f "$target_dir/${username}_hy2.json" ] && [ -f "$HY2_CONFIG" ]; then
         jq --arg user "$username" 'del(.auth.userpass[$user])' \
           "$HY2_CONFIG" > /tmp/hy2_config.tmp && mv /tmp/hy2_config.tmp "$HY2_CONFIG"
-        systemctl restart hysteria-server
+        systemctl restart hysteria2
         echo -e "${GREEN}Удален из Hysteria 2.${NC}"
     fi
 
@@ -406,7 +406,7 @@ remove_protocol() {
         hy2)
             jq --arg user "$username" 'del(.auth.userpass[$user])' \
               "$HY2_CONFIG" > /tmp/hy2_config.tmp && mv /tmp/hy2_config.tmp "$HY2_CONFIG"
-            systemctl restart hysteria-server
+            systemctl restart hysteria2
             rm -f "$BASE_DIR/$username/${username}_hy2.json"
             rm -f "$BASE_DIR/$username/${username}_hy2.png"
             echo -e "${GREEN}Конфигурация Hysteria 2 удалена.${NC}"
@@ -887,7 +887,7 @@ with open('$VLESS_USERS_FILE') as f:
     users = json.load(f)
 with open('$XRAY_CONFIG') as f:
     cfg = json.load(f)
-clients = [{'id': uid, 'flow': ''} for uid in users.values()]
+clients = [{'id': uid, 'flow': '', 'email': uname} for uname, uid in users.items()]
 if clients:
     cfg['inbounds'][0]['settings']['clients'] = clients
 with open('$XRAY_CONFIG', 'w') as f:
