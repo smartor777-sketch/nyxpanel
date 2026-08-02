@@ -469,7 +469,9 @@ info "Mieru установлен (mita $(mita version 2>/dev/null || echo '?'))"
 
 # --- 6. olcRTC ---
 info "=== Шаг 6: Установка olcRTC ==="
-mkdir -p /usr/local/bin /root/.config/olcrtc /etc/olcrtc
+groupadd -r olcrtc 2>/dev/null || true
+useradd -r -M -U -s /usr/sbin/nologin -d /var/lib/olcrtc olcrtc 2>/dev/null || true
+mkdir -p /usr/local/bin /etc/olcrtc /var/lib/olcrtc/data
 
 # Скачиваем бинарник с GitHub releases
 OLCRTC_URL="https://github.com/smartor777-sketch/olcrtc-users/releases/download/latest/olcrtc-linux-amd64"
@@ -485,7 +487,7 @@ else
     info "olcrtc установлен"
 fi
 
-cat > /root/.config/olcrtc/server.yaml << OLRTC_EOF
+cat > /etc/olcrtc/server.yaml << OLRTC_EOF
 mode: srv
 auth:
   users_file: /etc/olcrtc/users.json
@@ -501,23 +503,47 @@ liveness:
   interval: 10s
   timeout: 5s
   failures: 3
-data: data
+data: /var/lib/olcrtc/data
 debug: false
 OLRTC_EOF
 
 echo '{}' > /etc/olcrtc/users.json
+chown root:olcrtc /etc/olcrtc/server.yaml /etc/olcrtc/users.json 2>/dev/null || true
+chmod 0640 /etc/olcrtc/server.yaml /etc/olcrtc/users.json 2>/dev/null || true
+chown root:olcrtc /var/lib/olcrtc /var/lib/olcrtc/data 2>/dev/null || true
+chmod 0750 /var/lib/olcrtc /var/lib/olcrtc/data 2>/dev/null || true
 
 cat > /etc/systemd/system/olcrtc.service << 'SVCEOF'
 [Unit]
-Description=olcrtc server
-After=network-online.target
+Description=olcrtc server (RemoteController / Jitsi RTC gateway)
+After=network.target network-online.target
+
 [Service]
 Type=simple
-WorkingDirectory=/root
-ExecStart=/usr/local/bin/olcrtc /root/.config/olcrtc/server.yaml
+User=olcrtc
+Group=olcrtc
+WorkingDirectory=/var/lib/olcrtc
+ExecStart=/usr/local/bin/olcrtc /etc/olcrtc/server.yaml
 Restart=always
 RestartSec=5s
 LimitNOFILE=1048576
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectProc=invisible
+ProtectKernelLogs=true
+ReadWritePaths=/var/lib/olcrtc
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK AF_PACKET
+
 [Install]
 WantedBy=multi-user.target
 SVCEOF
