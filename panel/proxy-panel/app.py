@@ -13,6 +13,11 @@ BASE_DIR = Path("/root/proxy_users")
 REGISTRY = BASE_DIR / ".registry"
 DB_PATH = "/opt/proxy-panel/panel.db"
 
+# Протоколы, которые затрагивает переключатель REALITY mode (whitelist/normal)
+REALITY_AFFECTED = [
+    ("vless", "VLESS+XHTTP+REALITY"),
+]
+
 def is_admin():
     return session.get("self_role") == "admin"
 
@@ -168,6 +173,47 @@ def call_script(name, username):
         return False, "Timeout"
     except Exception as e:
         return False, str(e)
+
+def get_reality_state():
+    """Текущее состояние REALITY mode (normal|whitelist) — источник истины = xray config."""
+    state = {"mode": "normal", "target": "", "sni": "", "affected": "vless"}
+    try:
+        proc = subprocess.run(
+            ["bash", "/root/proxy_manager.sh", "reality_status"],
+            capture_output=True, text=True, timeout=30
+        )
+        for line in (proc.stdout or "").splitlines():
+            if "=" in line:
+                k, _, v = line.partition("=")
+                state[k.strip()] = v.strip()
+    except Exception:
+        pass
+    return state
+
+@app.route("/self/reality/toggle", methods=["POST"])
+def reality_toggle():
+    if not is_admin():
+        return redirect("/self/login")
+    state = get_reality_state()
+    new_mode = "whitelist" if state.get("mode") != "whitelist" else "normal"
+    env = os.environ.copy()
+    env["TERM"] = "linux"
+    try:
+        proc = subprocess.run(
+            ["bash", "/root/proxy_manager.sh", "set_reality_mode", new_mode],
+            capture_output=True, encoding="utf-8", timeout=120, env=env
+        )
+        out = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', proc.stdout or "").strip()
+        err = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', proc.stderr or "").strip()
+        if proc.returncode == 0:
+            flash(out or "OK", "ok")
+        else:
+            flash(err or out or "Error", "error")
+    except subprocess.TimeoutExpired:
+        flash("Timeout", "error")
+    except Exception as e:
+        flash(str(e), "error")
+    return redirect("/self/")
 
 @app.route("/")
 def index():
@@ -424,7 +470,10 @@ def self_dashboard():
     if role == "admin":
         db_users = get_db_users()
         db.close()
-        return render_template("self_admin.html", users=db_users, protocols=PROTOCOLS, admin_name=name, version=PANEL_VERSION)
+        reality = get_reality_state()
+        return render_template("self_admin.html", users=db_users, protocols=PROTOCOLS,
+                               admin_name=name, version=PANEL_VERSION,
+                               reality=reality, reality_affected=REALITY_AFFECTED)
     row = db.execute("SELECT username, expires_at, active, created_at, traffic_limit_bytes, can_reset_traffic FROM users WHERE username = ?", (name,)).fetchone()
     if not row or not row["active"]:
         session.pop("self_user", None)
