@@ -36,7 +36,7 @@ VLESS_USERS_FILE="/etc/xray/users.json"
 XRAY_SERVICE="xray"
 VLESS_HOST="${SERVER_DOMAIN}"
 VLESS_PORT="443"
-VLESS_SNI="1.1.1.1"
+VLESS_SNI="www.roblox.com"
 VLESS_PUBLIC_KEY="iqmUrTnhYDcm-hhuGJaze6dTGNIcvyMOyYIN7LB4kU4"
 VLESS_SHORT_ID="2e30b986cabb4bca"
 VLESS_PATH="%2Fvless"
@@ -895,7 +895,7 @@ add_vless_user() {
     update_xray_config
 
     # Генерируем vless:// URI
-    local link="vless://${uuid}@${VLESS_HOST}:${VLESS_PORT}?security=reality&type=xhttp&path=${VLESS_PATH}&sni=1.1.1.1&fp=chrome&pbk=${VLESS_PUBLIC_KEY}&sid=${VLESS_SHORT_ID}&spx=%2Fdns-query%2F#${username}"
+    local link="vless://${uuid}@${VLESS_HOST}:${VLESS_PORT}?security=reality&type=xhttp&path=${VLESS_PATH}&sni=1.1.1.1&fp=firefox&pbk=${VLESS_PUBLIC_KEY}&sid=${VLESS_SHORT_ID}&spx=%2Fdns-query%2F#${username}"
     echo "$link" > "$BASE_DIR/$username/${username}_vless.uri"
 
     # QR-код из URI
