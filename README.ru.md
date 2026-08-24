@@ -23,7 +23,7 @@
 | VLESS+XHTTP+REALITY | Прокси | Happ, Hiddify, v2RayTun, Exclave |
 | Hysteria 2 | Прокси | Happ, Hiddify, v2RayTun, Exclave |
 | Trojan | Прокси | Happ, Hiddify, v2RayTun, Exclave, NekoBox |
-| AmneziaWG | VPN | AmneziaWG клиент, NekoBox |
+| AmneziaWG | VPN | Amnezia VPN (≥5.0), NekoBox |
 | Mieru | Прокси | NekoBox |
 | NaiveProxy | Прокси | Happ, Hiddify, v2RayTun, Exclave |
 | olcRTC | Прокси | OlcboxME (только мобильные), используется форк [olcrtc-users](https://github.com/smartor777-sketch/olcrtc-users) |

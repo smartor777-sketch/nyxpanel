@@ -23,7 +23,7 @@ Multi-protocol proxy management panel with web interface.
 | VLESS+XHTTP+REALITY | Proxy | Happ, Hiddify, v2RayTun, Exclave |
 | Hysteria 2 | Proxy | Happ, Hiddify, v2RayTun, Exclave |
 | Trojan | Proxy | Happ, Hiddify, v2RayTun, Exclave, NekoBox |
-| AmneziaWG | VPN | AmneziaWG client, NekoBox |
+| AmneziaWG | VPN | Amnezia VPN (≥5.0), NekoBox |
 | Mieru | Proxy | NekoBox |
 | NaiveProxy | Proxy | Happ, Hiddify, v2RayTun, Exclave |
 | olcRTC | Proxy | OlcboxME (mobile only), uses [olcrtc-users](https://github.com/smartor777-sketch/olcrtc-users) fork |
