@@ -573,7 +573,7 @@ add_awg_user() {
     local server_priv=$(grep -E "^\s*PrivateKey" "$AWG_CONFIG" | head -1 | awk '{print $3}')
     local server_pub=$(echo "$server_priv" | awg pubkey)
     local server_port=$(grep -E "^\s*ListenPort" "$AWG_CONFIG" | awk '{print $3}')
-    local awg_params=$(grep -E "^\s*(Jc|Jmin|Jmax|S1|S2|S3|S4|H1|H2|H3|H4|I1)" "$AWG_CONFIG" | sed 's/^\s*//')
+    local awg_params=$(grep -E "^\s*(Jc|Jmin|Jmax|S1|S2|S3|S4|H1|H2|H3|H4|I1|I5|ContentPaddingAddition|RekeyAfterTime)" "$AWG_CONFIG" | sed 's/^\s*//')
 
     cat <<EOF >> "$AWG_CONFIG"
 
@@ -926,7 +926,7 @@ add_vless_user() {
     update_xray_config
 
     # Генерируем vless:// URI
-    local link="vless://${uuid}@${VLESS_HOST}:${VLESS_PORT}?security=reality&type=xhttp&path=${VLESS_PATH}&sni=1.1.1.1&fp=chrome&pbk=${VLESS_PUBLIC_KEY}&sid=${VLESS_SHORT_ID}&spx=%2Fdns-query%2F#${username}"
+    local link="vless://${uuid}@${VLESS_HOST}:${VLESS_PORT}?security=reality&type=xhttp&path=${VLESS_PATH}&sni=1.1.1.1&fp=firefox&pbk=${VLESS_PUBLIC_KEY}&sid=${VLESS_SHORT_ID}&spx=%2Fdns-query%2F#${username}"
     echo "$link" > "$BASE_DIR/$username/${username}_vless.uri"
 
     # QR-код из URI
@@ -935,6 +935,104 @@ add_vless_user() {
     echo -e "${GREEN}Готово! VLESS+XHTTP+REALITY добавлен.${NC}"
     echo -e "${GREEN}• ${username}_vless.uri — vless:// ссылка${NC}"
     echo -e "${GREEN}• ${username}_vless.png — QR-код${NC}"
+}
+
+# --- REALITY mode: normal (1.1.1.1) <-> whitelist (белый домен) ---
+# Затрагивает только VLESS+XHTTP+REALITY (xray). Trojan/hy2/awg/naive/mieru/olcrtc — НЕ затрагиваются.
+REALITY_NORMAL_TARGET="1.1.1.1:443"
+REALITY_NORMAL_SNI="1.1.1.1"
+REALITY_WL_TARGET="sun6-22.userapi.com:443"
+REALITY_WL_SNI="sun6-22.userapi.com"
+REALITY_WL_SERVER="stats.vk-portal.net"
+
+reality_status() {
+    if [ ! -f "$XRAY_CONFIG" ]; then
+        echo "mode=unknown"
+        echo "target="
+        echo "sni="
+        echo "affected=vless"
+        echo "error=xray config not found: $XRAY_CONFIG"
+        return 1
+    fi
+    local target
+    target=$(jq -r '.inbounds[] | select(.protocol=="vless") | .streamSettings.realitySettings.target // empty' "$XRAY_CONFIG" 2>/dev/null | head -1)
+    local mode="unknown"
+    case "$target" in
+        "$REALITY_NORMAL_TARGET") mode="normal" ;;
+        "$REALITY_WL_TARGET") mode="whitelist" ;;
+    esac
+    echo "mode=$mode"
+    echo "target=$target"
+    echo "sni=$REALITY_NORMAL_SNI"
+    echo "affected=vless"
+}
+
+set_reality_mode() {
+    local mode=$1
+    if [ -z "$mode" ]; then
+        echo "Usage: set_reality_mode {normal|whitelist}"
+        return 1
+    fi
+    if [ ! -f "$XRAY_CONFIG" ]; then
+        echo -e "${RED}Xray config not found: $XRAY_CONFIG${NC}"
+        return 1
+    fi
+    load_server_settings
+    local server_domain
+    server_domain=$(grep -ohE '[A-Za-z0-9*.-]+\.kuban-forum\.ru' /etc/caddy/Caddyfile 2>/dev/null | head -1)
+    [ -z "$server_domain" ] && server_domain="$SERVER_DOMAIN"
+
+    local new_target new_sni
+    case "$mode" in
+        normal)
+            new_target="$REALITY_NORMAL_TARGET"
+            new_sni="$REALITY_NORMAL_SNI"
+            jq --arg t "$new_target" --arg sn1 "" --arg sn2 "$REALITY_NORMAL_SNI" --arg sn3 "$server_domain" \
+              '(.inbounds[] | select(.protocol=="vless") | .streamSettings.realitySettings.target) = $t |
+               (.inbounds[] | select(.protocol=="vless") | .streamSettings.realitySettings.serverNames) = [$sn1, $sn2, $sn3]' \
+              "$XRAY_CONFIG" > /tmp/xray_reality.tmp && mv /tmp/xray_reality.tmp "$XRAY_CONFIG"
+            ;;
+        whitelist)
+            new_target="$REALITY_WL_TARGET"
+            new_sni="$REALITY_WL_SNI"
+            jq --arg t "$new_target" --arg sn1 "$REALITY_WL_SNI" --arg sn2 "$REALITY_WL_SERVER" --arg sn3 "$server_domain" \
+              '(.inbounds[] | select(.protocol=="vless") | .streamSettings.realitySettings.target) = $t |
+               (.inbounds[] | select(.protocol=="vless") | .streamSettings.realitySettings.serverNames) = [$sn1, $sn2, $sn3]' \
+              "$XRAY_CONFIG" > /tmp/xray_reality.tmp && mv /tmp/xray_reality.tmp "$XRAY_CONFIG"
+            ;;
+        *)
+            echo -e "${RED}Unknown mode: $mode (normal|whitelist)${NC}"
+            return 1
+            ;;
+    esac
+
+    # Пересобираем все vless:// URI (актуальные pbk/sid/sni) + QR
+    sync_vless_uris
+
+    systemctl restart "$XRAY_SERVICE"
+    echo -e "${GREEN}REALITY mode -> '$mode' (target=$new_target, sni=$new_sni). vless URIs updated via sync_vless_uris${NC}"
+}
+
+# Пересобирает все vless:// URI под актуальный серверный конфиг:
+# pbk (из текущего privateKey), sid (shortIds[0]), sni (из target), путь, порт, host.
+sync_vless_uris() {
+    load_server_settings
+    local target sni updated=0
+    target=$(jq -r '.inbounds[] | select(.protocol=="vless") | .streamSettings.realitySettings.target // empty' "$XRAY_CONFIG" 2>/dev/null | head -1)
+    sni="${target%:*}"
+    [ -z "$sni" ] && sni="$VLESS_SNI"
+    local f user uuid link
+    for f in "$BASE_DIR"/*/*_vless.uri; do
+        [ -f "$f" ] || continue
+        user=$(basename "$f" _vless.uri)
+        uuid=$(grep -oE 'vless://[0-9a-f-]+' "$f" | head -1 | sed 's/vless:\/\///')
+        [ -z "$uuid" ] && continue
+        link="vless://${uuid}@${VLESS_HOST}:${VLESS_PORT}?security=reality&type=xhttp&path=${VLESS_PATH}&sni=${sni}&fp=firefox&pbk=${VLESS_PUBLIC_KEY}&sid=${VLESS_SHORT_ID}&spx=%2Fdns-query%2F#${user}"
+        echo "$link" > "$f"
+        generate_qr "$link" "${f%.uri}.png" 2>/dev/null
+        updated=$((updated+1))
+    done
+    echo -e "${GREEN}vless URIs synced: $updated (sni=$sni, pbk=$VLESS_PUBLIC_KEY, sid=$VLESS_SHORT_ID)${NC}"
 }
 
 # --- Trojan ---
@@ -1051,8 +1149,14 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
                 list_users ;;
             remove_protocol)
                 remove_protocol "$3" "$2" ;;
+            set_reality_mode)
+                set_reality_mode "$2" ;;
+            sync_vless_uris)
+                sync_vless_uris ;;
+            reality_status)
+                reality_status ;;
             *)
-                echo "Usage: $0 {add_user|del_user|list_users|remove_protocol|sync_naive_users|add_hy2_user|add_awg_user|add_naive_user|add_mieru_user|add_olcrtc_user|add_vless_user|add_trojan_user} [username] [protocol]"
+                echo "Usage: $0 {add_user|del_user|list_users|remove_protocol|sync_naive_users|add_hy2_user|add_awg_user|add_naive_user|add_mieru_user|add_olcrtc_user|add_vless_user|add_trojan_user|set_reality_mode|sync_vless_uris|reality_status} [username] [protocol]"
                 exit 1 ;;
         esac
         exit $?

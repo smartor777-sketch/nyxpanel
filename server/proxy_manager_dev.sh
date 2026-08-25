@@ -300,7 +300,7 @@ add_awg_user() {
     local server_priv=$(grep -E "^\s*PrivateKey" "$AWG_CONFIG" | head -1 | awk '{print $3}')
     local server_pub=$(echo "$server_priv" | awg pubkey)
     local server_port=$(grep -E "^\s*ListenPort" "$AWG_CONFIG" | awk '{print $3}')
-    local awg_params=$(grep -E "^\s*(Jc|Jmin|Jmax|S1|S2|S3|S4|H1|H2|H3|H4|I1)" "$AWG_CONFIG" | sed 's/^\s*//')
+    local awg_params=$(grep -E "^\s*(Jc|Jmin|Jmax|S1|S2|S3|S4|H1|H2|H3|H4|I1|I5|ContentPaddingAddition|RekeyAfterTime)" "$AWG_CONFIG" | sed 's/^\s*//')
     cat <<EOF >> "$AWG_CONFIG"
 # Peer: $username
 [Peer]
@@ -426,7 +426,7 @@ add_vless_user() {
     uuid=$(xray uuid 2>/dev/null || cat /proc/sys/kernel/random/uuid || openssl rand -hex 16)
     jq --arg user "$username" --arg uuid "$uuid" '.[$user] = $uuid' "$VLESS_USERS_FILE" > /tmp/vless_users.tmp && mv /tmp/vless_users.tmp "$VLESS_USERS_FILE"
     update_xray_config
-    local link="vless://${uuid}@${VLESS_HOST}:${VLESS_PORT}?security=reality&type=xhttp&path=%2F&sni=1.1.1.1&fp=chrome&pbk=${VLESS_PUBLIC_KEY}&sid=${VLESS_SHORT_ID}&spx=%2Fdns-query%2F#${username}"
+    local link="vless://${uuid}@${VLESS_HOST}:${VLESS_PORT}?security=reality&type=xhttp&path=%2F&sni=1.1.1.1&fp=firefox&pbk=${VLESS_PUBLIC_KEY}&sid=${VLESS_SHORT_ID}&spx=%2Fdns-query%2F#${username}"
     echo "$link" > "$BASE_DIR/$username/${username}_vless.uri"
     generate_qr "$link" "$BASE_DIR/$username/${username}_vless.png"
     echo -e "${GREEN}VLESS added for $username${NC}"
