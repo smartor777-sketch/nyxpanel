@@ -542,7 +542,7 @@ add_awg_user() {
     local server_priv=$(grep -E "^\s*PrivateKey" "$AWG_CONFIG" | head -1 | awk '{print $3}')
     local server_pub=$(echo "$server_priv" | awg pubkey)
     local server_port=$(grep -E "^\s*ListenPort" "$AWG_CONFIG" | awk '{print $3}')
-    local awg_params=$(grep -E "^\s*(Jc|Jmin|Jmax|S1|S2|S3|S4|H1|H2|H3|H4|I1)" "$AWG_CONFIG" | sed 's/^\s*//')
+    local awg_params=$(grep -E "^\s*(Jc|Jmin|Jmax|S1|S2|S3|S4|H1|H2|H3|H4|I1|I5|ContentPaddingAddition|RekeyAfterTime)" "$AWG_CONFIG" | sed 's/^\s*//')
 
     cat <<EOF >> "$AWG_CONFIG"
 
