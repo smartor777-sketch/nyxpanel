@@ -217,7 +217,7 @@ iptables nat POSTROUTING: MASQUERADE только «-s <overlay> -o <ens3>» (и
 
 | Что | Механизм | Период | Хранение | Подробнее |
 |-----|----------|--------|----------|-----------|
-| `journald` (все systemd-сервисы) | `SystemMaxUse=500M` | — | до 500 MB | `/etc/systemd/journald.conf.d/limit-size.conf` |
+| `journald` (все systemd-сервисы) | `SystemMaxUse=200M`, `RuntimeMaxUse=50M`, `MaxRetentionSec=7day` | — | до 200 MB + 7 дней | `/etc/systemd/journald.conf.d/limit-size.conf` |
 | `panel-collector.log` | logrotate weekly | неделя | 4 недели | `/etc/logrotate.d/panel-collector` |
 | Xray `access.log` | logrotate daily × copytruncate | день | 7 дней | `/etc/logrotate.d/xray` |
 | Xray `error.log` | logrotate weekly × copytruncate | неделя | 8 недель | `/etc/logrotate.d/xray` |
