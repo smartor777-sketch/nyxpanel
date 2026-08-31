@@ -1,0 +1,14 @@
+[Unit]
+Description=VK Eternal Call Keeper
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/opt/vk-call.env
+ExecStart=/opt/pw-venv/bin/python3 /opt/vk-eternal-call.py call $VK_CALL_URL
+Restart=always
+RestartSec=10
+Environment=TERM=xterm
+
+[Install]
+WantedBy=multi-user.target
