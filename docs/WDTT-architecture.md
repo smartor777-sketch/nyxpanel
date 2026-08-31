@@ -601,9 +601,48 @@ docker inspect wdtt-vpn --format='{{.State.Status}}'
 
 ## 9. Ссылки
 
-- [Репозиторий WDTT](https://github.com/amurcanov/proxy-turn-vk-android)
-- [Форк (серверная часть)](https://github.com/michaillepichow/proxy-turn-vk-android-server-fix)
-- [Docker WDTT DOCKER.md](https://github.com/michaillepichow/proxy-turn-vk-android-server-fix/blob/main/docker-wdtt/DOCKER.md)
-- [CapMonster API](https://capmonster.cloud/docs/api)
-- [2Captcha API](https://2captcha.com/api)
-- [Playwright Python](https://playwright.dev/python/)
+### 9.1. Основные репозитории WDTT
+
+| Компонент | Репозиторий | Описание | ⭐ |
+|-----------|-------------|----------|-----|
+| **Оригинал WDTT** | [amurcanov/proxy-turn-vk-android](https://github.com/amurcanov/proxy-turn-vk-android) | Оригинальный репозиторий (archived) | 1.2k |
+| **Форк (сервер)** | [michaillepichow/proxy-turn-vk-android-server-fix](https://github.com/michaillepichow/proxy-turn-vk-android-server-fix) | Docker WDTT, серверная часть | 10 |
+| **CSQTT** | [amurcanov/csqtt](https://github.com/amurcanov/csqtt) | Новое поколение (Rust сервер + Android клиент) | 205 |
+
+### 9.2. Клиенты
+
+| Платформа | Репозиторий | Описание | ⭐ |
+|-----------|-------------|----------|-----|
+| **Android (основной)** | [amurcanov/proxy-turn-vk-android](https://github.com/amurcanov/proxy-turn-vk-android) | WDTT Android клиент (archived) | 1.2k |
+| **Android (qWDTT)** | [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) | qWDTT — самостоятельное развитие | 274 |
+| **Android (улучшенный)** | [Ivan4537/WDTT-Plus](https://github.com/Ivan4537/WDTT-Plus) | Улучшенный форк WDTT | — |
+| **Windows/Linux** | [luminescq/PWDTT](https://github.com/luminescq/PWDTT) | Десктопный клиент (Wails + Go) | 146 |
+| **Windows (нативный)** | [IGOR7276/proxy-turn-vk-windows](https://github.com/IGOR7276/proxy-turn-vk-windows) | Нативный Windows-клиент (Wails) | 29 |
+| **iOS** | [anton48/vk-turn-proxy-ios](https://github.com/anton48/vk-turn-proxy-ios) | iOS клиент (совместимый с WDTT) | — |
+
+### 9.3. Серверные решения
+
+| Решение | Репозиторий | Описание | ⭐ |
+|---------|-------------|----------|-----|
+| **WDTT Docker** | [michaillepichow/.../docker-wdtt](https://github.com/michaillepichow/proxy-turn-vk-android-server-fix/tree/main/docker-wdtt) | Docker контейнер с WDTT сервером | — |
+| **CSQTT сервер** | [amurcanov/csqtt/rust-server](https://github.com/amurcanov/csqtt/tree/main/rust-server) | Rust сервер (новое поколение) | — |
+| **samosvalishe/free-turn-proxy** | [samosvalishe/free-turn-proxy](https://github.com/samosvalishe/free-turn-proxy) | Альтернативные ядра клиента/сервера | — |
+| **Moroka8/vk-turn-proxy** | [Moroka8/vk-turn-proxy](https://github.com/Moroka8/vk-turn-proxy) | Альтернативные ядра | — |
+
+### 9.4. Инструменты и библиотеки
+
+| Инструмент | Ссылка | Назначение |
+|------------|--------|------------|
+| **Playwright** | [playwright.dev/python](https://playwright.dev/python/) | Headless браузер для "вечного звонка" |
+| **CapMonster** | [capmonster.cloud/docs/api](https://capmonster.cloud/docs/api) | Решение VK Smart Captcha |
+| **2Captcha** | [2captcha.com/api](https://2captcha.com/api) | Альтернатива для капчи |
+| **WireGuard** | [wireguard.com](https://wireguard.com/) | Протокол VPN-туннеля |
+| **Docker** | [docker.com](https://docker.com/) | Контейнеризация WDTT сервера |
+
+### 9.5. Сообщества
+
+| Сообщество | Ссылка |
+|------------|--------|
+| **WDTT Telegram** | [t.me/wdttcommunity](https://t.me/wdttcommunity) |
+| **CSQTT Telegram** | [t.me/csqttcommunity](https://t.me/csqttcommunity) |
+| **qWDTT Telegram** | [t.me/qwdtt](https://t.me/qwdtt) |
