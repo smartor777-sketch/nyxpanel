@@ -30,14 +30,49 @@ Telegram User ←→ WDTT Bot (Python) ←→ passwords.json ←→ WDTT Server 
 
 ---
 
-## 3. Роли
+## 3. Роли и доступ
 
-| Роль | Описание | Доступ |
-|------|----------|--------|
-| **Admin** | Владелец сервера (один человек) | Все команды |
-| **User** | Подключённый пользователь | Только `/start`, `/help`, `/guide` |
+| Роль | Описание | Определение |
+|------|----------|-------------|
+| **Admin** | Владелец сервера (один человек) | Telegram ID == ADMIN_ID в `.env` |
+| **User** | Подключённый пользователь | Любой другой Telegram ID |
 
-**Admin определяется по:** Telegram ID в `.env` файле
+### Проверка роли
+
+```python
+def is_admin(user_id: int) -> bool:
+    return user_id == ADMIN_ID
+
+async def handle_command(update, context):
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text("⛔ Нет доступа")
+        return
+    # ... admin logic
+```
+
+### Разные меню
+
+**Admin `/start`:**
+```
+🤖 WDTT VPN Manager
+
+👥 Управление:
+/new — Новый пользователь
+/list — Список пользователей
+/stats — Статистика
+/broadcast — Рассылка
+
+ℹ️ Информация:
+/info — Инструкция для юзера
+```
+
+**User `/start`:**
+```
+👋 Привет! Я помогу подключиться к VPN.
+
+📖 Как подключиться: /guide
+❓ Помощь: /help
+```
 
 ---
 
@@ -47,7 +82,7 @@ Telegram User ←→ WDTT Bot (Python) ←→ passwords.json ←→ WDTT Server 
 
 | Команда | Описание | Аргументы |
 |---------|----------|-----------|
-| `/start` | Главное меню | — |
+| `/start` | Главное меню (admin) | — |
 | `/new` | Создать нового пользователя | — (далее по диалогу) |
 | `/list` | Список всех пользователей | — |
 | `/info <пароль>` | Инструкция для пользователя | Пароль |
@@ -61,9 +96,23 @@ Telegram User ←→ WDTT Bot (Python) ←→ passwords.json ←→ WDTT Server 
 
 | Команда | Описание |
 |---------|----------|
-| `/start` | Приветствие + инструкция |
-| `/help` | Список команд |
-| `/guide` | Подробная инструкция с картинками |
+| `/start` | Приветствие + краткая инструкция |
+| `/help` | Список команд пользователя |
+| `/guide` | Подробная инструкция подключения |
+
+### 4.3. Обработка неизвестных команд
+
+```python
+async def unknown_command(update, context):
+    if is_admin(update.effective_user.id):
+        await update.message.reply_text(
+            "❓ Неизвестная команда. Используйте /start"
+        )
+    else:
+        await update.message.reply_text(
+            "❓ Неизвестная команда. Используйте /help"
+        )
+```
 
 ---
 
