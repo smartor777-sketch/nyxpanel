@@ -24,19 +24,40 @@ def log(msg):
     with open(LOG_FILE, "a") as f:
         f.write(line + "\n")
 
+def is_login_page(title, url):
+    title_lower = title.lower()
+    if "добро пожаловать" in title_lower:
+        return True
+    if "вход" in title_lower and "вконтакте" in title_lower:
+        return True
+    url_lower = url.lower()
+    if "act.login" in url_lower or "login.php" in url_lower:
+        return True
+    return False
+
 async def run_browser(call_url):
-    log(f"Launching Chromium...")
+    log(f"Launching Chromium (new headless)...")
     pw = await async_playwright().start()
     browser = await pw.chromium.launch(
         headless=True,
-        args=["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"]
+        args=[
+            "--no-sandbox",
+            "--disable-gpu",
+            "--disable-dev-shm-usage",
+            "--disable-blink-features=AutomationControlled",
+            "--headless=new",
+        ]
     )
     context = await browser.new_context(
         storage_state=str(SESSION_FILE),
         viewport={"width": 1280, "height": 720},
-        user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36",
-        permissions=["microphone", "camera"]
+        user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        permissions=["microphone", "camera"],
+        locale="ru-RU",
     )
+    await context.add_init_script("""
+        Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+    """)
     page = await context.new_page()
     return pw, browser, context, page
 
@@ -74,13 +95,15 @@ async def call_mode(call_url):
                         log(f"Navigating to call (attempt {attempt})")
                         await page.goto(call_url, wait_until="networkidle", timeout=30000)
                         await asyncio.sleep(3)
-                        title = await page.title()
-                        log(f"Page title: {title}")
 
-                        if "login" in page.url.lower() or "act.login" in page.url.lower():
-                            log("ERROR: Session expired! Re-upload cookies.")
-                            running = False
-                            break
+                    title = await page.title()
+                    url = page.url
+                    log(f"Page title: {title}")
+
+                    if is_login_page(title, url):
+                        log(f"ERROR: Session expired! Title: {title}, URL: {url}")
+                        running = False
+                        break
 
                     await context.storage_state(path=str(SESSION_FILE))
                     log(f"Call alive. Sleeping {CHECK_INTERVAL}s...")
