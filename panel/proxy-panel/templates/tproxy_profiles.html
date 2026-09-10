@@ -67,8 +67,9 @@
       <div class="subtitle">Admin: {{ admin_name }}</div>
     </div>
     <div class="header-actions">
+      <a href="/self/tproxy/guide" class="btn-logout">Guide</a>
       <a href="/self/" class="btn-logout">Back to Users</a>
-      <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">.setAuto</button>
+      <button class="theme-btn" id="themeBtn" onclick="toggleTheme()"></button>
       <a href="/self/logout" class="btn-logout">Sign Out</a>
     </div>
   </div>
@@ -161,12 +162,15 @@
 </div>
 
 <script>
-function toggleTheme() {
-  const t = document.documentElement.getAttribute('data-theme') === 'light' ? '' : 'light';
+const themeKey = 'nyx_theme';
+function getTheme() { return localStorage.getItem(themeKey) || 'dark'; }
+function setTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
-  localStorage.setItem('theme', t);
+  localStorage.setItem(themeKey, t);
+  document.getElementById('themeBtn').textContent = t === 'dark' ? '\u{1F319}' : '\u{2600}\u{FE0F}';
 }
-(function() { const t = localStorage.getItem('theme'); if (t) document.documentElement.setAttribute('data-theme', t); })();
+function toggleTheme() { setTheme(getTheme() === 'dark' ? 'light' : 'dark'); }
+(function() { const t = getTheme(); document.documentElement.setAttribute('data-theme', t); setTheme(t); })();
 
 function showToast(msg, type) {
   let el = document.getElementById('toast');
