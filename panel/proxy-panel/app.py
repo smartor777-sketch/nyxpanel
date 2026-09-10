@@ -771,6 +771,27 @@ def tproxy_info(name):
             return jsonify({"name": name, "host": hostname, "key": p["secret"], "carrier_mode": p.get("carrier_mode", "https")})
     return jsonify({"error": "not found"}), 404
 
+@app.route("/self/tproxy/guide")
+def tproxy_guide():
+    if not is_admin():
+        return redirect("/self/login")
+    guide_path = "/opt/nyxpanel/docs/TPROXY-GUIDE.md"
+    if not os.path.exists(guide_path):
+        guide_path = os.path.join(os.path.dirname(__file__), "..", "..", "docs", "TPROXY-GUIDE.md")
+    content = ""
+    try:
+        with open(guide_path) as f:
+            content = f.read()
+    except Exception:
+        content = "# Guide not found\nThe guide file TPROXY-GUIDE.md was not found on this server."
+    import html as html_mod
+    content = html_mod.escape(content)
+    content = content.replace("\n\n", "</p><p>")
+    content = content.replace("\n", "<br>")
+    content = f"<p>{content}</p>"
+    return render_template("tproxy_guide.html", content=content,
+                           admin_name=session.get("self_user"), version=PANEL_VERSION)
+
 # --- API v1 ---
 @app.route("/self/api/traffic")
 @app.route("/self/api/traffic/<name>")
