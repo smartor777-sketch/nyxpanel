@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """NYX Panel — Flask + SQLite"""
-import subprocess, os, json, re, sqlite3, datetime
+import subprocess, os, json, re, sqlite3, datetime, secrets as pysecrets
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, send_file, flash, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -529,6 +529,247 @@ def self_qr(proto, name=None):
     if not path.exists():
         return "Not found", 404
     return send_file(str(path), mimetype="image/png")
+
+# --- Telegram WEB Proxy (tproxy) ---
+TPROXY_PROFILES_PATH = "/etc/tproxy-server/profiles.json"
+TPROXY_CONFIG_PATH = "/etc/tproxy-server/config.json"
+
+def tproxy_read_profiles():
+    try:
+        with open(TPROXY_PROFILES_PATH) as f:
+            return json.load(f).get("profiles", [])
+    except Exception:
+        return []
+
+def tproxy_write_profiles(profiles):
+    with open(TPROXY_PROFILES_PATH, "w") as f:
+        json.dump({"profiles": profiles}, f, indent=2)
+
+def tproxy_restart():
+    subprocess.run(["systemctl", "restart", "tproxy-server"], capture_output=True, timeout=15)
+
+def tproxy_get_hostname():
+    try:
+        with open(TPROXY_CONFIG_PATH) as f:
+            return json.load(f).get("public_hostname", "")
+    except Exception:
+        return ""
+
+def tproxy_get_used_ports():
+    """Get ports already in use by mtproxy instances."""
+    ports = set()
+    try:
+        result = subprocess.run(
+            ["ss", "-tlnp"], capture_output=True, text=True, timeout=5
+        )
+        for line in result.stdout.splitlines():
+            if "mtproto-proxy" in line:
+                parts = line.split()
+                for p in parts:
+                    if p.endswith(":") or ":" not in p:
+                        continue
+                    port = p.rsplit(":", 1)[-1]
+                    if port.isdigit():
+                        ports.add(int(port))
+    except Exception:
+        pass
+    return ports
+
+def tproxy_find_next_port():
+    """Find next available port starting from 2401."""
+    used = tproxy_get_used_ports()
+    for port in range(2401, 2500):
+        if port not in used:
+            return port
+    return None
+
+def tproxy_create_mtproxy(name, secret, port):
+    """Create an mtproxy instance: env, script, service, start, firewall."""
+    env_path = f"/etc/mtproxy/mtproxy-{name}.env"
+    script_path = f"/usr/local/bin/mtproxy-{name}.sh"
+    service_path = f"/etc/systemd/system/mtproxy-{name}.service"
+    proxy_port = port + 1000
+
+    with open(env_path, "w") as f:
+        f.write(f"MTPROXY_SECRET={secret}\nMTPROXY_WORKERS=1\nMTPROXY_MAX_CONNECTIONS=4096\n")
+
+    with open(script_path, "w") as f:
+        f.write(f"""#!/bin/bash
+set -a
+source {env_path}
+set +a
+exec /opt/MTProxy/objs/bin/mtproto-proxy -u mtproxy -p {proxy_port} -H {port} -S $MTPROXY_SECRET --aes-pwd /etc/mtproxy/proxy-secret /etc/mtproxy/proxy-multi.conf -M $MTPROXY_WORKERS -C $MTPROXY_MAX_CONNECTIONS
+""")
+    os.chmod(script_path, 0o755)
+
+    with open(service_path, "w") as f:
+        f.write(f"""[Unit]
+Description=MTProxy backend (profile {name})
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mtproxy
+Group=mtproxy
+WorkingDirectory=/opt/MTProxy
+ExecStart={script_path}
+Restart=on-failure
+RestartSec=3s
+LimitNOFILE=1048576
+NoNewPrivileges=true
+PrivateDevices=true
+PrivateTmp=true
+ProtectHome=true
+ProtectProc=invisible
+ProtectSystem=strict
+
+[Install]
+WantedBy=multi-user.target
+""")
+
+    subprocess.run(["systemctl", "daemon-reload"], capture_output=True, timeout=10)
+    subprocess.run(["systemctl", "enable", f"mtproxy-{name}"], capture_output=True, timeout=10)
+    subprocess.run(["systemctl", "start", f"mtproxy-{name}"], capture_output=True, timeout=10)
+    tproxy_update_firewall()
+
+def tproxy_delete_mtproxy(name):
+    """Stop and remove an mtproxy instance."""
+    subprocess.run(["systemctl", "stop", f"mtproxy-{name}"], capture_output=True, timeout=10)
+    subprocess.run(["systemctl", "disable", f"mtproxy-{name}"], capture_output=True, timeout=10)
+    subprocess.run(["systemctl", "daemon-reload"], capture_output=True, timeout=10)
+    for path in [
+        f"/etc/mtproxy/mtproxy-{name}.env",
+        f"/usr/local/bin/mtproxy-{name}.sh",
+        f"/etc/systemd/system/mtproxy-{name}.service",
+    ]:
+        try:
+            os.remove(path)
+        except Exception:
+            pass
+    tproxy_update_firewall()
+
+def tproxy_update_firewall():
+    """Update nftables to block all mtproxy backend ports from external access."""
+    used = tproxy_get_used_ports()
+    used.add(8888)
+    ports_str = ", ".join(str(p) for p in sorted(used))
+    cmd = f"nft flush chain inet tproxy_backend local_backend && nft add rule inet tproxy_backend local_backend iifname != lo tcp dport {{ {ports_str} }} drop"
+    subprocess.run(cmd, shell=True, capture_output=True, timeout=10)
+
+@app.route("/self/tproxy")
+def tproxy_list():
+    if not is_admin():
+        return redirect("/self/login")
+    profiles = tproxy_read_profiles()
+    hostname = tproxy_get_hostname()
+    return render_template("tproxy_profiles.html", profiles=profiles, hostname=hostname,
+                           admin_name=session.get("self_user"), version=PANEL_VERSION)
+
+@app.route("/self/tproxy/add", methods=["POST"])
+def tproxy_add():
+    if not is_admin():
+        return redirect("/self/login")
+    name = request.form.get("name", "").strip()
+    secret = request.form.get("secret", "").strip()
+    carrier = request.form.get("carrier_mode", "https").strip()
+    if carrier not in ("https", "https-lanes", "websocket", "websocket-lanes"):
+        carrier = "https"
+    if not name or not re.match(r'^[a-zA-Z0-9_-]+$', name):
+        flash("Invalid profile name", "error")
+        return redirect("/self/tproxy")
+    profiles = tproxy_read_profiles()
+    if any(p["name"] == name for p in profiles):
+        flash(f"Profile '{name}' already exists", "error")
+        return redirect("/self/tproxy")
+    if not secret:
+        secret = pysecrets.token_hex(16)
+    if len(secret) not in (32, 34) or not re.match(r'^[0-9a-f]+$', secret):
+        flash("Secret must be 32 hex chars (optionally prefixed with dd)", "error")
+        return redirect("/self/tproxy")
+    port = tproxy_find_next_port()
+    if not port:
+        flash("No available ports for new mtproxy instance", "error")
+        return redirect("/self/tproxy")
+    profiles.append({"name": name, "secret": secret, "backend": f"127.0.0.1:{port}", "carrier_mode": carrier})
+    tproxy_write_profiles(profiles)
+    tproxy_create_mtproxy(name, secret, port)
+    tproxy_restart()
+    flash(f"Profile '{name}' created (mtproxy on :{port})", "ok")
+    return redirect("/self/tproxy")
+
+@app.route("/self/tproxy/<name>/delete", methods=["POST"])
+def tproxy_delete(name):
+    if not is_admin():
+        return redirect("/self/login")
+    profiles = tproxy_read_profiles()
+    target = next((p for p in profiles if p["name"] == name), None)
+    if target and name != "default":
+        tproxy_delete_mtproxy(name)
+    profiles = [p for p in profiles if p["name"] != name]
+    tproxy_write_profiles(profiles)
+    tproxy_restart()
+    flash(f"Profile '{name}' deleted", "ok")
+    return redirect("/self/tproxy")
+
+@app.route("/self/tproxy/<name>/set-mode", methods=["POST"])
+def tproxy_set_mode(name):
+    if not is_admin():
+        return redirect("/self/login")
+    carrier = request.form.get("carrier_mode", "https").strip()
+    if carrier not in ("https", "https-lanes", "websocket", "websocket-lanes"):
+        flash("Invalid carrier mode", "error")
+        return redirect("/self/tproxy")
+    profiles = tproxy_read_profiles()
+    for p in profiles:
+        if p["name"] == name:
+            p["carrier_mode"] = carrier
+            break
+    tproxy_write_profiles(profiles)
+    tproxy_restart()
+    flash(f"Mode changed to {carrier}", "ok")
+    return redirect("/self/tproxy")
+
+@app.route("/self/tproxy/<name>/edit", methods=["POST"])
+def tproxy_edit(name):
+    if not is_admin():
+        return redirect("/self/login")
+    secret = request.form.get("secret", "").strip()
+    carrier = request.form.get("carrier_mode", "https").strip()
+    if carrier not in ("https", "https-lanes", "websocket", "websocket-lanes"):
+        carrier = "https"
+    profiles = tproxy_read_profiles()
+    for p in profiles:
+        if p["name"] == name:
+            if secret and secret != p["secret"]:
+                if len(secret) not in (32, 34) or not re.match(r'^[0-9a-f]+$', secret):
+                    flash("Secret must be 32 hex chars", "error")
+                    return redirect("/self/tproxy")
+                tproxy_delete_mtproxy(name)
+                port = tproxy_find_next_port()
+                if not port:
+                    flash("No available ports", "error")
+                    return redirect("/self/tproxy")
+                p["secret"] = secret
+                p["backend"] = f"127.0.0.1:{port}"
+                tproxy_create_mtproxy(name, secret, port)
+            p["carrier_mode"] = carrier
+            break
+    tproxy_write_profiles(profiles)
+    tproxy_restart()
+    flash(f"Profile '{name}' updated", "ok")
+    return redirect("/self/tproxy")
+
+@app.route("/self/tproxy/<name>/info")
+def tproxy_info(name):
+    if not is_admin():
+        return redirect("/self/login")
+    profiles = tproxy_read_profiles()
+    hostname = tproxy_get_hostname()
+    for p in profiles:
+        if p["name"] == name:
+            return jsonify({"name": name, "host": hostname, "key": p["secret"], "carrier_mode": p.get("carrier_mode", "https")})
+    return jsonify({"error": "not found"}), 404
 
 # --- API v1 ---
 @app.route("/self/api/traffic")
