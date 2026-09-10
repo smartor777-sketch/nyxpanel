@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#0c1a2d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
+<title>NYX Panel - Telegram Proxy</title>
+<style>
+  :root { --bg: #0c1a2d; --fg: #d4e5f7; --card: #132640; --border: #1e3a5f; --input-bg: #132640; --heading: #7dd3fc; --muted: #93c5fd; --accent: #38bdf8; --danger: #f87171; --flash-ok-bg: #064e3b; --flash-ok-border: #059669; --flash-ok-fg: #34d399; --flash-err-bg: #450a0a; --flash-err-border: #dc2626; --flash-err-fg: #f87171; --btn-add-bg: #1e3a5f; --btn-add-fg: #93c5fd; --btn-add-border: #2563eb; --btn-del-bg: #450a0a; --btn-del-fg: #fca5a5; --btn-del-border: #dc2626; --btn-secondary-bg: #1e3a5f; --btn-secondary-fg: #93c5fd; --btn-secondary-border: #2563eb; --btn-logout-bg: #1e293b; --btn-logout-fg: #94a3b8; --btn-logout-border: #334155; --btn-theme-bg: #1e293b; --btn-theme-fg: #94a3b8; --btn-theme-border: #334155; --proto-tg: #229ed9; }
+  [data-theme="light"] { --bg: #eaf2fb; --fg: #1e3a5f; --card: #ffffff; --border: #c5ddf0; --input-bg: #dceaf7; --heading: #0358a8; --muted: #5a7fa0; --accent: #0284c7; --danger: #dc2626; --flash-ok-bg: #ecfdf5; --flash-ok-border: #6ee7b7; --flash-ok-fg: #047857; --flash-err-bg: #fef2f2; --flash-err-border: #fca5a5; --flash-err-fg: #dc2626; --btn-add-bg: #dbeafe; --btn-add-fg: #1e40af; --btn-add-border: #93c5fd; --btn-del-bg: #fee2e2; --btn-del-fg: #991b1b; --btn-del-border: #fca5a5; --btn-secondary-bg: #e8eef6; --btn-secondary-fg: #334155; --btn-secondary-border: #b8c9dc; --btn-logout-bg: #f1f5f9; --btn-logout-fg: #475569; --btn-logout-border: #cbd5e1; --btn-theme-bg: #f1f5f9; --btn-theme-fg: #475569; --btn-theme-border: #cbd5e1; --proto-tg: #0284c7; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--fg); padding: 2rem; }
+  .container { max-width: 1200px; margin: 0 auto; }
+  h1 { color: var(--heading); margin-bottom: 0.2rem; }
+  .subtitle { color: var(--muted); margin-bottom: 1.5rem; font-size: 0.9rem; }
+  h2 { color: var(--muted); margin: 1rem 0; font-size: 1.2rem; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; }
+  .flash { padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; }
+  .flash.ok { background: var(--flash-ok-bg); border: 1px solid var(--flash-ok-border); color: var(--flash-ok-fg); }
+  .flash.error { background: var(--flash-err-bg); border: 1px solid var(--flash-err-border); color: var(--flash-err-fg); }
+  form { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+  input, select { padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid var(--border); background: var(--input-bg); color: var(--fg); font-size: 0.9rem; }
+  input:focus { outline: none; border-color: var(--heading); }
+  button { cursor: pointer; background: var(--btn-add-bg); color: var(--btn-add-fg); border: 1px solid var(--btn-add-border); font-weight: 600; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.9rem; }
+  button:hover { filter: brightness(0.95); }
+  button.danger { background: var(--btn-del-bg); color: var(--btn-del-fg); border-color: var(--btn-del-border); }
+  button.secondary { background: var(--btn-secondary-bg); color: var(--btn-secondary-fg); border-color: var(--btn-secondary-border); }
+  button.small { padding: 0.25rem 0.6rem; font-size: 0.78rem; border-radius: 5px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; }
+  .header-bar { display: flex; justify-content: space-between; align-items: center; }
+  .header-actions { display: flex; gap: 0.5rem; align-items: center; }
+  .btn-logout { background: var(--btn-logout-bg); color: var(--btn-logout-fg); border: 1px solid var(--btn-logout-border); padding: 0.4rem 1rem; border-radius: 6px; font-size: 0.85rem; cursor: pointer; text-decoration: none; }
+  .btn-logout:hover { filter: brightness(0.95); }
+  .theme-btn { background: var(--btn-theme-bg); color: var(--btn-theme-fg); border: 1px solid var(--btn-theme-border); padding: 0.3rem 0.6rem; font-size: 1rem; cursor: pointer; border-radius: 6px; }
+  .theme-btn:hover { filter: brightness(0.95); }
+  .secret-cell { font-family: monospace; font-size: 0.8rem; word-break: break-all; max-width: 200px; }
+  .link-cell { font-size: 0.78rem; word-break: break-all; max-width: 300px; }
+  .link-cell a { color: var(--accent); text-decoration: none; }
+  .link-cell a:hover { text-decoration: underline; }
+  .actions { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+  .actions form { display: inline; }
+  .copy-btn { background: var(--btn-secondary-bg); color: var(--btn-secondary-fg); border: 1px solid var(--btn-secondary-border); font-size: 0.75rem; padding: 0.2rem 0.5rem; cursor: pointer; border-radius: 4px; }
+  .copy-btn:hover { filter: brightness(0.95); }
+  .conn-info { font-family: monospace; font-size: 0.8rem; }
+  .conn-label { color: var(--muted); font-size: 0.7rem; display: block; }
+  .conn-value { color: var(--fg); font-weight: 600; }
+  .mode-btn { background: var(--btn-off-bg); color: var(--btn-off-fg); border: 1px solid var(--btn-off-border); font-size: 0.75rem; padding: 0.2rem 0.5rem; cursor: pointer; border-radius: 4px; font-weight: 600; }
+  .mode-btn:hover { filter: brightness(0.95); }
+  .mode-btn.active { background: var(--proto-yes); color: #fff; border-color: var(--proto-yes); }
+  .footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 1.5rem 0 0.5rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+  .toast { position: fixed; bottom: 2rem; right: 2rem; padding: 0.75rem 1.5rem; border-radius: 8px; font-size: 0.9rem; display: none; z-index: 999; }
+  .toast.ok { background: var(--flash-ok-bg); color: var(--flash-ok-fg); border: 1px solid var(--flash-ok-border); }
+  .toast.err { background: var(--flash-err-bg); color: var(--flash-err-fg); border: 1px solid var(--flash-err-border); }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header-bar">
+    <div>
+      <h1>Telegram Proxy <span style="font-size:0.6rem;color:var(--muted);font-weight:normal">tproxy</span></h1>
+      <div class="subtitle">Admin: {{ admin_name }}</div>
+    </div>
+    <div class="header-actions">
+      <a href="/self/" class="btn-logout">Back to Users</a>
+      <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">.setAuto</button>
+      <a href="/self/logout" class="btn-logout">Sign Out</a>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, msg in messages %}
+        <div class="flash {{ category }}">{{ msg }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="card">
+    <h2>Add Profile</h2>
+    <form method="POST" action="/self/tproxy/add">
+      <input name="name" placeholder="Profile name" pattern="[a-zA-Z0-9_-]+" required>
+      <input name="secret" placeholder="Secret (auto if empty)" maxlength="34">
+      <select name="carrier_mode">
+        <option value="https">HTTPS</option>
+        <option value="https-lanes">HTTPS Lanes</option>
+        <option value="websocket">WebSocket</option>
+        <option value="websocket-lanes">WebSocket Lanes</option>
+      </select>
+      <button type="submit">Add</button>
+    </form>
+    <p style="color:var(--muted);font-size:0.78rem;margin-top:0.5rem">
+      Telegram: Settings → Proxy → Add proxy → WEB → enter <strong>Host</strong> and <strong>Key</strong> manually
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>Profiles ({{ profiles|length }})</h2>
+    {% if profiles %}
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Host</th>
+          <th>Key</th>
+          <th>Backend</th>
+          <th>Mode</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in profiles %}
+        <tr>
+          <td><strong>{{ p.name }}</strong></td>
+          <td class="conn-info">
+            <span class="conn-value">{{ hostname }}</span>
+          </td>
+          <td class="secret-cell">{{ p.secret }}</td>
+          <td>{{ p.get('backend', '127.0.0.1:2398') }}</td>
+          <td>{{ p.get('carrier_mode', 'https') }}</td>
+          <td class="actions">
+            <button class="copy-btn" onclick="copyKey('{{ p.secret }}')">Copy</button>
+            <form method="POST" action="/self/tproxy/{{ p.name }}/set-mode" style="display:inline">
+              <input type="hidden" name="carrier_mode" value="https">
+              <button type="submit" class="mode-btn {{ 'active' if p.get('carrier_mode') == 'https' else '' }}">HTTPS</button>
+            </form>
+            <form method="POST" action="/self/tproxy/{{ p.name }}/set-mode" style="display:inline">
+              <input type="hidden" name="carrier_mode" value="https-lanes">
+              <button type="submit" class="mode-btn {{ 'active' if p.get('carrier_mode') == 'https-lanes' else '' }}">Lanes</button>
+            </form>
+            <form method="POST" action="/self/tproxy/{{ p.name }}/set-mode" style="display:inline">
+              <input type="hidden" name="carrier_mode" value="websocket">
+              <button type="submit" class="mode-btn {{ 'active' if p.get('carrier_mode') == 'websocket' else '' }}">WS</button>
+            </form>
+            <form method="POST" action="/self/tproxy/{{ p.name }}/set-mode" style="display:inline">
+              <input type="hidden" name="carrier_mode" value="websocket-lanes">
+              <button type="submit" class="mode-btn {{ 'active' if p.get('carrier_mode') == 'websocket-lanes' else '' }}">WS Lanes</button>
+            </form>
+            <form method="POST" action="/self/tproxy/{{ p.name }}/delete" style="display:inline" onsubmit="return confirm('Delete profile {{ p.name }}?')">
+              <button type="submit" class="danger small">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color:var(--muted);font-size:0.9rem">No profiles yet. Create one above.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="footer">
+  &copy; 2026 Merlin.<br>
+  <em>Crafting Dreams &amp; Magic</em>
+</div>
+
+<script>
+function toggleTheme() {
+  const t = document.documentElement.getAttribute('data-theme') === 'light' ? '' : 'light';
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem('theme', t);
+}
+(function() { const t = localStorage.getItem('theme'); if (t) document.documentElement.setAttribute('data-theme', t); })();
+
+function showToast(msg, type) {
+  let el = document.getElementById('toast');
+  if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; document.body.appendChild(el); }
+  el.textContent = msg;
+  el.className = 'toast ' + (type || 'ok');
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3000);
+}
+
+async function copyKey(key) {
+  try {
+    await navigator.clipboard.writeText(key);
+    showToast('Key copied!', 'ok');
+  } catch(e) { showToast('Failed to copy', 'err'); }
+}
+</script>
+</body>
+</html>
