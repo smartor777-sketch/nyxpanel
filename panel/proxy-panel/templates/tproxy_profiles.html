@@ -37,19 +37,13 @@
   .header-actions { display: flex; gap: 0.5rem; align-items: center; }
   .btn-logout { background: var(--btn-logout-bg); color: var(--btn-logout-fg); border: 1px solid var(--btn-logout-border); padding: 0.4rem 1rem; border-radius: 6px; font-size: 0.85rem; cursor: pointer; text-decoration: none; }
   .btn-logout:hover { filter: brightness(0.95); }
-  .theme-btn { background: var(--btn-theme-bg); color: var(--btn-theme-fg); border: 1px solid var(--btn-theme-border); padding: 0.3rem 0.6rem; font-size: 1rem; cursor: pointer; border-radius: 6px; }
-  .theme-btn:hover { filter: brightness(0.95); }
+  .theme-btn, .lang-btn { background: var(--btn-theme-bg); color: var(--btn-theme-fg); border: 1px solid var(--btn-theme-border); padding: 0.3rem 0.6rem; font-size: 1rem; cursor: pointer; border-radius: 6px; font-weight: 600; }
+  .theme-btn:hover, .lang-btn:hover { filter: brightness(0.95); }
   .secret-cell { font-family: monospace; font-size: 0.8rem; word-break: break-all; max-width: 200px; }
-  .link-cell { font-size: 0.78rem; word-break: break-all; max-width: 300px; }
-  .link-cell a { color: var(--accent); text-decoration: none; }
-  .link-cell a:hover { text-decoration: underline; }
   .actions { display: flex; gap: 0.25rem; flex-wrap: wrap; }
   .actions form { display: inline; }
   .copy-btn { background: var(--btn-secondary-bg); color: var(--btn-secondary-fg); border: 1px solid var(--btn-secondary-border); font-size: 0.75rem; padding: 0.2rem 0.5rem; cursor: pointer; border-radius: 4px; }
   .copy-btn:hover { filter: brightness(0.95); }
-  .conn-info { font-family: monospace; font-size: 0.8rem; }
-  .conn-label { color: var(--muted); font-size: 0.7rem; display: block; }
-  .conn-value { color: var(--fg); font-weight: 600; }
   .mode-btn { background: var(--btn-off-bg); color: var(--btn-off-fg); border: 1px solid var(--btn-off-border); font-size: 0.75rem; padding: 0.2rem 0.5rem; cursor: pointer; border-radius: 4px; font-weight: 600; }
   .mode-btn:hover { filter: brightness(0.95); }
   .mode-btn.active { background: var(--proto-yes); color: #fff; border-color: var(--proto-yes); }
@@ -64,13 +58,14 @@
   <div class="header-bar">
     <div>
       <h1>Telegram Proxy <span style="font-size:0.6rem;color:var(--muted);font-weight:normal">tproxy</span></h1>
-      <div class="subtitle">Admin: {{ admin_name }}</div>
+      <div class="subtitle"><span data-i18n="admin">Админ</span>: {{ admin_name }}</div>
     </div>
     <div class="header-actions">
-      <a href="/self/tproxy/guide" class="btn-logout">Guide</a>
-      <a href="/self/" class="btn-logout">Back to Users</a>
+      <a href="/self/tproxy/guide" class="btn-logout" data-i18n="guide">Гайд</a>
+      <a href="/self/" class="btn-logout" data-i18n="backToUsers">К пользователям</a>
+      <button class="lang-btn" id="langBtn" onclick="toggleLang()"></button>
       <button class="theme-btn" id="themeBtn" onclick="toggleTheme()"></button>
-      <a href="/self/logout" class="btn-logout">Sign Out</a>
+      <a href="/self/logout" class="btn-logout" data-i18n="signOut">Выйти</a>
     </div>
   </div>
 
@@ -83,49 +78,47 @@
   {% endwith %}
 
   <div class="card">
-    <h2>Add Profile</h2>
+    <h2 data-i18n="addProfile">Добавить профиль</h2>
     <form method="POST" action="/self/tproxy/add">
-      <input name="name" placeholder="Profile name" pattern="[a-zA-Z0-9_-]+" required>
-      <input name="secret" placeholder="Secret (auto if empty)" maxlength="34">
+      <input name="name" data-i18n-placeholder="profileName" placeholder="Имя профиля" pattern="[a-zA-Z0-9_-]+" required>
+      <input name="secret" data-i18n-placeholder="secretPH" placeholder="Секрет (авто если пусто)" maxlength="34">
       <select name="carrier_mode">
         <option value="https">HTTPS</option>
         <option value="https-lanes">HTTPS Lanes</option>
         <option value="websocket">WebSocket</option>
         <option value="websocket-lanes">WebSocket Lanes</option>
       </select>
-      <button type="submit">Add</button>
+      <button type="submit" data-i18n="add">Добавить</button>
     </form>
-    <p style="color:var(--muted);font-size:0.78rem;margin-top:0.5rem">
-      Telegram: Settings → Proxy → Add proxy → WEB → enter <strong>Host</strong> and <strong>Key</strong> manually
+    <p style="color:var(--muted);font-size:0.78rem;margin-top:0.5rem" data-i18n="setupHint">
+      Telegram: Настройки → Прокси → Добавить прокси → WEB → введите <strong>Host</strong> и <strong>Key</strong> вручную
     </p>
   </div>
 
   <div class="card">
-    <h2>Profiles ({{ profiles|length }})</h2>
+    <h2><span data-i18n="profiles">Профили</span> ({{ profiles|length }})</h2>
     {% if profiles %}
     <table>
       <thead>
         <tr>
-          <th>Name</th>
+          <th data-i18n="colName">Имя</th>
           <th>Host</th>
-          <th>Key</th>
-          <th>Backend</th>
-          <th>Mode</th>
-          <th>Actions</th>
+          <th data-i18n="colKey">Ключ</th>
+          <th data-i18n="colBackend">Backend</th>
+          <th data-i18n="colMode">Режим</th>
+          <th data-i18n="colActions">Действия</th>
         </tr>
       </thead>
       <tbody>
         {% for p in profiles %}
         <tr>
           <td><strong>{{ p.name }}</strong></td>
-          <td class="conn-info">
-            <span class="conn-value">{{ hostname }}</span>
-          </td>
+          <td style="font-family:monospace;font-size:0.8rem">{{ hostname }}</td>
           <td class="secret-cell">{{ p.secret }}</td>
           <td>{{ p.get('backend', '127.0.0.1:2398') }}</td>
           <td>{{ p.get('carrier_mode', 'https') }}</td>
           <td class="actions">
-            <button class="copy-btn" onclick="copyKey('{{ p.secret }}')">Copy</button>
+            <button class="copy-btn" onclick="copyKey('{{ p.secret }}')" data-i18n="copy">Копировать</button>
             <form method="POST" action="/self/tproxy/{{ p.name }}/set-mode" style="display:inline">
               <input type="hidden" name="carrier_mode" value="https">
               <button type="submit" class="mode-btn {{ 'active' if p.get('carrier_mode') == 'https' else '' }}">HTTPS</button>
@@ -142,8 +135,8 @@
               <input type="hidden" name="carrier_mode" value="websocket-lanes">
               <button type="submit" class="mode-btn {{ 'active' if p.get('carrier_mode') == 'websocket-lanes' else '' }}">WS Lanes</button>
             </form>
-            <form method="POST" action="/self/tproxy/{{ p.name }}/delete" style="display:inline" onsubmit="return confirm('Delete profile {{ p.name }}?')">
-              <button type="submit" class="danger small">Delete</button>
+            <form method="POST" action="/self/tproxy/{{ p.name }}/delete" style="display:inline" onsubmit="return confirm(_('confirmDelete') + ' {{ p.name }}?')">
+              <button type="submit" class="danger small" data-i18n="delete">Удалить</button>
             </form>
           </td>
         </tr>
@@ -151,7 +144,7 @@
       </tbody>
     </table>
     {% else %}
-    <p style="color:var(--muted);font-size:0.9rem">No profiles yet. Create one above.</p>
+    <p style="color:var(--muted);font-size:0.9rem" data-i18n="noProfiles">Профилей пока нет. Создайте выше.</p>
     {% endif %}
   </div>
 </div>
@@ -163,6 +156,27 @@
 
 <script>
 const themeKey = 'nyx_theme';
+const langKey = 'nyx_lang';
+
+const _t = {
+  ru: {
+    admin: 'Админ', guide: 'Гайд', backToUsers: 'К пользователям', signOut: 'Выйти',
+    addProfile: 'Добавить профиль', profileName: 'Имя профиля', secretPH: 'Секрет (авто если пусто)',
+    add: 'Добавить', setupHint: 'Telegram: Настройки → Прокси → Добавить прокси → WEB → введите Host и Key вручную',
+    profiles: 'Профили', colName: 'Имя', colKey: 'Ключ', colBackend: 'Backend', colMode: 'Режим', colActions: 'Действия',
+    copy: 'Копировать', delete: 'Удалить', noProfiles: 'Профилей пока нет. Создайте выше.',
+    confirmDelete: 'Удалить профиль', copied: 'Ключ скопирован!', copyFail: 'Не удалось скопировать'
+  },
+  en: {
+    admin: 'Admin', guide: 'Guide', backToUsers: 'Back to Users', signOut: 'Sign Out',
+    addProfile: 'Add Profile', profileName: 'Profile name', secretPH: 'Secret (auto if empty)',
+    add: 'Add', setupHint: 'Telegram: Settings → Proxy → Add proxy → WEB → enter Host and Key manually',
+    profiles: 'Profiles', colName: 'Name', colKey: 'Key', colBackend: 'Backend', colMode: 'Mode', colActions: 'Actions',
+    copy: 'Copy', delete: 'Delete', noProfiles: 'No profiles yet. Create one above.',
+    confirmDelete: 'Delete profile', copied: 'Key copied!', copyFail: 'Failed to copy'
+  }
+};
+
 function getTheme() { return localStorage.getItem(themeKey) || 'dark'; }
 function setTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
@@ -170,7 +184,24 @@ function setTheme(t) {
   document.getElementById('themeBtn').textContent = t === 'dark' ? '\u{1F319}' : '\u{2600}\u{FE0F}';
 }
 function toggleTheme() { setTheme(getTheme() === 'dark' ? 'light' : 'dark'); }
-(function() { const t = getTheme(); document.documentElement.setAttribute('data-theme', t); setTheme(t); })();
+
+function getLang() { return localStorage.getItem(langKey) || 'ru'; }
+function setLang(l) {
+  localStorage.setItem(langKey, l);
+  document.getElementById('langBtn').textContent = l === 'ru' ? 'EN' : 'RU';
+  applyLang();
+}
+function toggleLang() { setLang(getLang() === 'ru' ? 'en' : 'ru'); }
+function _(k) { const v = _t[getLang()][k]; return v !== undefined ? v : k; }
+function applyLang() {
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = _(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { el.placeholder = _(el.dataset.i18nPlaceholder); });
+}
+
+(function() {
+  setTheme(getTheme());
+  setLang(getLang());
+})();
 
 function showToast(msg, type) {
   let el = document.getElementById('toast');
@@ -184,8 +215,8 @@ function showToast(msg, type) {
 async function copyKey(key) {
   try {
     await navigator.clipboard.writeText(key);
-    showToast('Key copied!', 'ok');
-  } catch(e) { showToast('Failed to copy', 'err'); }
+    showToast(_('copied'), 'ok');
+  } catch(e) { showToast(_('copyFail'), 'err'); }
 }
 </script>
 </body>

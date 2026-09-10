@@ -24,8 +24,8 @@
   .header-actions { display: flex; gap: 0.5rem; align-items: center; }
   .btn-logout { background: var(--btn-logout-bg); color: var(--btn-logout-fg); border: 1px solid var(--btn-logout-border); padding: 0.4rem 1rem; border-radius: 6px; font-size: 0.85rem; cursor: pointer; text-decoration: none; }
   .btn-logout:hover { filter: brightness(0.95); }
-  .theme-btn { background: var(--btn-theme-bg); color: var(--btn-theme-fg); border: 1px solid var(--btn-theme-border); padding: 0.3rem 0.6rem; font-size: 1rem; cursor: pointer; border-radius: 6px; }
-  .theme-btn:hover { filter: brightness(0.95); }
+  .theme-btn, .lang-btn { background: var(--btn-theme-bg); color: var(--btn-theme-fg); border: 1px solid var(--btn-theme-border); padding: 0.3rem 0.6rem; font-size: 1rem; cursor: pointer; border-radius: 6px; font-weight: 600; }
+  .theme-btn:hover, .lang-btn:hover { filter: brightness(0.95); }
   code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85rem; font-family: 'SF Mono', 'Fira Code', monospace; }
   pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; padding: 1rem; overflow-x: auto; margin: 0.8rem 0; font-size: 0.82rem; line-height: 1.5; }
   pre code { background: none; padding: 0; }
@@ -45,23 +45,177 @@
 <div class="container">
   <div class="header-bar">
     <div>
-      <h1>WEB Proxy Guide</h1>
-      <div class="subtitle">Carrier modes, architecture, troubleshooting</div>
+      <h1 data-i18n="title">WEB Proxy — Гайд</h1>
+      <div class="subtitle" data-i18n="subtitle">Режимы работы, архитектура, устранение проблем</div>
     </div>
     <div class="header-actions">
-      <a href="/self/tproxy" class="btn-logout">Back to Profiles</a>
+      <a href="/self/tproxy" class="btn-logout" data-i18n="backToProfiles">К профилям</a>
+      <button class="lang-btn" id="langBtn" onclick="toggleLang()"></button>
       <button class="theme-btn" id="themeBtn" onclick="toggleTheme()"></button>
     </div>
   </div>
 
-  <div class="card">
-    <h2>Architecture</h2>
-    <p>Telegram WEB Proxy consists of 3 components:</p>
-    <pre><code>Telegram Client
+  <div class="card" id="card-arch">
+    <h2 data-i18n="h_arch">Архитектура</h2>
+    <div id="content-arch"></div>
+  </div>
+
+  <div class="card" id="card-modes">
+    <h2 data-i18n="h_modes">Режимы транспорта (Carrier Modes)</h2>
+    <div id="content-modes"></div>
+  </div>
+
+  <div class="card" id="card-client">
+    <h2 data-i18n="h_client">Настройка клиента</h2>
+    <div id="content-client"></div>
+  </div>
+
+  <div class="card" id="card-troubleshoot">
+    <h2 data-i18n="h_troubleshoot">Устранение проблем</h2>
+    <div id="content-troubleshoot"></div>
+  </div>
+
+  <div class="card" id="card-commands">
+    <h2 data-i18n="h_commands">Команды</h2>
+    <div id="content-commands"></div>
+  </div>
+</div>
+
+<div class="footer">
+  &copy; 2026 Merlin.<br>
+  <em>Crafting Dreams &amp; Magic</em>
+</div>
+
+<script>
+const themeKey = 'nyx_theme';
+const langKey = 'nyx_lang';
+
+const guide = {
+  ru: {
+    title: 'WEB Proxy \u2014 Гайд',
+    subtitle: 'Режимы работы, архитектура, устранение проблем',
+    backToProfiles: 'К профилям',
+    h_arch: 'Архитектура', h_modes: 'Режимы транспорта (Carrier Modes)',
+    h_client: 'Настройка клиента', h_troubleshoot: 'Устранение проблем', h_commands: 'Команды',
+
+    arch: `<p>Telegram WEB Proxy состоит из 3 компонентов:</p>
+<pre><code>Telegram клиент
+    |  MTProto framing + шифрование
+    v
+WebView (локальный адаптер)
+    |  multiplexed streams (логические сессии)
+    v
+carrier (HTTPS / WebSocket)  &lt;-- carrier_mode определяет транспорт
+    |
+    v
+tproxy-server (:8090)  &lt;-- Go relay
+    |  TCP
+    v
+mtproto-proxy (:2398)  &lt;-- official MTProxy от Telegram
+    |  MTProto
+    v
+Telegram DC (91.108.x.x:8888)</code></pre>
+<h3>Два типа секретов</h3>
+<table>
+<tr><th>Где используется</th><th>Формат</th><th>Где задаётся</th></tr>
+<tr><td><code>mtproto-proxy -S</code></td><td>32 hex</td><td><code>mtproxy.env</code></td></tr>
+<tr><td><code>profiles.json secret</code></td><td>32 hex</td><td><code>profiles.json</code></td></tr>
+</table>
+<p><strong>Главное правило:</strong> Secret профиля <strong>должен совпадать</strong> с <code>-S</code> секретом mtproto-proxy, к которому подключается этот профиль. Если секреты не совпадают — соединение устанавливается, но трафик не проходит.</p>
+<p>Каждый профиль получает собственный mtproxy-инстанс на уникальном порту автоматически.</p>`,
+
+    modes: `<h3><code>https</code> (по умолчанию)</h3>
+<p>Все логические сессии мультиплексируются в <strong>одном</strong> HTTPS-соединении.</p>
+<ul>
+<li>Простейший режим, максимальная совместимость</li>
+<li>При большой нагрузке одно соединение становится узким местом</li>
+<li>Рекомендация: небольшие серверы, тестирование</li>
+</ul>
+<h3><code>https-lanes</code></h3>
+<p>Каждая логическая сессия получает <strong>свой</strong> HTTPS-запрос (независимые «дорожки»).</p>
+<ul>
+<li>Лучшая изоляция между сессиями</li>
+<li>Проще балансировать нагрузку</li>
+<li>Рекомендация: умеренная нагрузка</li>
+</ul>
+<h3><code>websocket</code></h3>
+<p>Одно мультиплексированное <strong>WebSocket</strong>-соединение на все сессии.</p>
+<ul>
+<li>Нет overhead HTTP-запросов (соединение устанавливается один раз)</li>
+<li>Полноценный двунаправленный канал — ниже латентность</li>
+<li>Может не работать за некоторыми прокси/CDN (блокируют upgrade-заголовок)</li>
+<li>Рекомендация: постоянные подключения без промежуточных прокси</li>
+</ul>
+<h3><code>websocket-lanes</code></h3>
+<p>Каждая сессия — <strong>отдельный</strong> WebSocket.</p>
+<ul>
+<li>Максимальная изоляция + низкий overhead WebSocket</li>
+<li>Больше ресурсов (отдельное WS-соединение на каждую сессию)</li>
+<li>Рекомендация: высоконагруженные серверы, изоляция пользователей</li>
+</ul>
+<h3>Сравнение</h3>
+<table>
+<tr><th>Режим</th><th>Мультиплекс</th><th>Изоляция</th><th>HTTP overhead</th><th>Ресурсы</th><th>За прокси/CDN</th></tr>
+<tr><td><code>https</code></td><td>Одно соединение</td><td>Низкая</td><td>Средний</td><td>Минимальные</td><td>Да</td></tr>
+<tr><td><code>https-lanes</code></td><td>N соединений</td><td>Средняя</td><td>Высокий</td><td>Средние</td><td>Да</td></tr>
+<tr><td><code>websocket</code></td><td>Одно WS</td><td>Низкая</td><td>Низкий</td><td>Средние</td><td>Осторожно</td></tr>
+<tr><td><code>websocket-lanes</code></td><td>N WS</td><td>Высокая</td><td>Низкий</td><td>Высокие</td><td>Осторожно</td></tr>
+</table>
+<h3>Как выбрать</h3>
+<ol>
+<li><strong>Начните с <code>https</code></strong> — дефолт, работает везде</li>
+<li>Нужна <strong>изоляция</strong> пользователей? → <code>https-lanes</code> или <code>websocket-lanes</code></li>
+<li><strong>Нет промежуточных прокси/CDN</strong> + нужна низкая латентность? → <code>websocket</code> или <code>websocket-lanes</code></li>
+<li><strong>Высокая нагрузка</strong> → <code>websocket-lanes</code></li>
+</ol>`,
+
+    client: `<p>В Telegram: <strong>Настройки → Прокси → Добавить прокси → WEB</strong></p>
+<ul>
+<li><strong>Host:</strong> <code>tg.kuban-forum.ru</code></li>
+<li><strong>Key:</strong> (секрет профиля из панели)</li>
+</ul>
+<p style="color:var(--muted);font-size:0.85rem;margin-top:0.5rem">Ссылки <code>t.me/webproxy?server=...&secret=...</code> пока не работают — вводите Host и Key вручную.</p>`,
+
+    troubleshoot: `<table>
+<tr><th>Симптом</th><th>Причина</th><th>Решение</th></tr>
+<tr><td>«Подключено», но нет трафика</td><td>Secret профиля не совпадает с <code>-S</code> mtproxy</td><td>Проверить profiles.json secret и mtproxy.env MTPROXY_SECRET</td></tr>
+<tr><td>tproxy-server падает</td><td>Сломанный JSON в config.json</td><td>Проверить/перезаписать config.json</td></tr>
+<tr><td>SYN-SENT на все DC</td><td><code>IPAddressDeny=any</code> в systemd</td><td>Убрать restrictive директивы из mtproxy.service</td></tr>
+<tr><td>carrier_mode не применяется</td><td>tproxy-server не перезапущен</td><td><code>systemctl restart tproxy-server</code></td></tr>
+<tr><td><code>carrier_mode: "ws"</code> — падает</td><td><code>ws</code> — невалидное значение</td><td>Использовать <code>websocket</code></td></tr>
+<tr><td>Новый профиль не работает</td><td>Не создан mtproxy-инстанс</td><td>Панель создаёт автоматически при добавлении</td></tr>
+</table>`,
+
+    commands: `<pre><code># Статус сервисов
+systemctl status tproxy-server mtproxy
+
+# Метрики
+curl http://127.0.0.1:8081/metrics
+
+# Логи
+journalctl -u tproxy-server --since "5 min ago"
+journalctl -u mtproxy --since "5 min ago"
+
+# DC соединения
+ss -tnp | grep mtproto-proxy | grep -v "127.0.0.1" | head -10
+
+# Firewall
+nft list table inet tproxy_backend</code></pre>`
+  },
+
+  en: {
+    title: 'WEB Proxy \u2014 Guide',
+    subtitle: 'Carrier modes, architecture, troubleshooting',
+    backToProfiles: 'Back to Profiles',
+    h_arch: 'Architecture', h_modes: 'Carrier Modes',
+    h_client: 'Client Setup', h_troubleshoot: 'Troubleshooting', h_commands: 'Commands',
+
+    arch: `<p>Telegram WEB Proxy consists of 3 components:</p>
+<pre><code>Telegram Client
     |  MTProto framing + encryption
     v
 WebView (local adapter)
-    |  multiplexed streams
+    |  multiplexed streams (logical sessions)
     v
 carrier (HTTPS / WebSocket)  &lt;-- carrier_mode defines transport
     |
@@ -73,96 +227,78 @@ mtproto-proxy (:2398)  &lt;-- official MTProxy from Telegram
     |  MTProto
     v
 Telegram DC (91.108.x.x:8888)</code></pre>
+<h3>Two types of secrets</h3>
+<table>
+<tr><th>Where used</th><th>Format</th><th>Where set</th></tr>
+<tr><td><code>mtproto-proxy -S</code></td><td>32 hex</td><td><code>mtproxy.env</code></td></tr>
+<tr><td><code>profiles.json secret</code></td><td>32 hex</td><td><code>profiles.json</code></td></tr>
+</table>
+<p><strong>Critical rule:</strong> Profile secret <strong>must match</strong> the <code>-S</code> secret of the mtproto-proxy it connects to. If they don't match, the connection is established but no traffic passes.</p>
+<p>Each profile gets its own mtproxy instance on a unique port automatically.</p>`,
 
-    <h3>Two types of secrets</h3>
-    <table>
-      <tr><th>Where</th><th>Format</th><th>Where set</th></tr>
-      <tr><td><code>mtproto-proxy -S</code></td><td>32 hex</td><td><code>mtproxy.env</code></td></tr>
-      <tr><td><code>profiles.json secret</code></td><td>32 hex</td><td><code>profiles.json</code></td></tr>
-    </table>
-    <p><strong>Critical rule:</strong> Profile secret MUST match the <code>-S</code> secret of the mtproto-proxy it connects to. If they don't match, the connection is established but no traffic passes.</p>
-  </div>
+    modes: `<h3><code>https</code> (default)</h3>
+<p>All logical sessions are multiplexed in <strong>one</strong> HTTPS connection.</p>
+<ul>
+<li>Simplest mode, maximum compatibility</li>
+<li>Under high load, one connection becomes a bottleneck</li>
+<li>Recommended for: small servers, testing</li>
+</ul>
+<h3><code>https-lanes</code></h3>
+<p>Each logical session gets its <strong>own</strong> HTTPS request (independent "lanes").</p>
+<ul>
+<li>Better isolation between sessions</li>
+<li>Easier load balancing</li>
+<li>Recommended for: medium load</li>
+</ul>
+<h3><code>websocket</code></h3>
+<p>One multiplexed <strong>WebSocket</strong> connection for all sessions.</p>
+<ul>
+<li>No HTTP request overhead (connection established once)</li>
+<li>Full-duplex channel = lower latency</li>
+<li>May not work behind some proxies/CDNs (upgrade header blocked)</li>
+<li>Recommended for: persistent connections without intermediate proxies</li>
+</ul>
+<h3><code>websocket-lanes</code></h3>
+<p>Each session = <strong>separate</strong> WebSocket.</p>
+<ul>
+<li>Maximum isolation + low WebSocket overhead</li>
+<li>More resources (separate WS per session)</li>
+<li>Recommended for: high-load servers, user isolation</li>
+</ul>
+<h3>Comparison</h3>
+<table>
+<tr><th>Mode</th><th>Multiplex</th><th>Isolation</th><th>HTTP overhead</th><th>Resources</th><th>Behind proxy/CDN</th></tr>
+<tr><td><code>https</code></td><td>One connection</td><td>Low</td><td>Medium</td><td>Minimal</td><td>Yes</td></tr>
+<tr><td><code>https-lanes</code></td><td>N connections</td><td>Medium</td><td>High</td><td>Medium</td><td>Yes</td></tr>
+<tr><td><code>websocket</code></td><td>One WS</td><td>Low</td><td>Low</td><td>Medium</td><td>Caution</td></tr>
+<tr><td><code>websocket-lanes</code></td><td>N WS</td><td>High</td><td>Low</td><td>High</td><td>Caution</td></tr>
+</table>
+<h3>How to choose</h3>
+<ol>
+<li><strong>Start with <code>https</code></strong> \u2014 default, works everywhere</li>
+<li>Need <strong>user isolation</strong>? \u2192 <code>https-lanes</code> or <code>websocket-lanes</code></li>
+<li><strong>No intermediate proxies/CDN</strong> + need low latency? \u2192 <code>websocket</code> or <code>websocket-lanes</code></li>
+<li><strong>High load</strong> \u2192 <code>websocket-lanes</code></li>
+</ol>`,
 
-  <div class="card">
-    <h2>Carrier Modes</h2>
-    <p>Carrier mode defines how the client WebView sends MTProto data through HTTP to tproxy-server.</p>
+    client: `<p>In Telegram: <strong>Settings \u2192 Proxy \u2192 Add proxy \u2192 WEB</strong></p>
+<ul>
+<li><strong>Host:</strong> <code>tg.kuban-forum.ru</code></li>
+<li><strong>Key:</strong> (profile secret from the panel)</li>
+</ul>
+<p style="color:var(--muted);font-size:0.85rem;margin-top:0.5rem"><code>t.me/webproxy?server=...&secret=...</code> links don't work yet \u2014 enter Host and Key manually.</p>`,
 
-    <h3><code>https</code> (default)</h3>
-    <p>All logical sessions are multiplexed in <strong>one</strong> HTTPS connection.</p>
-    <ul>
-      <li>Simplest mode, maximum compatibility</li>
-      <li>One connection becomes bottleneck under high load</li>
-      <li>Recommended for: small deployments, testing</li>
-    </ul>
+    troubleshoot: `<table>
+<tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr>
+<tr><td>"Connected" but no traffic</td><td>Profile secret doesn't match mtproxy <code>-S</code></td><td>Check profiles.json secret vs mtproxy.env MTPROXY_SECRET</td></tr>
+<tr><td>tproxy-server crashes</td><td>Broken JSON in config.json</td><td>Verify/rewrite config.json</td></tr>
+<tr><td>SYN-SENT on all DC</td><td><code>IPAddressDeny=any</code> in systemd</td><td>Remove restrictive directives from mtproxy.service</td></tr>
+<tr><td>carrier_mode not applied</td><td>tproxy-server not restarted</td><td><code>systemctl restart tproxy-server</code></td></tr>
+<tr><td><code>carrier_mode: "ws"</code> crashes</td><td><code>ws</code> is invalid value</td><td>Use <code>websocket</code></td></tr>
+<tr><td>New profile doesn't work</td><td>No mtproxy instance created</td><td>Panel auto-creates on add</td></tr>
+</table>`,
 
-    <h3><code>https-lanes</code></h3>
-    <p>Each logical session gets its <strong>own</strong> HTTPS request (independent "lanes").</p>
-    <ul>
-      <li>Better isolation between sessions</li>
-      <li>Easier load balancing</li>
-      <li>Recommended for: medium-load servers</li>
-    </ul>
-
-    <h3><code>websocket</code></h3>
-    <p>One multiplexed <strong>WebSocket</strong> connection for all sessions.</p>
-    <ul>
-      <li>No HTTP request overhead (connection established once)</li>
-      <li>Full-duplex channel = lower latency</li>
-      <li>May not work behind some proxies/CDNs (upgrade header blocked)</li>
-      <li>Recommended for: persistent connections without intermediate proxies</li>
-    </ul>
-
-    <h3><code>websocket-lanes</code></h3>
-    <p>Each session = <strong>separate</strong> WebSocket.</p>
-    <ul>
-      <li>Maximum isolation + low WebSocket overhead</li>
-      <li>More resources (separate WS per session)</li>
-      <li>Recommended for: high-load servers, user isolation</li>
-    </ul>
-
-    <h3>Comparison</h3>
-    <table>
-      <tr><th>Mode</th><th>Multiplex</th><th>Isolation</th><th>HTTP overhead</th><th>Resources</th><th>Behind proxy/CDN</th></tr>
-      <tr><td><code>https</code></td><td>One connection</td><td>Low</td><td>Medium</td><td>Minimal</td><td>Yes</td></tr>
-      <tr><td><code>https-lanes</code></td><td>N connections</td><td>Medium</td><td>High</td><td>Medium</td><td>Yes</td></tr>
-      <tr><td><code>websocket</code></td><td>One WS</td><td>Low</td><td>Low</td><td>Medium</td><td>Warning</td></tr>
-      <tr><td><code>websocket-lanes</code></td><td>N WS</td><td>High</td><td>Low</td><td>High</td><td>Warning</td></tr>
-    </table>
-
-    <h3>How to choose</h3>
-    <ol>
-      <li><strong>Start with <code>https</code></strong> - default, works everywhere</li>
-      <li>Need <strong>user isolation</strong>? &rarr; <code>https-lanes</code> or <code>websocket-lanes</code></li>
-      <li><strong>No intermediate proxies/CDN</strong> + need low latency? &rarr; <code>websocket</code> or <code>websocket-lanes</code></li>
-      <li><strong>High load</strong> &rarr; <code>websocket-lanes</code></li>
-    </ol>
-  </div>
-
-  <div class="card">
-    <h2>Client Setup</h2>
-    <p>In Telegram: <strong>Settings &rarr; Proxy &rarr; Add proxy &rarr; WEB</strong></p>
-    <ul>
-      <li><strong>Host:</strong> <code>tg.kuban-forum.ru</code></li>
-      <li><strong>Key:</strong> (profile secret from the panel)</li>
-    </ul>
-  </div>
-
-  <div class="card">
-    <h2>Troubleshooting</h2>
-    <table>
-      <tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr>
-      <tr><td>"Connected" but no traffic</td><td>Profile secret doesn't match <code>-S</code> mtproxy</td><td>Check profiles.json secret vs mtproxy.env MTPROXY_SECRET</td></tr>
-      <tr><td>tproxy-server crashes</td><td>Broken JSON in config.json</td><td>Verify/rewrite config.json</td></tr>
-      <tr><td>SYN-SENT on all DC connections</td><td><code>IPAddressDeny=any</code> in systemd service</td><td>Remove restrictive directives from mtproxy.service</td></tr>
-      <tr><td>carrier_mode not applied</td><td>tproxy-server not restarted</td><td><code>systemctl restart tproxy-server</code></td></tr>
-      <tr><td><code>carrier_mode: "ws"</code> crashes</td><td><code>ws</code> is invalid</td><td>Use <code>websocket</code></td></tr>
-      <tr><td>New profile doesn't work</td><td>No mtproxy instance created</td><td>Panel auto-creates one on add</td></tr>
-    </table>
-  </div>
-
-  <div class="card">
-    <h2>Commands</h2>
-    <pre><code># Service status
+    commands: `<pre><code># Service status
 systemctl status tproxy-server mtproxy
 
 # Metrics
@@ -176,17 +312,10 @@ journalctl -u mtproxy --since "5 min ago"
 ss -tnp | grep mtproto-proxy | grep -v "127.0.0.1" | head -10
 
 # Firewall
-nft list table inet tproxy_backend</code></pre>
-  </div>
-</div>
+nft list table inet tproxy_backend</code></pre>`
+  }
+};
 
-<div class="footer">
-  &copy; 2026 Merlin.<br>
-  <em>Crafting Dreams &amp; Magic</em>
-</div>
-
-<script>
-const themeKey = 'nyx_theme';
 function getTheme() { return localStorage.getItem(themeKey) || 'dark'; }
 function setTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
@@ -194,7 +323,34 @@ function setTheme(t) {
   document.getElementById('themeBtn').textContent = t === 'dark' ? '\u{1F319}' : '\u{2600}\u{FE0F}';
 }
 function toggleTheme() { setTheme(getTheme() === 'dark' ? 'light' : 'dark'); }
-(function() { const t = getTheme(); document.documentElement.setAttribute('data-theme', t); setTheme(t); })();
+
+function getLang() { return localStorage.getItem(langKey) || 'ru'; }
+function setLang(l) {
+  localStorage.setItem(langKey, l);
+  document.getElementById('langBtn').textContent = l === 'ru' ? 'EN' : 'RU';
+  applyGuide();
+}
+function toggleLang() { setLang(getLang() === 'ru' ? 'en' : 'ru'); }
+
+function applyGuide() {
+  const l = getLang();
+  const g = guide[l];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const k = el.dataset.i18n;
+    if (g[k]) el.textContent = g[k];
+  });
+  document.getElementById('content-arch').innerHTML = g.arch;
+  document.getElementById('content-modes').innerHTML = g.modes;
+  document.getElementById('content-client').innerHTML = g.client;
+  document.getElementById('content-troubleshoot').innerHTML = g.troubleshoot;
+  document.getElementById('content-commands').innerHTML = g.commands;
+}
+
+(function() {
+  setTheme(getTheme());
+  setLang(getLang());
+  applyGuide();
+})();
 </script>
 </body>
 </html>
