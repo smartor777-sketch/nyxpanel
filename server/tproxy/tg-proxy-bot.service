@@ -1,0 +1,19 @@
+[Unit]
+Description=Telegram Web Proxy Bot
+After=network-online.target tproxy-server.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mtproxy
+Group=mtproxy
+WorkingDirectory=/opt/proxy-panel
+ExecStart=/usr/bin/python3 /opt/proxy-panel/tg_proxy_bot.py
+Restart=on-failure
+RestartSec=5s
+Environment=TPROXY_PROFILES_PATH=/etc/tproxy-server/profiles.json
+Environment=TPROXY_CONFIG_PATH=/etc/tproxy-server/config.json
+EnvironmentFile=-/etc/tproxy-server/bot.env
+
+[Install]
+WantedBy=multi-user.target
