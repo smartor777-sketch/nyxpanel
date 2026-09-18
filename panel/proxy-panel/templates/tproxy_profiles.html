@@ -82,6 +82,7 @@
     <form method="POST" action="/self/tproxy/add">
       <input name="name" data-i18n-placeholder="profileName" placeholder="Имя профиля" pattern="[a-zA-Z0-9_-]+" required>
       <input name="secret" data-i18n-placeholder="secretPH" placeholder="Секрет (авто если пусто)" maxlength="34">
+      <input name="telegram_user" data-i18n-placeholder="telegramUser" placeholder="Telegram ID или @username">
       <select name="carrier_mode">
         <option value="https">HTTPS</option>
         <option value="https-lanes">HTTPS Lanes</option>
@@ -106,6 +107,7 @@
           <th data-i18n="colKey">Ключ</th>
           <th data-i18n="colBackend">Backend</th>
           <th data-i18n="colMode">Режим</th>
+          <th data-i18n="colTGUser">Telegram</th>
           <th data-i18n="colActions">Действия</th>
         </tr>
       </thead>
@@ -117,6 +119,12 @@
           <td class="secret-cell">{{ p.secret }}</td>
           <td>{{ p.get('backend', '127.0.0.1:2398') }}</td>
           <td>{{ p.get('carrier_mode', 'https') }}</td>
+          <td>
+            <form method="POST" action="/self/tproxy/{{ p.name }}/set-tg-user" style="display:inline;gap:0.25rem">
+              <input name="telegram_user" value="{{ tg_mappings.get(p.name, '') }}" placeholder="ID or @user" style="width:120px;font-size:0.78rem;padding:0.2rem 0.4rem">
+              <button type="submit" class="copy-btn" style="font-size:0.7rem;padding:0.15rem 0.4rem">\u2714</button>
+            </form>
+          </td>
           <td class="actions">
             <button class="copy-btn" onclick="copyKey('{{ p.secret }}')" data-i18n="copy">Копировать</button>
             <form method="POST" action="/self/tproxy/{{ p.name }}/set-mode" style="display:inline">
@@ -162,16 +170,18 @@ const _t = {
   ru: {
     admin: 'Админ', guide: 'Гайд', backToUsers: 'К пользователям', signOut: 'Выйти',
     addProfile: 'Добавить профиль', profileName: 'Имя профиля', secretPH: 'Секрет (авто если пусто)',
+    telegramUser: 'Telegram ID или @username',
     add: 'Добавить', setupHint: 'Telegram: Настройки → Прокси → Добавить прокси → WEB → введите Host и Key вручную',
-    profiles: 'Профили', colName: 'Имя', colKey: 'Ключ', colBackend: 'Backend', colMode: 'Режим', colActions: 'Действия',
+    profiles: 'Профили', colName: 'Имя', colKey: 'Ключ', colBackend: 'Backend', colMode: 'Режим', colTGUser: 'Telegram', colActions: 'Действия',
     copy: 'Копировать', delete: 'Удалить', noProfiles: 'Профилей пока нет. Создайте выше.',
     confirmDelete: 'Удалить профиль', copied: 'Ключ скопирован!', copyFail: 'Не удалось скопировать'
   },
   en: {
     admin: 'Admin', guide: 'Guide', backToUsers: 'Back to Users', signOut: 'Sign Out',
     addProfile: 'Add Profile', profileName: 'Profile name', secretPH: 'Secret (auto if empty)',
+    telegramUser: 'Telegram ID or @username',
     add: 'Add', setupHint: 'Telegram: Settings → Proxy → Add proxy → WEB → enter Host and Key manually',
-    profiles: 'Profiles', colName: 'Name', colKey: 'Key', colBackend: 'Backend', colMode: 'Mode', colActions: 'Actions',
+    profiles: 'Profiles', colName: 'Name', colKey: 'Key', colBackend: 'Backend', colMode: 'Mode', colTGUser: 'Telegram', colActions: 'Actions',
     copy: 'Copy', delete: 'Delete', noProfiles: 'No profiles yet. Create one above.',
     confirmDelete: 'Delete profile', copied: 'Key copied!', copyFail: 'Failed to copy'
   }

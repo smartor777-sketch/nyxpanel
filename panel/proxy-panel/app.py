@@ -533,6 +533,7 @@ def self_qr(proto, name=None):
 # --- Telegram WEB Proxy (tproxy) ---
 TPROXY_PROFILES_PATH = "/etc/tproxy-server/profiles.json"
 TPROXY_CONFIG_PATH = "/etc/tproxy-server/config.json"
+TPROXY_TG_MAPPINGS_PATH = "/etc/tproxy-server/tg_mappings.json"
 
 def tproxy_read_profiles():
     try:
@@ -544,6 +545,17 @@ def tproxy_read_profiles():
 def tproxy_write_profiles(profiles):
     with open(TPROXY_PROFILES_PATH, "w") as f:
         json.dump({"profiles": profiles}, f, indent=2)
+
+def tproxy_read_tg_mappings():
+    try:
+        with open(TPROXY_TG_MAPPINGS_PATH) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def tproxy_write_tg_mappings(mappings):
+    with open(TPROXY_TG_MAPPINGS_PATH, "w") as f:
+        json.dump(mappings, f, indent=2)
 
 def tproxy_restart():
     subprocess.run(["systemctl", "restart", "tproxy-server"], capture_output=True, timeout=15)
@@ -663,7 +675,9 @@ def tproxy_list():
         return redirect("/self/login")
     profiles = tproxy_read_profiles()
     hostname = tproxy_get_hostname()
+    tg_mappings = tproxy_read_tg_mappings()
     return render_template("tproxy_profiles.html", profiles=profiles, hostname=hostname,
+                           tg_mappings=tg_mappings,
                            admin_name=session.get("self_user"), version=PANEL_VERSION)
 
 @app.route("/self/tproxy/add", methods=["POST"])
@@ -691,8 +705,13 @@ def tproxy_add():
     if not port:
         flash("No available ports for new mtproxy instance", "error")
         return redirect("/self/tproxy")
+    telegram_user = request.form.get("telegram_user", "").strip()
     profiles.append({"name": name, "secret": secret, "backend": f"127.0.0.1:{port}", "carrier_mode": carrier})
     tproxy_write_profiles(profiles)
+    if telegram_user:
+        mappings = tproxy_read_tg_mappings()
+        mappings[name] = telegram_user
+        tproxy_write_tg_mappings(mappings)
     tproxy_create_mtproxy(name, secret, port)
     tproxy_restart()
     flash(f"Profile '{name}' created (mtproxy on :{port})", "ok")
@@ -728,6 +747,20 @@ def tproxy_set_mode(name):
     tproxy_write_profiles(profiles)
     tproxy_restart()
     flash(f"Mode changed to {carrier}", "ok")
+    return redirect("/self/tproxy")
+
+@app.route("/self/tproxy/<name>/set-tg-user", methods=["POST"])
+def tproxy_set_tg_user(name):
+    if not is_admin():
+        return redirect("/self/login")
+    telegram_user = request.form.get("telegram_user", "").strip()
+    mappings = tproxy_read_tg_mappings()
+    if telegram_user:
+        mappings[name] = telegram_user
+    else:
+        mappings.pop(name, None)
+    tproxy_write_tg_mappings(mappings)
+    flash(f"Telegram user set for '{name}'", "ok")
     return redirect("/self/tproxy")
 
 @app.route("/self/tproxy/<name>/edit", methods=["POST"])
