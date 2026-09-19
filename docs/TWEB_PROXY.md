@@ -24,7 +24,7 @@
 
 ## Веб-панель
 
-URL: `https://panel.kuban-forum.ru/self/tproxy`
+URL: `https://<PANEL_DOMAIN>/self/tproxy`
 
 ### Функции
 
@@ -48,9 +48,9 @@ URL: `https://panel.kuban-forum.ru/self/tproxy`
 {
   "profiles": [
     {
-      "name": "default",
-      "secret": "<secret_default>",
-      "backend": "127.0.0.1:2398",
+      "name": "<PROFILE_NAME>",
+      "secret": "<AUTO_GENERATED_SECRET>",
+      "backend": "127.0.0.1:<PORT>",
       "carrier_mode": "https"
     }
   ]
@@ -61,8 +61,8 @@ URL: `https://panel.kuban-forum.ru/self/tproxy`
 
 ```json
 {
-  "default": "1139341866",
-  "fanwriter": "@fanwriter"
+  "<PROFILE_NAME>": "<ADMIN_TELEGRAM_ID>",
+  "<ANOTHER_PROFILE>": "@<USERNAME>"
 }
 ```
 
@@ -70,7 +70,7 @@ URL: `https://panel.kuban-forum.ru/self/tproxy`
 
 ## Telegram-бот
 
-Бот: `@tgwpnewbot`  
+Бот: `@<BOT_USERNAME>`  
 Команды: `/start`, `/profiles`, `/config`, `/help`
 
 ### Логика доступа
@@ -93,7 +93,7 @@ URL: `https://panel.kuban-forum.ru/self/tproxy`
 ### Deep link для подключения
 
 ```
-https://t.me/webproxy?server={hostname}&secret={secret}
+https://t.me/webproxy?server=<PUBLIC_HOSTNAME>&secret=<SECRET>
 ```
 
 > ⚠️ Не путать с `t.me/proxy` — это для MTPROTO, а не для WEB-прокси.
@@ -122,6 +122,7 @@ bash deploy-tproxy.sh
 
 # 2. Скопировать конфиг
 cp config.json /etc/tproxy-server/config.json
+# Отредактировать: public_hostname, порты
 
 # 3. Настроить переменные для бота
 cp bot.env.example bot.env
