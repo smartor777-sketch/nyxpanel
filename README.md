@@ -27,6 +27,49 @@ Multi-protocol proxy management panel with web interface.
 | Mieru | Proxy | NekoBox |
 | NaiveProxy | Proxy | Happ, Hiddify, v2RayTun, Exclave |
 | olcRTC | Proxy | OlcboxME (mobile only), uses [olcrtc-users](https://github.com/smartor777-sketch/olcrtc-users) fork |
+| **Telegram MTProxy** | Proxy | Official Telegram clients |
+
+## Telegram MTProxy
+
+Each user gets their own MTProxy profile with a unique secret. Two modes available:
+
+### Isolated Mode
+- Dedicated `mtproto-proxy` process per user
+- Runs on unique port (2401-2499)
+- Full resource allocation (~20-35 MB RAM per instance)
+
+### Shared Mode
+- Multiple users share a single `mtproto-proxy` instance
+- Runs on shared ports (2501-2504)
+- Saves RAM — only ~20 MB for the shared instance regardless of user count
+- Each user keeps their own unique secret
+- Shared instance accepts multiple secrets via pool file (`-S` flags)
+
+### Switching Modes
+- Toggle between isolated ↔ shared from the panel UI
+- **Secret never changes** — users don't need to update their client
+- Brief shared MTProxy restart (~1s) when pool changes
+
+### Transport Modes
+
+| Mode | HTTP Port | TCP Port |
+|------|-----------|----------|
+| HTTPS | 2501 | 3501 |
+| HTTPS Lanes | 2502 | 3502 |
+| WebSocket | 2503 | 3503 |
+| WebSocket Lanes | 2504 | 3504 |
+
+### Key Files
+```
+/etc/tproxy-server/
+├── profiles.json         # MTProxy profiles (unique secrets)
+├── modes.json            # shared/isolated per profile
+└── tg_mappings.json      # Telegram user mappings
+
+/etc/mtproxy/
+├── mtproxy-shared-*.secrets   # Secret pools for shared instances
+└── mtproxy-<name>.env         # Isolated instance configs
+```
 
 ## Password Management
 
