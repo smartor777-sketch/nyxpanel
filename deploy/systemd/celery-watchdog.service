@@ -1,0 +1,7 @@
+[Unit]
+Description=Celery Watchdog - stop/start worker based on queue depth
+After=redis-server.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/celery-watchdog.sh
