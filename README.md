@@ -123,6 +123,12 @@ This frees ~5 GB. The `xcaddy` binary at `/usr/local/bin/xcaddy` is already comp
 - **olcRTC fork**: [github.com/smartor777-sketch/olcrtc-users](https://github.com/smartor777-sketch/olcrtc-users)
 - **Original olcRTC**: [github.com/openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)
 
+### Telegram MTProxy Documentation
+
+- **Official MTProxy repo**: [github.com/TelegramMessenger/MTProxy](https://github.com/TelegramMessenger/MTProxy) — mtproto-proxy source code, build instructions, CLI flags
+- **Telegram Proxy docs**: [core.telegram.org/proxy](https://core.telegram.org/proxy) — setup guide, Docker, registration with @MTProxyBot
+- **tproxy-server (WEB proxy)**: [github.com/telegramdesktop/tproxy-server](https://github.com/telegramdesktop/tproxy-server) — HTTPS/WebSocket carrier relay, the protocol used by this panel's shared mode
+
 ## License
 
 Proprietary. All rights reserved.
