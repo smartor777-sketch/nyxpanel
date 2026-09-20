@@ -123,6 +123,12 @@ rm -rf /usr/local/go /root/go /root/.cache
 - **Форк olcRTC**: [github.com/smartor777-sketch/olcrtc-users](https://github.com/smartor777-sketch/olcrtc-users)
 - **Оригинальный olcRTC**: [github.com/openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)
 
+### Документация Telegram MTProxy
+
+- **Официальный репо MTProxy**: [github.com/TelegramMessenger/MTProxy](https://github.com/TelegramMessenger/MTProxy) — исходники mtproto-proxy, инструкции сборки, флаги CLI
+- **Документация Telegram по прокси**: [core.telegram.org/proxy](https://core.telegram.org/proxy) — руководство по настройке, Docker, регистрация через @MTProxyBot
+- **tproxy-server (WEB прокси)**: [github.com/telegramdesktop/tproxy-server](https://github.com/telegramdesktop/tproxy-server) — ретрансляция через HTTPS/WebSocket, протокол, используемый в shared-режиме этой панели
+
 ## Лицензия
 
 Proprietary. All rights reserved.
