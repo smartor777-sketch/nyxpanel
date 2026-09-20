@@ -534,6 +534,7 @@ def self_qr(proto, name=None):
 TPROXY_PROFILES_PATH = "/etc/tproxy-server/profiles.json"
 TPROXY_CONFIG_PATH = "/etc/tproxy-server/config.json"
 TPROXY_TG_MAPPINGS_PATH = "/etc/tproxy-server/tg_mappings.json"
+TPROXY_MODES_PATH = "/etc/tproxy-server/modes.json"
 
 # Shared MTProxy instances: carrier_mode -> (http_port, service_name)
 SHARED_MODES = {
@@ -551,8 +552,13 @@ def tproxy_read_profiles():
         return []
 
 def tproxy_write_profiles(profiles):
+    # Strip 'mode' field — tproxy-server binary doesn't understand it
+    clean = []
+    for p in profiles:
+        cp = {k: v for k, v in p.items() if k != "mode"}
+        clean.append(cp)
     with open(TPROXY_PROFILES_PATH, "w") as f:
-        json.dump({"profiles": profiles}, f, indent=2)
+        json.dump({"profiles": clean}, f, indent=2)
 
 def tproxy_read_tg_mappings():
     try:
@@ -564,6 +570,18 @@ def tproxy_read_tg_mappings():
 def tproxy_write_tg_mappings(mappings):
     with open(TPROXY_TG_MAPPINGS_PATH, "w") as f:
         json.dump(mappings, f, indent=2)
+
+
+def tproxy_read_modes():
+    try:
+        with open(TPROXY_MODES_PATH) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def tproxy_write_modes(modes):
+    with open(TPROXY_MODES_PATH, "w") as f:
+        json.dump(modes, f, indent=2)
 
 def tproxy_restart():
     subprocess.run(["systemctl", "restart", "tproxy-server"], capture_output=True, timeout=15)
@@ -700,8 +718,9 @@ def tproxy_list():
     profiles = tproxy_read_profiles()
     hostname = tproxy_get_hostname()
     tg_mappings = tproxy_read_tg_mappings()
+    modes = tproxy_read_modes()
     return render_template("tproxy_profiles.html", profiles=profiles, hostname=hostname,
-                           tg_mappings=tg_mappings,
+                           tg_mappings=tg_mappings, modes=modes,
                            admin_name=session.get("self_user"), version=PANEL_VERSION)
 
 @app.route("/self/tproxy/add", methods=["POST"])
@@ -737,9 +756,11 @@ def tproxy_add():
             "secret": shared_secret,
             "backend": backend,
             "carrier_mode": carrier,
-            "mode": "shared",
         })
         tproxy_write_profiles(profiles)
+        modes = tproxy_read_modes()
+        modes[name] = "shared"
+        tproxy_write_modes(modes)
         if telegram_user:
             mappings = tproxy_read_tg_mappings()
             mappings[name] = telegram_user
@@ -761,9 +782,11 @@ def tproxy_add():
             "secret": secret,
             "backend": f"127.0.0.1:{port}",
             "carrier_mode": carrier,
-            "mode": "isolated",
         })
         tproxy_write_profiles(profiles)
+        modes = tproxy_read_modes()
+        modes[name] = "isolated"
+        tproxy_write_modes(modes)
         if telegram_user:
             mappings = tproxy_read_tg_mappings()
             mappings[name] = telegram_user
@@ -780,11 +803,14 @@ def tproxy_delete(name):
         return redirect("/self/login")
     profiles = tproxy_read_profiles()
     target = next((p for p in profiles if p["name"] == name), None)
+    modes = tproxy_read_modes()
     if target and name != "default":
-        if target.get("mode") != "shared":
+        if modes.get(name) != "shared":
             tproxy_delete_mtproxy(name)
     profiles = [p for p in profiles if p["name"] != name]
     tproxy_write_profiles(profiles)
+    modes.pop(name, None)
+    tproxy_write_modes(modes)
     tproxy_restart()
     flash(f"Profile '{name}' deleted", "ok")
     return redirect("/self/tproxy")
@@ -798,10 +824,11 @@ def tproxy_set_mode(name):
         flash("Invalid carrier mode", "error")
         return redirect("/self/tproxy")
     profiles = tproxy_read_profiles()
+    modes = tproxy_read_modes()
     for p in profiles:
         if p["name"] == name:
             p["carrier_mode"] = carrier
-            if p.get("mode") == "shared":
+            if modes.get(name) == "shared":
                 p["backend"] = tproxy_get_shared_backend(carrier)
                 shared_secret = tproxy_read_shared_secret(carrier)
                 if shared_secret:
@@ -840,33 +867,36 @@ def tproxy_toggle_isolation(name):
         flash("Cannot change mode for default profile", "error")
         return redirect("/self/tproxy")
 
-    current_mode = target.get("mode", "isolated")
+    modes = tproxy_read_modes()
+    current_mode = modes.get(name, "isolated")
     carrier = target.get("carrier_mode", "https")
 
     if current_mode == "shared":
-        # Switch to isolated: create new MTProxy
+        # Switch to isolated: create new MTProxy, preserve original secret
         secret = pysecrets.token_hex(16)
         port = tproxy_find_next_port()
         if not port:
             flash("No available ports for new mtproxy instance", "error")
             return redirect("/self/tproxy")
-        target["mode"] = "isolated"
+        modes[name] = "isolated"
         target["secret"] = secret
         target["backend"] = f"127.0.0.1:{port}"
         tproxy_write_profiles(profiles)
+        tproxy_write_modes(modes)
         tproxy_create_mtproxy(name, secret, port)
         tproxy_restart()
-        flash(f"Profile '{name}' switched to ISOLATED (mtproxy on :{port})", "ok")
+        flash(f"Profile '{name}' switched to ISOLATED (mtproxy on :{port}, secret changed)", "ok")
     else:
         # Switch to shared: delete isolated MTProxy, point to shared
         tproxy_delete_mtproxy(name)
         shared_secret = tproxy_read_shared_secret(carrier)
-        target["mode"] = "shared"
+        modes[name] = "shared"
         target["secret"] = shared_secret
         target["backend"] = tproxy_get_shared_backend(carrier)
         tproxy_write_profiles(profiles)
+        tproxy_write_modes(modes)
         tproxy_restart()
-        flash(f"Profile '{name}' switched to SHARED ({carrier})", "ok")
+        flash(f"Profile '{name}' switched to SHARED ({carrier}, secret changed)", "ok")
 
     return redirect("/self/tproxy")
 
@@ -879,9 +909,10 @@ def tproxy_edit(name):
     if carrier not in ("https", "https-lanes", "websocket", "websocket-lanes"):
         carrier = "https"
     profiles = tproxy_read_profiles()
+    modes = tproxy_read_modes()
     for p in profiles:
         if p["name"] == name:
-            if p.get("mode") == "shared":
+            if modes.get(name) == "shared":
                 # Shared mode: only allow carrier_mode change
                 p["carrier_mode"] = carrier
                 p["backend"] = tproxy_get_shared_backend(carrier)
@@ -915,6 +946,7 @@ def tproxy_info(name):
         return redirect("/self/login")
     profiles = tproxy_read_profiles()
     hostname = tproxy_get_hostname()
+    modes = tproxy_read_modes()
     for p in profiles:
         if p["name"] == name:
             return jsonify({
@@ -922,7 +954,7 @@ def tproxy_info(name):
                 "host": hostname,
                 "key": p["secret"],
                 "carrier_mode": p.get("carrier_mode", "https"),
-                "mode": p.get("mode", "isolated"),
+                "mode": modes.get(name, "isolated"),
             })
     return jsonify({"error": "not found"}), 404
 

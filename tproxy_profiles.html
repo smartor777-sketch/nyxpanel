@@ -132,7 +132,7 @@
           <td style="font-size:0.8rem">{{ p.get('backend', '127.0.0.1:2398') }}</td>
           <td>{{ p.get('carrier_mode', 'https') }}</td>
           <td>
-            {% set pmode = p.get('mode', 'isolated') %}
+            {% set pmode = modes.get(p.name, 'isolated') %}
             <span class="badge badge-{{ pmode }}">{{ pmode }}</span>
             {% if p.name != 'default' %}
             <form method="POST" action="/self/tproxy/{{ p.name }}/toggle-isolation" style="display:inline">
