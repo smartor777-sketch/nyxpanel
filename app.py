@@ -702,14 +702,38 @@ def tproxy_get_shared_backend(carrier_mode):
         mode_info = SHARED_MODES["https"]
     return f"127.0.0.1:{mode_info['http_port']}"
 
-def tproxy_read_shared_secret(carrier_mode):
-    """Read the shared secret for a carrier mode."""
+def tproxy_shared_pool_path(carrier_mode):
+    """Path to the secrets pool file for a shared carrier mode."""
+    return f"/etc/mtproxy/mtproxy-shared-{carrier_mode}.secrets"
+
+def tproxy_shared_pool_add(carrier_mode, secret):
+    """Add a secret to the shared pool and restart the shared MTProxy."""
+    path = tproxy_shared_pool_path(carrier_mode)
+    existing = []
     try:
-        with open("/etc/mtproxy/shared-secrets.json") as f:
-            secrets = json.load(f)
-        return secrets.get(carrier_mode, "")
-    except Exception:
-        return ""
+        with open(path) as f:
+            existing = [l.strip() for l in f if l.strip() and not l.startswith('#')]
+    except FileNotFoundError:
+        pass
+    if secret not in existing:
+        with open(path, "a") as f:
+            f.write(secret + "\n")
+    subprocess.run(["systemctl", "restart", f"mtproxy-shared-{carrier_mode}"],
+                   capture_output=True, timeout=15)
+
+def tproxy_shared_pool_remove(carrier_mode, secret):
+    """Remove a secret from the shared pool and restart the shared MTProxy."""
+    path = tproxy_shared_pool_path(carrier_mode)
+    try:
+        with open(path) as f:
+            lines = [l.strip() for l in f if l.strip() and not l.startswith('#')]
+    except FileNotFoundError:
+        return
+    lines = [l for l in lines if l != secret]
+    with open(path, "w") as f:
+        f.write("\n".join(lines) + "\n" if lines else "")
+    subprocess.run(["systemctl", "restart", f"mtproxy-shared-{carrier_mode}"],
+                   capture_output=True, timeout=15)
 
 @app.route("/self/tproxy")
 def tproxy_list():
@@ -745,15 +769,18 @@ def tproxy_add():
 
     telegram_user = request.form.get("telegram_user", "").strip()
 
+    # Generate secret if not provided
+    if not secret:
+        secret = pysecrets.token_hex(16)
+    if len(secret) not in (32, 34) or not re.match(r'^[0-9a-f]+$', secret):
+        flash("Secret must be 32 hex chars (optionally prefixed with dd)", "error")
+        return redirect("/self/tproxy")
+
     if mode == "shared":
         backend = tproxy_get_shared_backend(carrier)
-        shared_secret = tproxy_read_shared_secret(carrier)
-        if not shared_secret:
-            flash("Shared instance not available for this mode", "error")
-            return redirect("/self/tproxy")
         profiles.append({
             "name": name,
-            "secret": shared_secret,
+            "secret": secret,
             "backend": backend,
             "carrier_mode": carrier,
         })
@@ -761,6 +788,7 @@ def tproxy_add():
         modes = tproxy_read_modes()
         modes[name] = "shared"
         tproxy_write_modes(modes)
+        tproxy_shared_pool_add(carrier, secret)
         if telegram_user:
             mappings = tproxy_read_tg_mappings()
             mappings[name] = telegram_user
@@ -768,11 +796,6 @@ def tproxy_add():
         tproxy_restart()
         flash(f"Profile '{name}' created (shared, {carrier})", "ok")
     else:
-        if not secret:
-            secret = pysecrets.token_hex(16)
-        if len(secret) not in (32, 34) or not re.match(r'^[0-9a-f]+$', secret):
-            flash("Secret must be 32 hex chars (optionally prefixed with dd)", "error")
-            return redirect("/self/tproxy")
         port = tproxy_find_next_port()
         if not port:
             flash("No available ports for new mtproxy instance", "error")
@@ -805,7 +828,9 @@ def tproxy_delete(name):
     target = next((p for p in profiles if p["name"] == name), None)
     modes = tproxy_read_modes()
     if target and name != "default":
-        if modes.get(name) != "shared":
+        if modes.get(name) == "shared":
+            tproxy_shared_pool_remove(target["carrier_mode"], target["secret"])
+        else:
             tproxy_delete_mtproxy(name)
     profiles = [p for p in profiles if p["name"] != name]
     tproxy_write_profiles(profiles)
@@ -827,12 +852,13 @@ def tproxy_set_mode(name):
     modes = tproxy_read_modes()
     for p in profiles:
         if p["name"] == name:
+            old_carrier = p.get("carrier_mode", "https")
             p["carrier_mode"] = carrier
             if modes.get(name) == "shared":
+                # Remove from old pool, add to new pool
+                tproxy_shared_pool_remove(old_carrier, p["secret"])
                 p["backend"] = tproxy_get_shared_backend(carrier)
-                shared_secret = tproxy_read_shared_secret(carrier)
-                if shared_secret:
-                    p["secret"] = shared_secret
+                tproxy_shared_pool_add(carrier, p["secret"])
             break
     tproxy_write_profiles(profiles)
     tproxy_restart()
@@ -870,33 +896,32 @@ def tproxy_toggle_isolation(name):
     modes = tproxy_read_modes()
     current_mode = modes.get(name, "isolated")
     carrier = target.get("carrier_mode", "https")
+    secret = target["secret"]
 
     if current_mode == "shared":
-        # Switch to isolated: create new MTProxy, preserve original secret
-        secret = pysecrets.token_hex(16)
+        # Switch to isolated: remove from pool, create isolated MTProxy with SAME secret
+        tproxy_shared_pool_remove(carrier, secret)
         port = tproxy_find_next_port()
         if not port:
             flash("No available ports for new mtproxy instance", "error")
             return redirect("/self/tproxy")
         modes[name] = "isolated"
-        target["secret"] = secret
         target["backend"] = f"127.0.0.1:{port}"
         tproxy_write_profiles(profiles)
         tproxy_write_modes(modes)
         tproxy_create_mtproxy(name, secret, port)
         tproxy_restart()
-        flash(f"Profile '{name}' switched to ISOLATED (mtproxy on :{port}, secret changed)", "ok")
+        flash(f"Profile '{name}' switched to ISOLATED (mtproxy on :{port})", "ok")
     else:
-        # Switch to shared: delete isolated MTProxy, point to shared
+        # Switch to shared: delete isolated MTProxy, add to pool, SAME secret
         tproxy_delete_mtproxy(name)
-        shared_secret = tproxy_read_shared_secret(carrier)
         modes[name] = "shared"
-        target["secret"] = shared_secret
         target["backend"] = tproxy_get_shared_backend(carrier)
         tproxy_write_profiles(profiles)
         tproxy_write_modes(modes)
+        tproxy_shared_pool_add(carrier, secret)
         tproxy_restart()
-        flash(f"Profile '{name}' switched to SHARED ({carrier}, secret changed)", "ok")
+        flash(f"Profile '{name}' switched to SHARED ({carrier})", "ok")
 
     return redirect("/self/tproxy")
 
@@ -912,13 +937,14 @@ def tproxy_edit(name):
     modes = tproxy_read_modes()
     for p in profiles:
         if p["name"] == name:
+            old_carrier = p.get("carrier_mode", "https")
             if modes.get(name) == "shared":
-                # Shared mode: only allow carrier_mode change
+                # Shared mode: only allow carrier_mode change, keep same secret
+                if carrier != old_carrier:
+                    tproxy_shared_pool_remove(old_carrier, p["secret"])
+                    tproxy_shared_pool_add(carrier, p["secret"])
                 p["carrier_mode"] = carrier
                 p["backend"] = tproxy_get_shared_backend(carrier)
-                shared_secret = tproxy_read_shared_secret(carrier)
-                if shared_secret:
-                    p["secret"] = shared_secret
             elif secret and secret != p["secret"]:
                 if len(secret) not in (32, 34) or not re.match(r'^[0-9a-f]+$', secret):
                     flash("Secret must be 32 hex chars", "error")
