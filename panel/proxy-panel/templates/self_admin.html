@@ -71,6 +71,8 @@
       <div class="subtitle"><span data-i18n="admin">Admin</span>: {{ admin_name }}</div>
     </div>
     <div class="header-actions">
+      <a href="https://wdtt.kuban-forum.ru/auto-login/" target="_blank" class="btn-logout">WDTT VPN</a>
+      <a href="/self/tproxy" class="btn-logout">Telegram Proxy</a>
       <a href="/self/manual" class="btn-logout" data-i18n="guide">Guide</a>
       <button class="lang-btn" id="langBtn" onclick="toggleLang()"></button>
       <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">ЁЯМЩ</button>
@@ -91,6 +93,22 @@
     <form method="POST" action="/self/user/add">
       <input name="username" data-i18n-placeholder="usernamePH" placeholder="Username" pattern="[a-zA-Z0-9_-]+" required>
       <button type="submit" data-i18n="add">Add</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>REALITY / Whitelist Mode</h2>
+    <div style="font-size:0.8rem;color:var(--muted);margin-bottom:0.4rem;line-height:1.5" data-i18n="realityAffected">
+      Affects: VLESS+XHTTP+REALITY (xray) only. NOT affected: Hysteria 2, AmneziaWG, NaiveProxy, Mieru, olcRTC, Trojan.
+    </div>
+    <div style="font-size:0.8rem;color:var(--muted);margin-bottom:0.6rem">
+      <span data-i18n="realityTargetLabel">target</span>: {{ reality.target or '?' }} ·
+      <span data-i18n="realitySniLabel">sni</span>: {{ reality.sni or '?' }}
+    </div>
+    <form method="POST" action="/self/reality/toggle" onsubmit="return confirm('REALITY mode: ' + '{{ 'whitelist' if reality.mode != 'whitelist' else 'normal' }}' + '?')">
+      <button type="submit" class="small {{ 'toggle-on' if reality.mode == 'whitelist' else 'toggle-off' }}">
+        <span data-i18n="{{ 'realityOn' if reality.mode == 'whitelist' else 'realityOff' }}"></span>
+      </button>
     </form>
   </div>
 
@@ -277,7 +295,10 @@ const _t = {
     noConfigs: 'Нет доступных конфигураций', copyUrl: '\u{1F517} Скопировать URL',
     expires: 'Истекает', noExpiry: 'Без срока', limit: 'Лимит',
     totalTraffic: 'Всего трафика', support: 'Поддержка', usage: 'Использование',
-    currentPeriod: 'Текущий', prevPeriod: 'Прошлый', noTraffic: 'Нет данных о трафике'
+    currentPeriod: 'Текущий', prevPeriod: 'Прошлый', noTraffic: 'Нет данных о трафике',
+    realityAffected: 'Затрагивает: VLESS+XHTTP+REALITY (xray). НЕ затрагивает: Hysteria 2, AmneziaWG, NaiveProxy, Mieru, olcRTC, Trojan.',
+    realityTargetLabel: 'target', realitySniLabel: 'sni',
+    realityOn: 'Режим белого списка: ВКЛ', realityOff: 'Режим белого списка: ВЫКЛ'
   },
   en: {
     guide: 'Guide', signOut: 'Sign Out', admin: 'Admin',
@@ -298,7 +319,10 @@ const _t = {
     totalEnd: 'total', setPwd: 'Set', changePwd: 'Edit',
     pwdSet: 'Password set', pwdNotSet: 'No password',
     resetCol: 'Reset', resetTraffic: 'Reset traffic', userResetToggle: 'Allow user to reset traffic', resetOn: 'Reset: on', resetOff: 'Reset: off', resetDoneMsg: 'Traffic statistics reset',
-    currentPeriod: 'Current', prevPeriod: 'Previous', noTraffic: 'No traffic data'
+    currentPeriod: 'Current', prevPeriod: 'Previous', noTraffic: 'No traffic data',
+    realityAffected: 'Affects: VLESS+XHTTP+REALITY (xray) only. NOT affected: Hysteria 2, AmneziaWG, NaiveProxy, Mieru, olcRTC, Trojan.',
+    realityTargetLabel: 'target', realitySniLabel: 'sni',
+    realityOn: 'Whitelist mode: ON', realityOff: 'Whitelist mode: OFF'
   }
 };
 function getLang() { return localStorage.getItem(langKey) || 'ru'; }
