@@ -1,0 +1,11 @@
+{
+  "call_url": "https://vk.com/video-calls/...",
+  "mode": "aiortc",
+  "min_interval_sec": 180,
+  "max_interval_sec": 420,
+  "min_hold_sec": 120,
+  "max_hold_sec": 300,
+  "log_file": "/var/log/vk-call-keeper.log",
+  "telegram_bot_token": "",
+  "telegram_chat_id": ""
+}
