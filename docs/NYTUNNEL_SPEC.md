@@ -531,6 +531,60 @@ routing:
 - Поддержка IPv6 в TUN-режиме
 - DNS-резолвер через DoH
 
+### 19.9. H3/MASQUE (UDP-релей)
+
+**Проблема:** TCP:443 может быть заблокирован/троттлирован провайдером. QUIC до
+конечных сайтов (Netflix, YouTube) недоступен напрямую.
+
+**Решение (из FORWARD_PROXY_GO_SPEC.md §5.4):**
+- **H3/MASQUE** (RFC 9298/9484): клиент устанавливает QUIC-соединение до прокси,
+  прокси **релеит UDP-датаграммы** до целевого сайта (не терминит TLS, не читает трафик)
+- Клиент сам ведёт QUIC до Netflix; прокси — просто UDP-мост
+
+**Архитектура:**
+
+```
+Клиент ──QUIC/UDP──► NYX-Tunnel (MASQUE) ──UDP-датаграммы──► Netflix (QUIC)
+          │                     │
+          │ UDP-релей           │ NAT/MASQUERADE
+          │ (не читает)        │
+          └─────────────────────┘
+```
+
+**Преимущества:**
+- **E2E шифрование:** прокси не видит трафик (только релеит)
+- **QUIC до сайтов:** клиент получает HTTP/3 от Netflix/YouTube
+- **Обход TCP-блокировок:** UDP-транспорт не fingerprint'ится как VPN
+- **Низкая задержка:** без терминации TLS на прокси
+
+**Интеграция в NYX-Tunnel:**
+
+```yaml
+# Конфиг сервера
+transport:
+  masque:
+    enabled: true
+    listen: ":8443"  # UDP-порт для MASQUE
+    # или TCP:443 с WebSocket fronting
+
+# Конфиг клиента
+upstream:
+  mode: masque  # или h3-relay
+  server: "nyx.example.com:8443"
+```
+
+**Режимы работы:**
+
+| Режим | Транспорт | Когда использовать |
+|-------|-----------|-------------------|
+| `nytun-tcp` | HTTP/2 POST (текущий) | TCP:443 работает |
+| `nytun-masque` | UDP-релей (H3/MASQUE) | TCP:443 режется, UDP работает |
+| `nytun-hybrid` | Авто-выбор TCP/UDP | Адаптивный (L1→L2→L3) |
+
+**Интеграция с адаптивным селектором (§15 FORWARD_PROXY_GO_SPEC.md):**
+- Клиент пробует MASQUE (L1) → если UDP мёртв → TCP (L2/L3)
+- Сервер отвечает на `/status` с текущим состоянием UDP
+
 ---
 
 ### Сводная таблица: NYX-Tunnel (текущий) vs NYX-Tunnel (с qeli-улучшениями)
@@ -542,9 +596,10 @@ routing:
 | Traffic shaping | Token-bucket pacing | **Poisson idle cover** (0 задержка) |
 | Padding | Нет | **Recordizer** (маскировка размеров) |
 | Roaming | Нет | **Session roaming** (без разрыва) |
-| Wire modes | 1 (HTTP/2) | **6 режимов** (reality-tls, obfs, udp) |
+| Wire modes | 1 (HTTP/2) | **7 режимов** (reality-tls, obfs, udp, masque) |
 | Routing | Full-tunnel | **Per-app routing** (split-tunnel) |
 | IPv6 | Частичный | **Нативный dual-stack** |
+| UDP-путь | Нет | **H3/MASQUE** (UDP-релей до сайтов) |
 
 ### Рекомендация
 
@@ -556,6 +611,9 @@ routing:
 5. ✅ Session roaming
 6. ✅ Multiple wire modes
 
+**Взять из FORWARD_PROXY_GO_SPEC.md:**
+7. ✅ H3/MASQUE (UDP-релей до конечных сайтов)
+
 **Оставить от NYX-Tunnel:**
 1. ✅ XChaCha20-Poly1305 (усиление к tunnelcat)
 2. ✅ Per-connection subkey (форвард-секретность)
@@ -563,7 +621,10 @@ routing:
 4. ✅ Probe resistance (404 на незнакомые запросы)
 5. ✅ Многоузловость (арбитр + failover)
 
-**Итого:** NYX-Tunnel с qeli-улучшениями = **более зрелый и устойчивый протокол**.
+**Итого:** NYX-Tunnel с qeli + MASQUE = **полный стек для обхода DPI**:
+- TCP-путь (Reality TLS 1.3)
+- UDP-путь (H3/MASQUE)
+- Адаптивный выбор между ними
 
 ---
 
