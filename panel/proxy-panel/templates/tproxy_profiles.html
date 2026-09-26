@@ -49,6 +49,33 @@
   .mode-btn.active { background: var(--proto-yes); color: #fff; border-color: var(--proto-yes); }
   .footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 1.5rem 0 0.5rem; border-top: 1px solid var(--border); margin-top: 2rem; }
   .toast { position: fixed; bottom: 2rem; right: 2rem; padding: 0.75rem 1.5rem; border-radius: 8px; font-size: 0.9rem; display: none; z-index: 999; }
+  .profile-cards { display: none; }
+  .profile-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.8rem; margin-bottom: 0.6rem; }
+  .profile-card .pc-top { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+  .profile-card .pc-name { font-weight: 600; font-size: 0.95rem; color: var(--heading); }
+  .profile-card .pc-mode { font-size: 0.7rem; padding: 0.1rem 0.5rem; border-radius: 4px; background: var(--input-bg); border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+  .profile-card .pc-row { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--muted); padding: 0.2rem 0; }
+  .profile-card .pc-row code { font-family: monospace; font-size: 0.75rem; color: var(--fg); word-break: break-all; text-align: right; }
+  .profile-card .pc-tg { display: flex; gap: 0.4rem; align-items: center; margin-top: 0.5rem; }
+  .profile-card .pc-tg form { display: flex; flex-direction: row; gap: 0.4rem; width: 100%; align-items: center; }
+  .profile-card .pc-tg input { flex: 1; min-width: 0; padding: 0.3rem 0.5rem; font-size: 0.8rem; border-radius: 4px; border: 1px solid var(--border); background: var(--input-bg); color: var(--fg); }
+  .profile-card .pc-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.3rem; margin-top: 0.5rem; }
+  .profile-card .pc-actions form { display: block; }
+  .profile-card .pc-actions button { width: 100%; padding: 0.35rem 0.2rem; font-size: 0.72rem; border-radius: 4px; }
+  @media (max-width: 768px) {
+    body { padding: 1rem; }
+    .header-bar { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+    .header-actions { width: 100%; justify-content: flex-end; flex-wrap: wrap; }
+    .card { padding: 1rem; margin-bottom: 1rem; }
+    .card h2 { font-size: 1.1rem; margin: 0.5rem 0; }
+    form { flex-direction: column; align-items: stretch; gap: 0.5rem; }
+    input, select { width: 100%; box-sizing: border-box; }
+    .table-wrap { display: none; }
+    .profile-cards { display: block; }
+    .secret-cell { max-width: 100%; font-size: 0.7rem; }
+    .footer { padding: 1rem 0 0.5rem; }
+    .toast { bottom: 1rem; right: 1rem; padding: 0.5rem; font-size: 0.8rem; }
+  }
   .toast.ok { background: var(--flash-ok-bg); color: var(--flash-ok-fg); border: 1px solid var(--flash-ok-border); }
   .toast.err { background: var(--flash-err-bg); color: var(--flash-err-fg); border: 1px solid var(--flash-err-border); }
 </style>
@@ -99,6 +126,7 @@
   <div class="card">
     <h2><span data-i18n="profiles">Профили</span> ({{ profiles|length }})</h2>
     {% if profiles %}
+    <div class="table-wrap">
     <table>
       <thead>
         <tr>
@@ -122,7 +150,7 @@
           <td>
             <form method="POST" action="/self/tproxy/{{ p.name }}/set-tg-user" style="display:inline;gap:0.25rem">
               <input name="telegram_user" value="{{ tg_mappings.get(p.name, '') }}" placeholder="ID or @user" style="width:120px;font-size:0.78rem;padding:0.2rem 0.4rem">
-              <button type="submit" class="copy-btn" style="font-size:0.7rem;padding:0.15rem 0.4rem">\u2714</button>
+              <button type="submit" class="copy-btn" style="font-size:0.7rem;padding:0.15rem 0.4rem">✔</button>
             </form>
           </td>
           <td class="actions">
@@ -151,6 +179,48 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
+    <div class="profile-cards">
+      {% for p in profiles %}
+      <div class="profile-card">
+        <div class="pc-top">
+          <span class="pc-name">{{ p.name }}</span>
+          <span class="pc-mode">{{ p.get('carrier_mode', 'https') }}</span>
+        </div>
+        <div class="pc-row"><span>Host</span><code>{{ hostname }}</code></div>
+        <div class="pc-row"><span data-i18n="colKey">Ключ</span><code>{{ p.secret }}</code></div>
+        <div class="pc-row"><span>Backend</span><code>{{ p.get('backend', '127.0.0.1:2398') }}</code></div>
+        <div class="pc-tg">
+          <form method="POST" action="/self/tproxy/{{ p.name }}/set-tg-user">
+            <input name="telegram_user" value="{{ tg_mappings.get(p.name, '') }}" placeholder="Telegram ID or @user">
+            <button type="submit" class="copy-btn">✔</button>
+          </form>
+        </div>
+        <div class="pc-actions">
+          <button class="copy-btn" onclick="copyKey('{{ p.secret }}')" data-i18n="copy">Копировать</button>
+          <form method="POST" action="/self/tproxy/{{ p.name }}/set-mode">
+            <input type="hidden" name="carrier_mode" value="https">
+            <button type="submit" class="mode-btn {{ 'active' if p.get('carrier_mode') == 'https' else '' }}">HTTPS</button>
+          </form>
+          <form method="POST" action="/self/tproxy/{{ p.name }}/set-mode">
+            <input type="hidden" name="carrier_mode" value="https-lanes">
+            <button type="submit" class="mode-btn {{ 'active' if p.get('carrier_mode') == 'https-lanes' else '' }}">Lanes</button>
+          </form>
+          <form method="POST" action="/self/tproxy/{{ p.name }}/set-mode">
+            <input type="hidden" name="carrier_mode" value="websocket">
+            <button type="submit" class="mode-btn {{ 'active' if p.get('carrier_mode') == 'websocket' else '' }}">WS</button>
+          </form>
+          <form method="POST" action="/self/tproxy/{{ p.name }}/set-mode">
+            <input type="hidden" name="carrier_mode" value="websocket-lanes">
+            <button type="submit" class="mode-btn {{ 'active' if p.get('carrier_mode') == 'websocket-lanes' else '' }}">WS Lanes</button>
+          </form>
+          <form method="POST" action="/self/tproxy/{{ p.name }}/delete" onsubmit="return confirm(_('confirmDelete') + ' {{ p.name }}?')">
+            <button type="submit" class="danger small" data-i18n="delete">Удалить</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
     {% else %}
     <p style="color:var(--muted);font-size:0.9rem" data-i18n="noProfiles">Профилей пока нет. Создайте выше.</p>
     {% endif %}
