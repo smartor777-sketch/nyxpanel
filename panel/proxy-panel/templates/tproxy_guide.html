@@ -39,6 +39,24 @@
   a:hover { text-decoration: underline; }
   strong { color: var(--heading); }
   .footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 1.5rem 0 0.5rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+  @media (max-width: 768px) {
+    body { padding: 1rem; }
+    .header-bar { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+    .header-actions { width: 100%; justify-content: flex-end; flex-wrap: wrap; }
+    .card { padding: 1rem; margin-bottom: 1rem; overflow-x: auto; }
+    h2 { font-size: 1.2rem; margin: 1rem 0 0.5rem; }
+    .subtitle { font-size: 0.8rem; margin-bottom: 1rem; }
+    table { width: 100%; font-size: 0.75rem; min-width: 480px; }
+    th, td { padding: 0.4rem 0.3rem; }
+    th { background: var(--table-stripe); font-size: 0.7rem; }
+    tr:nth-child(even) td { background: var(--table-stripe); }
+    ul, ol { padding-left: 1rem; margin: 0.3rem 0; }
+    li { margin: 0.2rem 0; }
+    code { font-size: 0.75rem; padding: 0.1rem 0.3rem; }
+    pre { padding: 0.5rem; font-size: 0.7rem; margin: 0.5rem 0; }
+    pre code { white-space: pre; }
+    .footer { padding: 1rem 0 0.5rem; }
+  }
 </style>
 </head>
 <body>
