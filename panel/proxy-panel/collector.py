@@ -185,9 +185,18 @@ def collect_awg(db):
         log("no pubkey map, skipping AmneziaWG")
         return
 
-    r = run([awg, "show", AWG_INTERFACE, "dump"])
+    # The amneziawg netlink operations need CAP_NET_ADMIN, so an unprivileged
+    # `awg show` fails with "Unable to access interface: Operation not permitted".
+    # The orchestrator is already on the sudoers allowlist and prints only the
+    # counters, so the read goes through it rather than widening the allowlist to
+    # `awg show` — which as root would also hand out the interface private key.
+    r = None
+    if os.environ.get("NYX_MANAGER"):
+        r = run(["sudo", "-n", os.environ["NYX_MANAGER"], "awg_dump"])
     if not r or r.returncode != 0:
-        log(f"awg show failed (rc={getattr(r, 'returncode', '?')}), keeping state")
+        r = run([awg, "show", AWG_INTERFACE, "dump"])
+    if not r or r.returncode != 0:
+        log(f"awg counters unavailable (rc={getattr(r, 'returncode', '?')}), keeping state")
         return
 
     last = load_last(proto)
@@ -241,8 +250,17 @@ def collect_xray(db):
         log(f"xray: {len(without_email)}/{len(clients)} clients have no `email`, "
             f"traffic cannot be attributed. Run the panel's vless repair.")
         return
-    if not cfg.get("stats"):
-        log("xray: `stats` is not enabled in the config, API returns nothing")
+    # `"stats": {}` is the way StatsService is switched on, and an empty dict is
+    # falsy — so a truthiness test here reports "not enabled" for a correctly
+    # configured file. Presence is the thing to check.
+    if "stats" not in cfg:
+        log("xray: no `stats` object in the config, so StatsService is off "
+            "and the API returns nothing")
+        return
+    if not cfg.get("policy", {}).get("levels", {}).get("0", {}).get("statsUserUplink") \
+       and not cfg.get("policy", {}).get("levels", {}).get("0", {}).get("statsUserDownlink"):
+        log("xray: policy level 0 has no user counters enabled, so per-user "
+            "traffic is not recorded even though stats is on")
         return
 
     stats_api = which("xray")
@@ -271,7 +289,11 @@ def collect_xray(db):
     for email, vals in current.items():
         total += apply_delta(db, proto, email, vals["up"], vals["down"], last, current, True)
     commit_state(db, proto, current, last)
-    log(f"Xray: {len(current)} emails, {total} bytes new")
+    if not current:
+        log("Xray: no per-user counters yet — normal right after a restart, "
+            "before anyone has used the tunnel")
+    else:
+        log(f"Xray: {len(current)} emails, {total} bytes new")
 
 
 # ------------------------------------------------------------- Hysteria2 ----

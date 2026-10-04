@@ -16,8 +16,14 @@ WorkingDirectory=/opt/nyxpanel/panel
 EnvironmentFile=/etc/nyxpanel/panel.env
 ExecStart=/usr/bin/python3 /opt/nyxpanel/panel/collector.py --expire
 TimeoutStartSec=120
-NoNewPrivileges=true
+# NoNewPrivileges is absent for the same reason as in panel.service: it blocks
+# sudo's setuid transition, and the collector needs root to read the AmneziaWG
+# counters. The privilege boundary is the sudoers allowlist.
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
+# ProtectSystem=strict is inherited by sudo's children, so every path the
+# collector writes has to be named here too — same trap as in panel.service.
 ReadWritePaths=/var/lib/nyxpanel
+ReadOnlyPaths=/opt/nyxpanel
+ReadOnlyPaths=/etc/nyxpanel

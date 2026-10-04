@@ -366,6 +366,20 @@ _nyx_live_peers() {
         awk 'NF >= 4 { print $1, ($2 == "(none)" ? "" : $2), $4 }'
 }
 
+# Read the live AmneziaWG counters and print them as `awg show dump` does.
+#
+# The collector cannot do this itself: the amneziawg netlink operations need
+# CAP_NET_ADMIN, so an unprivileged `awg show awg0 dump` fails with
+# "Unable to access interface: Operation not permitted". This command is the
+# root side of that read, reachable through the existing sudoers allowlist, and
+# it prints only counters — never a key.
+awg_dump() {
+    local tool="awg"
+    command -v awg >/dev/null 2>&1 || tool="wg"
+    command -v "$tool" >/dev/null 2>&1 || return 1
+    "$tool" show "$AWG_INTERFACE" dump 2>/dev/null
+}
+
 awg_apply_config() {
     local reason="${1:-unknown}"
 
@@ -1582,9 +1596,11 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
             reality_status)
                 reality_status ;;
             update_xray_config|reconcile_xray)
-                # Re-push /etc/xray/users.json into the running xray and into the
-                # config file. Manual recovery after editing users.json by hand.
+                # Re-push users.json into the running xray and the config file.
                 update_xray_config ;;
+            awg_dump|awg_counters)
+                # Root-side read of the live counters for the collector.
+                awg_dump ;;
             sync_awg|reconcile_awg)
                 # Force a reconcile of the AmneziaWG interface from its config
                 # file. Useful after a manual edit and as the non-interactive
@@ -1597,7 +1613,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
                     echo "revoke library not loaded" >&2; exit 1
                 fi ;;
             *)
-                echo "Usage: $0 {add_user|del_user|list_users|remove_protocol|sync_naive_users|add_hy2_user|add_awg_user|add_naive_user|add_mieru_user|add_olcrtc_user|add_vless_user|add_trojan_user|set_reality_mode|sync_vless_uris|reality_status|sync_awg|update_xray_config|revoke_user|restore_user|expire_check} [username] [protocol]"
+                echo "Usage: $0 {add_user|del_user|list_users|remove_protocol|sync_naive_users|add_hy2_user|add_awg_user|add_naive_user|add_mieru_user|add_olcrtc_user|add_vless_user|add_trojan_user|set_reality_mode|sync_vless_uris|reality_status|sync_awg|awg_dump|update_xray_config|revoke_user|restore_user|expire_check} [username] [protocol]"
                 exit 1 ;;
         esac
         exit $?
