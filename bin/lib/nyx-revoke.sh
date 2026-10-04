@@ -21,30 +21,9 @@ NYX_SUSPEND_DIR="${NYX_SUSPEND_DIR:-$BASE_DIR/.suspended}"
 # Returns 0 if the client was added/removed live, 1 if the caller must fall back
 # to a config rewrite + restart.
 
-_xray_grpc() {
-    local method=$1 body=$2 out
-    command -v grpcurl >/dev/null 2>&1 || return 1
-    local addr="${XRAY_API:-127.0.0.1:10085}"
-    out=$(grpcurl -plaintext -d "$body" "$addr" \
-          "xray.proxy.vless.main.HandlerService/$method" 2>/dev/null) || return 1
-    [ -n "$out" ] || return 1
-    echo "$out"
-    return 0
-}
-
-xray_remove_client() {
-    local uuid=$1
-    _xray_grpc RemoveUser "{\"email\":\"$2\"}" >/dev/null 2>&1 && return 0
-    _xray_grpc RemoveUser "{\"email\":\"$uuid\"}" >/dev/null 2>&1 && return 0
-    return 1
-}
-
-xray_add_client() {
-    local uuid=$1 email=$2
-    # Xray identifies a client by its `email` tag, so a revoke/restore pair keyed
-    # on email is what actually works. proxy_manager.sh keeps email = username.
-    _xray_grpc AddUser "{\"email\":\"$email\",\"account\":{\"protocol\":\"vless\",\"id\":\"$uuid\"}}" >/dev/null 2>&1
-}
+# xray_remove_client / xray_add_client live in xray-reconcile.sh, which knows
+# the two shapes the CLI wants: adu reads a config-shaped JSON file, rmu takes
+# -tag plus plain emails.
 
 # --- helpers ---------------------------------------------------------------
 
@@ -128,7 +107,7 @@ nyx_revoke_user() {
                 '[.inbounds[0].settings.clients[] | select(.id==$id) | .email // empty][0] // empty' \
                 "$XRAY_CONFIG" 2>/dev/null)
         if [ -z "$email" ] || [ "$email" = "null" ]; then email="$username"; fi
-        if xray_remove_client "$email" || xray_remove_client "$uuid"; then
+        if xray_remove_client "$email"; then
             touched="$touched vless:api"
         else
             jq --arg id "$uuid" \
@@ -202,7 +181,7 @@ nyx_restore_user() {
              '[.inbounds[0].settings.clients[] | select(.id==$id)] | length > 0' \
              "$XRAY_CONFIG" >/dev/null 2>&1; then
             touched="$touched vless:already-present"
-        elif xray_add_client "$uuid" "$username"; then
+        elif xray_add_client "$uuid" "$username" "$XRAY_CONFIG"; then
             touched="$touched vless:api"
         else
             jq --arg id "$uuid" --arg email "$username" \

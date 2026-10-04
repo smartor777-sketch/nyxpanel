@@ -145,15 +145,19 @@ require_config() {
 # agent share one implementation instead of three drifting copies.
 load_revoke_lib() {
     local here; here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    for cand in "$here/lib/nyx-revoke.sh" /opt/nyxpanel/lib/nyx-revoke.sh; do
-        if [ -f "$cand" ]; then
-            # shellcheck source=/dev/null
-            . "$cand"
-            return 0
+    local lib
+    for lib in nyx-revoke.sh xray-reconcile.sh; do
+        local cand=""
+        [ -f "$here/lib/$lib" ] && cand="$here/lib/$lib"
+        [ -z "$cand" ] && [ -f "/opt/nyxpanel/bin/lib/$lib" ] && cand="/opt/nyxpanel/bin/lib/$lib"
+        if [ -z "$cand" ]; then
+            echo -e "${RED}Ошибка: не найден lib/$lib.${NC}" >&2
+            return 1
         fi
+        # shellcheck source=/dev/null
+        . "$cand"
     done
-    echo -e "${RED}Ошибка: не найден lib/nyx-revoke.sh — отзыв доступа не будет работать.${NC}" >&2
-    return 1
+    return 0
 }
 
 # Per-host values live in one place instead of being edited into this script's
@@ -1228,18 +1232,10 @@ OLRTC_TXT
 # --- VLESS+XHTTP+REALITY ---
 update_xray_config() {
     if [ ! -f "$XRAY_CONFIG" ] || [ ! -f "$VLESS_USERS_FILE" ]; then return 1; fi
-    python3 -c "
-import json
-with open('$VLESS_USERS_FILE') as f:
-    users = json.load(f)
-with open('$XRAY_CONFIG') as f:
-    cfg = json.load(f)
-clients = [{'id': uid, 'flow': '', 'email': uname} for uname, uid in users.items()]
-if clients:
-    cfg['inbounds'][0]['settings']['clients'] = clients
-with open('$XRAY_CONFIG', 'w') as f:
-    json.dump(cfg, f, indent=2)
-" 2>/dev/null && systemctl restart $XRAY_SERVICE
+    # Writes the durable copy, then applies to the live instance over the gRPC
+    # API. The old code ended in `systemctl restart $XRAY_SERVICE`, which dropped
+    # every connected VLESS client on every user change.
+    xray_apply_users "$VLESS_USERS_FILE" "$XRAY_CONFIG" "$XRAY_SERVICE" "update_xray_config"
 }
 
 add_vless_user() {
