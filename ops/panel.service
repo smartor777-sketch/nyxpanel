@@ -18,33 +18,58 @@ ExecStart=/usr/bin/python3 /opt/nyxpanel/panel/app.py
 Restart=on-failure
 RestartSec=5s
 
-# The panel must not be able to write outside its state directory. Everything
-# that needs privilege goes through a short sudoers allowlist, because
-# proxy_manager.sh has to touch awg0.conf and restart daemons.
+# The panel runs unprivileged. Anything that needs root goes through the
+# short sudoers allowlist in /etc/sudoers.d/nyxpanel, which permits exactly
+# bin/proxy_manager.sh and a fixed list of daemon restarts.
 #
 # NoNewPrivileges is deliberately absent. It blocks the setuid transition sudo
-# relies on, so the panel fails every operation with
+# relies on, so every user operation fails with
 #   sudo: The "no new privileges" flag is set, which prevents sudo from running
 #   as root.
-# It can be re-added only together with removing sudo: the orchestrator would
-# have to run as a root-side agent that the panel signals, rather than being
-# invoked by it. That is the design in nyx-architecture-dev-reconcile.md.
+# It can come back only together with removing sudo: the orchestrator would then
+# have to be a root-side agent the panel signals, rather than one the panel
+# invokes. That is the model in nyx-architecture-dev-reconcile.md.
 PrivateTmp=true
 PrivateDevices=true
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
-ProtectSystem=strict
-ProtectHome=true
 RestrictSUIDSGID=true
 RestrictRealtime=true
 LockPersonality=true
 MemoryDenyWriteExecute=true
-# Under ProtectSystem=strict the whole filesystem is read-only except these.
-# A second ReadWritePaths= line does not extend the list, it replaces it: with an
-# empty second line the panel had nowhere to write and sqlite failed to open.
-ReadWritePaths=/var/lib/nyxpanel /var/log/nyxpanel
-ReadOnlyPaths=/etc/nyxpanel /opt/nyxpanel
+
+# --- filesystem ---------------------------------------------------------
+#
+# ProtectSystem=strict makes the whole filesystem read-only except the paths
+# named below, and that mount namespace is inherited by every child process —
+# including the ones sudo spawns. The orchestrator therefore runs as uid 0 and
+# still cannot write the daemon configs: observed as
+#   awg-add diag ... uid=0 writable=no
+# with the append silently producing zero bytes while the panel reported success.
+#
+# So every path the orchestrator writes must be listed. Adding a protocol means
+# adding its config directory here, or that protocol fails silently.
+ReadWritePaths=/var/lib/nyxpanel
+ReadWritePaths=/var/log/nyxpanel
+ReadWritePaths=/etc/amnezia/amneziawg
+ReadWritePaths=/etc/xray
+ReadWritePaths=/etc/hysteria
+ReadWritePaths=/etc/sing-box
+ReadWritePaths=/etc/mita
+ReadWritePaths=/etc/olcrtc
+ReadWritePaths=/usr/local/etc/xray
+ReadWritePaths=/var/lib/caddy
+# olcRTC keeps its server config under root's home, so /root has to be reachable.
+# read-only rather than true: true hides it entirely. This single directory is
+# the only writable part of /root.
+ReadWritePaths=/root/.config/olcrtc
+
+ProtectSystem=strict
+ProtectHome=read-only
+
+ReadOnlyPaths=/etc/nyxpanel
+ReadOnlyPaths=/opt/nyxpanel
 
 [Install]
 WantedBy=multi-user.target
