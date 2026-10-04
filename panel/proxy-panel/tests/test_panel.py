@@ -23,6 +23,12 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 PANEL_DIR = HERE.parent
 
+# Tests must never write to /etc. The tproxy helpers in app.py use a
+# module-level constant, so each test points it at its own temp file. A
+# previous version of this file created and then unlinked the real
+# /etc/tproxy-server/profiles.json on the dev stand.
+TPROXY_PROFILES = None  # set per test
+
 _MANAGER_STUB = """#!/bin/bash
 echo "CALL $*" >> "{log}"
 case "$1" in
@@ -110,6 +116,12 @@ class PanelTestBase(unittest.TestCase):
             data={"username": user, "password": pw},
             follow_redirects=False,
         )
+
+    def _tproxy_path(self):
+        """A temp file to stand in for /etc/tproxy-server/profiles.json."""
+        p = Path(self.panel.MANAGER).parent / "tproxy_profiles.json"
+        self.panel.TPROXY_PROFILES_PATH = str(p)
+        return p
 
     def db(self):
         return sqlite3.connect(self.panel.DB_PATH)
@@ -339,7 +351,7 @@ class TestC3RealRevocation(PanelTestBase):
 class TestH2SecretNotLeaked(PanelTestBase):
     def test_info_returns_masked_and_flags_reveal(self):
         secret = "0123456789abcdef0123456789abcdef"
-        tp = Path("/etc/tproxy-server/profiles.json")
+        tp = Path(self._tproxy_path())
         try:
             tp.parent.mkdir(parents=True, exist_ok=True)
             tp.write_text(
@@ -360,7 +372,7 @@ class TestH2SecretNotLeaked(PanelTestBase):
 
     def test_reveal_is_explicit_post_and_audited(self):
         secret = "0123456789abcdef0123456789abcdef"
-        tp = Path("/etc/tproxy-server/profiles.json")
+        tp = Path(self._tproxy_path())
         try:
             tp.parent.mkdir(parents=True, exist_ok=True)
             tp.write_text(
@@ -394,7 +406,7 @@ class TestH2SecretNotLeaked(PanelTestBase):
 
     def test_reveal_requires_admin(self):
         secret = "0123456789abcdef0123456789abcdef"
-        tp = Path("/etc/tproxy-server/profiles.json")
+        tp = Path(self._tproxy_path())
         try:
             tp.parent.mkdir(parents=True, exist_ok=True)
             tp.write_text(
