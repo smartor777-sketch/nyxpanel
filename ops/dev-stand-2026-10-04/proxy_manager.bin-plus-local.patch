@@ -1,0 +1,60 @@
+--- /dev/fd/63	2026-10-04 17:50:03.461782704 +0300
++++ ../.work/server-snapshot/files/proxy_manager.server.sh	2026-08-25 02:59:09.000000000 +0300
+@@ -9,7 +9,7 @@
+ REGISTRY_FILE="$BASE_DIR/.registry"
+ 
+ # Пути к конфигам серверов
+-HY2_CONFIG="/etc/hysteria/config.yaml"
++HY2_CONFIG="/etc/hysteria/config.json"
+ AWG_CONFIG="/etc/amnezia/amneziawg/awg0.conf" 
+ NAIVE_CONFIG="/etc/sing-box/config.json"
+ AWG_INTERFACE="awg0"
+@@ -33,8 +33,8 @@
+ # Trojan
+ TROJAN_USERS_FILE="/etc/sing-box/trojan_users.json"
+ TROJAN_PORT=9443
+-TROJAN_CERT="/var/lib/caddy/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${SERVER_DOMAIN}/${SERVER_DOMAIN}.crt"
+-TROJAN_KEY="/var/lib/caddy/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${SERVER_DOMAIN}/${SERVER_DOMAIN}.key"
++TROJAN_CERT="/root/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${SERVER_DOMAIN}/${SERVER_DOMAIN}.crt"
++TROJAN_KEY="/root/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${SERVER_DOMAIN}/${SERVER_DOMAIN}.key"
+ TROJAN_SERVICE="trojan-go"
+ 
+ # VLESS+XHTTP+REALITY
+@@ -43,7 +43,7 @@
+ XRAY_SERVICE="xray"
+ VLESS_HOST="${SERVER_DOMAIN}"
+ VLESS_PORT="4433"
+-VLESS_SNI="1.1.1.1"
++VLESS_SNI="www.roblox.com"
+ VLESS_PUBLIC_KEY="hmCZQjda7fsDImaxq0Xw1Z8o-6Zy4bS7EpdAyqKBMjM="
+ VLESS_SHORT_ID="0f320668bd0a1838"
+ VLESS_PATH="%2Fvless"
+@@ -887,7 +887,7 @@
+     users = json.load(f)
+ with open('$XRAY_CONFIG') as f:
+     cfg = json.load(f)
+-clients = [{'id': uid, 'flow': '', 'email': uname} for uname, uid in users.items()]
++clients = [{'id': uid, 'flow': ''} for uid in users.values()]
+ if clients:
+     cfg['inbounds'][0]['settings']['clients'] = clients
+ with open('$XRAY_CONFIG', 'w') as f:
+@@ -926,7 +926,7 @@
+     update_xray_config
+ 
+     # Генерируем vless:// URI
+-    local link="vless://${uuid}@${VLESS_HOST}:${VLESS_PORT}?security=reality&type=xhttp&path=${VLESS_PATH}&sni=1.1.1.1&fp=firefox&pbk=${VLESS_PUBLIC_KEY}&sid=${VLESS_SHORT_ID}&spx=%2Fdns-query%2F#${username}"
++    local link="vless://@:?security=reality    local link="vless://${uuid}@${VLESS_HOST}:${VLESS_PORT}?security=reality&type=xhttp&path=${VLESS_PATH}&sni=&fp=firefox&pbk=${VLESS_PUBLIC_KEY}&sid=${VLESS_SHORT_ID}&spx=%2Fdns-query%2F#${username}"type=xhttp    local link="vless://${uuid}@${VLESS_HOST}:${VLESS_PORT}?security=reality&type=xhttp&path=${VLESS_PATH}&sni=&fp=firefox&pbk=${VLESS_PUBLIC_KEY}&sid=${VLESS_SHORT_ID}&spx=%2Fdns-query%2F#${username}"path=    local link="vless://${uuid}@${VLESS_HOST}:${VLESS_PORT}?security=reality&type=xhttp&path=${VLESS_PATH}&sni=&fp=firefox&pbk=${VLESS_PUBLIC_KEY}&sid=${VLESS_SHORT_ID}&spx=%2Fdns-query%2F#${username}"sni=    local link="vless://${uuid}@${VLESS_HOST}:${VLESS_PORT}?security=reality&type=xhttp&path=${VLESS_PATH}&sni=&fp=firefox&pbk=${VLESS_PUBLIC_KEY}&sid=${VLESS_SHORT_ID}&spx=%2Fdns-query%2F#${username}"fp=firefox    local link="vless://${uuid}@${VLESS_HOST}:${VLESS_PORT}?security=reality&type=xhttp&path=${VLESS_PATH}&sni=&fp=firefox&pbk=${VLESS_PUBLIC_KEY}&sid=${VLESS_SHORT_ID}&spx=%2Fdns-query%2F#${username}"pbk=    local link="vless://${uuid}@${VLESS_HOST}:${VLESS_PORT}?security=reality&type=xhttp&path=${VLESS_PATH}&sni=&fp=firefox&pbk=${VLESS_PUBLIC_KEY}&sid=${VLESS_SHORT_ID}&spx=%2Fdns-query%2F#${username}"sid=    local link="vless://${uuid}@${VLESS_HOST}:${VLESS_PORT}?security=reality&type=xhttp&path=${VLESS_PATH}&sni=&fp=firefox&pbk=${VLESS_PUBLIC_KEY}&sid=${VLESS_SHORT_ID}&spx=%2Fdns-query%2F#${username}"spx=%2Fdns-query%2F#"
+     echo "$link" > "$BASE_DIR/$username/${username}_vless.uri"
+ 
+     # QR-код из URI
+@@ -963,7 +963,9 @@
+     esac
+     echo "mode=$mode"
+     echo "target=$target"
+-    echo "sni=$REALITY_NORMAL_SNI"
++    local sni="${target%:*}"
++    echo "sni=$sni"
++    [ -z "$sni" ] && sni="$REALITY_NORMAL_SNI"
+     echo "affected=vless"
+ }
+ 

@@ -1,0 +1,12 @@
+[Unit]
+Description=Proxy Panel
+After=network.target
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/proxy-panel
+ExecStart=/usr/bin/python3 /opt/proxy-panel/app.py
+Restart=always
+RestartSec=5s
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,14 @@
+--- -	2026-10-04 17:50:03.460596403 +0300
++++ ../.work/server-snapshot/files/app.py	2026-08-25 01:46:44.000000000 +0300
+@@ -13,7 +13,10 @@
+ REGISTRY = BASE_DIR / ".registry"
+ DB_PATH = "/opt/proxy-panel/panel.db"
+ 
+-# Протоколы, которые затрагивает переключатель REALITY mode (whitelist/normal)
++# REALITY / Whitelist Mode
++# Затрагивает: VLESS+XHTTP+REALITY (xray). НЕ затрагивает: Hysteria 2, AmneziaWG, NaiveProxy, Mieru, olcRTC, Trojan.
++# target: www.roblox.com:443 · sni: www.roblox.com
++# Режим "белого списка" на сервере по умолчанию включен (кнопка ВКЛ).
+ REALITY_AFFECTED = [
+     ("vless", "VLESS+XHTTP+REALITY"),
+ ]
