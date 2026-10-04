@@ -94,7 +94,9 @@ install -d -m 750 -o "$RUN_USER" -g "$RUN_USER" "$STATE_DIR"
 install -d -m 750 -o "$RUN_USER" -g "$RUN_USER" "$STATE_DIR/users"
 install -d -m 750 -o "$RUN_USER" -g "$RUN_USER" "$STATE_DIR/tproxy"
 install -d -m 755 "$LOG_DIR"; chown "$RUN_USER:$RUN_USER" "$LOG_DIR"
-install -d -m 750 "$CONF_DIR"
+# Group-owned by the panel user: 750 root:root leaves the panel unable to even
+# traverse into it, and the env file inside is group-readable for that reason.
+install -d -m 750 -o root -g "$RUN_USER" "$CONF_DIR"
 
 # ------------------------------------------------------------------- files --
 # H8: copy the whole set, not two files.
@@ -215,16 +217,20 @@ done
 # explicit allowlist rather than a general NOPASSWD root.
 say "privileges"
 install -d -m 750 /etc/sudoers.d
+SYSTEMCTL="$(command -v systemctl)"
 cat > /etc/sudoers.d/nyxpanel <<EOF
-# nyxpanel may run the orchestrator and restart daemons. Nothing else.
+# nyxpanel may run the orchestrator and restart these daemons. Nothing else.
+#
+# Cmnd_Alias members must be fully-qualified paths; a bare "systemctl" fails
+# visudo with "expected a fully-qualified path name".
 Defaults!${INSTALL_DIR}/bin/proxy_manager.sh !requiretty
 Cmnd_Alias NYX_MANAGER = ${INSTALL_DIR}/bin/proxy_manager.sh *
-Cmnd_Alias NYX_DAEMONS = systemctl restart xray, \\
-                        systemctl restart hysteria2, \\
-                        systemctl restart sing-box-naive, \\
-                        systemctl restart trojan-go, \\
-                        systemctl restart tproxy-server, \\
-                        systemctl reload caddy
+Cmnd_Alias NYX_DAEMONS = ${SYSTEMCTL} restart xray, \
+                        ${SYSTEMCTL} restart hysteria2, \
+                        ${SYSTEMCTL} restart sing-box-naive, \
+                        ${SYSTEMCTL} restart trojan-go, \
+                        ${SYSTEMCTL} restart tproxy-server, \
+                        ${SYSTEMCTL} reload caddy
 $RUN_USER ALL=(root) NOPASSWD: NYX_MANAGER, NYX_DAEMONS
 EOF
 chmod 440 /etc/sudoers.d/nyxpanel

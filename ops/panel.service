@@ -35,6 +35,8 @@ LockPersonality=true
 MemoryDenyWriteExecute=true
 ReadWritePaths=/var/lib/nyxpanel /var/log/nyxpanel
 ReadOnlyPaths=/etc/nyxpanel /opt/nyxpanel
+# /etc/nyxpanel must be traversable by the panel user
+ReadWritePaths=
 
 [Install]
 WantedBy=multi-user.target
