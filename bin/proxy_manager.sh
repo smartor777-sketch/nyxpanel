@@ -5,50 +5,50 @@
 # ==============================================================================
 
 # --- НАСТРОЙКИ ---
-BASE_DIR="${BASE_DIR:-${BASE_DIR:-/root/proxy_users}}"
-REGISTRY_FILE="${REGISTRY_FILE:-${REGISTRY_FILE:-$BASE_DIR/.registry}}"
+BASE_DIR="${BASE_DIR:-/root/proxy_users}"
+REGISTRY_FILE="${REGISTRY_FILE:-$BASE_DIR/.registry}"
 
 # Пути к конфигам серверов
-HY2_CONFIG="${HY2_CONFIG:-${HY2_CONFIG:-/etc/hysteria/config.yaml}}"
+HY2_CONFIG="${HY2_CONFIG:-/etc/hysteria/config.yaml}"
 AWG_CONFIG="${AWG_CONFIG:-/etc/amnezia/amneziawg/awg0.conf}" 
-NAIVE_CONFIG="${NAIVE_CONFIG:-${NAIVE_CONFIG:-/etc/sing-box/config.json}}"
-AWG_INTERFACE="${AWG_INTERFACE:-${AWG_INTERFACE:-awg0}}"
+NAIVE_CONFIG="${NAIVE_CONFIG:-/etc/sing-box/config.json}"
+AWG_INTERFACE="${AWG_INTERFACE:-awg0}"
 
 # Параметры сервера
-SERVER_DOMAIN="${SERVER_DOMAIN:-${SERVER_DOMAIN:-vpn.example.com}}"
-AWG_SUBNET="${AWG_SUBNET:-${AWG_SUBNET:-10.9.9}}"
+SERVER_DOMAIN="${SERVER_DOMAIN:-vpn.example.com}"
+AWG_SUBNET="${AWG_SUBNET:-10.9.9}"
 NAIVE_PORT="${NAIVE_PORT:-8443}" 
 # H4: infrastructure addresses and secrets come from /etc/nyxpanel/proxy.env,
 # never from the body of this file. See ops/nyxpanel.env.example.
-MIERU_IP="${MIERU_IP:-${MIERU_IP:-${MIERU_IP:-}}}"
-MIERU_PORTS="${MIERU_PORTS:-${MIERU_PORTS:-444-448}}"
+MIERU_IP="${MIERU_IP:-}"
+MIERU_PORTS="${MIERU_PORTS:-444-448}"
 MIERU_CONFIG="${MIERU_CONFIG:-/etc/mita/server.json}"
 
 # olcRTC
-OLRTC_USERS_FILE="${OLRTC_USERS_FILE:-${OLRTC_USERS_FILE:-/etc/olcrtc/users.json}}"
-OLRTC_CONFIG="${OLRTC_CONFIG:-${OLRTC_CONFIG:-/root/.config/olcrtc/server.yaml}}"
-OLRTC_SERVICE="${OLRTC_SERVICE:-${OLRTC_SERVICE:-olcrtc}}"
-OLRTC_ICE="${OLRTC_ICE:-${OLRTC_ICE:-ws://${SERVER_DOMAIN}:30001/ice}}"
-OLRTC_ROOM_URL="${OLRTC_ROOM_URL:-${OLRTC_ROOM_URL:-}}"
-OLRTC_CRYPTO_KEY="${OLRTC_CRYPTO_KEY:-${OLRTC_CRYPTO_KEY:-}}"
+OLRTC_USERS_FILE="${OLRTC_USERS_FILE:-/etc/olcrtc/users.json}"
+OLRTC_CONFIG="${OLRTC_CONFIG:-/root/.config/olcrtc/server.yaml}"
+OLRTC_SERVICE="${OLRTC_SERVICE:-olcrtc}"
+OLRTC_ICE="${OLRTC_ICE:-ws://${SERVER_DOMAIN}:30001/ice}"
+OLRTC_ROOM_URL="${OLRTC_ROOM_URL:-}"
+OLRTC_CRYPTO_KEY="${OLRTC_CRYPTO_KEY:-}"
 
 # Trojan
-TROJAN_USERS_FILE="${TROJAN_USERS_FILE:-${TROJAN_USERS_FILE:-/etc/sing-box/trojan_users.json}}"
+TROJAN_USERS_FILE="${TROJAN_USERS_FILE:-/etc/sing-box/trojan_users.json}"
 TROJAN_PORT=9443
 TROJAN_CERT="${TROJAN_CERT:-/var/lib/caddy/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${SERVER_DOMAIN}/${SERVER_DOMAIN}.crt}"
 TROJAN_KEY="${TROJAN_KEY:-/var/lib/caddy/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${SERVER_DOMAIN}/${SERVER_DOMAIN}.key}"
-TROJAN_SERVICE="${TROJAN_SERVICE:-${TROJAN_SERVICE:-trojan-go}}"
+TROJAN_SERVICE="${TROJAN_SERVICE:-trojan-go}"
 
 # VLESS+XHTTP+REALITY
-XRAY_CONFIG="${XRAY_CONFIG:-${XRAY_CONFIG:-/usr/local/etc/xray/config.json}}"
-VLESS_USERS_FILE="${VLESS_USERS_FILE:-${VLESS_USERS_FILE:-/etc/xray/users.json}}"
-XRAY_SERVICE="${XRAY_SERVICE:-${XRAY_SERVICE:-xray}}"
-VLESS_HOST="${VLESS_HOST:-${VLESS_HOST:-${SERVER_DOMAIN}}}"
-VLESS_PORT="${VLESS_PORT:-${VLESS_PORT:-4433}}"
-VLESS_SNI="${VLESS_SNI:-${VLESS_SNI:-${VLESS_SNI:-}}}"
-VLESS_PUBLIC_KEY="${VLESS_PUBLIC_KEY:-${VLESS_PUBLIC_KEY:-${VLESS_PUBLIC_KEY:-}}}"
-VLESS_SHORT_ID="${VLESS_SHORT_ID:-${VLESS_SHORT_ID:-${VLESS_SHORT_ID:-}}}"
-VLESS_PATH="${VLESS_PATH:-${VLESS_PATH:-%2Fvless}}"
+XRAY_CONFIG="${XRAY_CONFIG:-/usr/local/etc/xray/config.json}"
+VLESS_USERS_FILE="${VLESS_USERS_FILE:-/etc/xray/users.json}"
+XRAY_SERVICE="${XRAY_SERVICE:-xray}"
+VLESS_HOST="${VLESS_HOST:-${SERVER_DOMAIN}}"
+VLESS_PORT="${VLESS_PORT:-4433}"
+VLESS_SNI="${VLESS_SNI:-}"
+VLESS_PUBLIC_KEY="${VLESS_PUBLIC_KEY:-}"
+VLESS_SHORT_ID="${VLESS_SHORT_ID:-}"
+VLESS_PATH="${VLESS_PATH:-%2Fvless}"
 
 # Цвета
 GREEN='\033[1;92m'
