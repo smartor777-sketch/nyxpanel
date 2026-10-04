@@ -13,7 +13,7 @@
 | Фаза | Что делаем | Результат |
 |------|-----------|-----------|
 | **Фаза 1 — Разработка на стенде** | Заказать новый сервер, установить через pxy (как prod). Разработать панель, olcbox, olcRTC не трогая prod | Работающая панель на стенде со всеми протоколами |
-| **Фаза 2 — Миграция на prod** | Перенести готовую панель на `retired.invalid`. Подключиться к существующим сервисам и пользователям | Prod работает через новую панель. Стенд остаётся для дальнейшей разработки |
+| **Фаза 2 — Миграция на prod** | Перенести готовую панель на `prod-legacy.example.com`. Подключиться к существующим сервисам и пользователям | Prod работает через новую панель. Стенд остаётся для дальнейшей разработки |
 | **Фаза 3 — Установка с нуля (Catalogue + Installer)** | Панель сама умеет ставить протоколы на голый Linux через SSH. pxy становится не обязателен — панель полностью самодостаточна | Панель = инсталлятор + менеджер в одном процессе |
 
 Этапы 0-10 ниже детализируют функциональность внутри фаз.
@@ -106,7 +106,7 @@ Flask blueprint `/api/v1/` с авторизацией по API-ключу:
 ### Что делаем
 
 Для каждого юзера генерируем **subscription token**.
-По ссылке `https://retired.invalid:8443/panel/sub/<token>` возвращаем конфиг
+По ссылке `https://prod-legacy.example.com:8443/panel/sub/<token>` возвращаем конфиг
 в формате, который понимают клиенты:
 
 - **V2Ray / Sing-box** — JSON или YAML с конфигами всех протоколов юзера
@@ -119,9 +119,9 @@ Flask blueprint `/api/v1/` с авторизацией по API-ключу:
 ### URL format
 
 ```
-https://retired.invalid:8443/panel/sub/<token>
-https://retired.invalid:8443/panel/sub/<token>/clash
-https://retired.invalid:8443/panel/sub/<token>/singbox
+https://prod-legacy.example.com:8443/panel/sub/<token>
+https://prod-legacy.example.com:8443/panel/sub/<token>/clash
+https://prod-legacy.example.com:8443/panel/sub/<token>/singbox
 ```
 
 ---
@@ -277,7 +277,7 @@ Python-бот (`python-telegram-bot v21+`) как отдельный серви�
 ```bash
 # ручной бэкап
 curl -X POST -H "Authorization: Bearer <admin-key>" \
-  https://retired.invalid:8443/api/v1/backup \
+  https://prod-legacy.example.com:8443/api/v1/backup \
   -o panel-backup-$(date +%Y%m%d).zip
 ```
 

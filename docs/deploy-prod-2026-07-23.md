@@ -1,7 +1,7 @@
 # Депл olcRTC + Panel на_prod
 
 **Дата:** 2026-07-23
-**Сервер:** `203.0.113.30` (prod.example.com) / `retired.invalid`
+**Сервер:** `203.0.113.30` (prod.example.com) / `prod-legacy.example.com`
 
 ---
 
@@ -105,13 +105,13 @@ systemctl status olcrtc
 journalctl -u olcrtc --since "1 min ago"
 
 # Проверка веб-интерфейса
-curl -sk https://retired.invalid:8443/panel/self/ | head -20
+curl -sk https://prod-legacy.example.com:8443/panel/self/ | head -20
 ```
 
 ### Шаг 6: Проверка APK
 ```bash
 # Убедиться что APK доступен
-curl -sk -o /dev/null -w "%{http_code}" https://retired.invalid:8443/panel/static/OlcboxME-1.0.2.apk
+curl -sk -o /dev/null -w "%{http_code}" https://prod-legacy.example.com:8443/panel/static/OlcboxME-1.0.2.apk
 # Должно быть 200
 ```
 
