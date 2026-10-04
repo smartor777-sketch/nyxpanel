@@ -195,15 +195,19 @@ def collect_awg(db):
     total = 0
     for line in r.stdout.strip().splitlines():
         parts = line.split()
-        if len(parts) < 8:
+        if len(parts) < 7:
             continue
         pubkey = parts[0]
         if pubkey not in pk_map:
             continue
         uname = pk_map[pubkey]
+        # awg/wg show <iface> dump peer line, 8 fields:
+        #   1 public-key  2 preshared-key  3 endpoint  4 allowed-ips
+        #   5 latest-handshake  6 transfer-rx  7 transfer-tx  8 keepalive
+        # Zero-indexed, rx is parts[5] and tx is parts[6].
         try:
             rx, tx = int(parts[5]), int(parts[6])
-        except ValueError:
+        except (ValueError, IndexError):
             continue
         current[uname] = {"up": rx, "down": tx}
         total += apply_delta(db, proto, uname, rx, tx, last, current, True)

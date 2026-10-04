@@ -194,7 +194,9 @@ load_env_overrides() {
         # Non-empty, not merely defined: the settings block declares things as
         # ${VAR:-}, so every one of them exists as an empty string before this
         # runs. Testing for existence made the file unreachable for every key.
-        if [ -n "${!key}" ]; then
+        # ${!key:-} rather than ${!key}: the latter trips `set -u` when the key
+        # is not set at all, which is the normal case for most entries.
+        if [ -n "${!key:-}" ]; then
             continue
         fi
         printf -v "$key" '%s' "$value"
