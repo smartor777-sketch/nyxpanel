@@ -4,6 +4,41 @@
 # ПРОКСИ-МЕНЕДЖЕР (Версия 0.9 - Hysteria 2 + AmneziaWG + NaiveProxy(sing-box) + Mieru + olcRTC + VLESS+XHTTP+REALITY) 
 # ==============================================================================
 
+# Per-host settings must be read BEFORE the defaults below.
+#
+# The settings block uses VAR="${VAR:-default}", so every variable already holds
+# a non-empty value by the time anything else runs. load_env_overrides() skips
+# variables that already hold one — correct for an explicit caller override, but
+# it means a file-provided BASE_DIR can never beat the built-in default. The
+# result was that the panel and the orchestrator used different directories: the
+# panel /var/lib/nyxpanel/users, the orchestrator /root/proxy_users.
+#
+# So the file is read here, and the defaults below fill in only what is still
+# unset. Reading it later cannot work.
+nyx_env_file="${NYX_ENV:-/etc/nyxpanel/proxy.env}"
+if [ -f "$nyx_env_file" ]; then
+    while IFS= read -r _line || [ -n "$_line" ]; do
+        _line="${_line%%#*}"
+        _line="${_line#"${_line%%[![:space:]]*}"}"
+        [ -z "$_line" ] && continue
+        case "$_line" in *=*) ;; *) continue ;; esac
+        _key="${_line%%=*}"
+        _val="${_line#*=}"
+        _key="${_key%"${_key##*[![:space:]]}"}"
+        _val="${_val#"${_val%%[![:space:]]*}"}"
+        _val="${_val%"${_val##*[![:space:]]}"}"
+        case "$_val" in
+            \"*\") _val="${_val:1:${#_val}-2}" ;;
+            \'*\') _val="${_val:1:${#_val}-2}" ;;
+        esac
+        # Only when genuinely unset, so an exported override still wins.
+        if [ -z "${!_key:-}" ]; then
+            printf -v "$_key" '%s' "$_val"
+            export "$_key"
+        fi
+    done < "$nyx_env_file"
+fi
+
 # --- НАСТРОЙКИ ---
 BASE_DIR="${BASE_DIR:-/root/proxy_users}"
 REGISTRY_FILE="${REGISTRY_FILE:-$BASE_DIR/.registry}"
@@ -116,7 +151,10 @@ init() {
     if ! command -v yq &> /dev/null; then echo -e "${RED}Ошибка: установите yq (apt install yq -y)${NC}"; exit 1; fi
     if ! command -v qrencode &> /dev/null; then echo -e "${RED}Ошибка: установите qrencode (apt install qrencode -y)${NC}"; exit 1; fi
     if ! command -v awg &> /dev/null; then echo -e "${RED}Ошибка: утилита awg не найдена. Установлен ли AmneziaWG?${NC}"; exit 1; fi
-    load_env_overrides
+    # The env file was already read above, before the defaults; only the log
+    # directory is left to set up.
+    SYNC_LOG="${SYNC_LOG:-/var/log/nyxpanel/sync.log}"
+    mkdir -p "$(dirname "$SYNC_LOG")" 2>/dev/null || true
     load_server_settings
     require_config
     load_revoke_lib
