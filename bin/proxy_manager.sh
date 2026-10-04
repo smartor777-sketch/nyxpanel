@@ -175,34 +175,111 @@ _sync_log() {
 # D2: apply awg0.conf to the live interface WITHOUT bouncing it.
 #
 # The previous code did `awg-quick down` + `awg-quick up`, which tears the whole
-# interface down — so adding one user dropped every connected user. syncconf
-# applies only our peers and leaves other tunnels untouched.
+# interface down, so adding one user dropped every connected user.
 #
-# Falls back to down/up only if syncconf is unavailable, and says so loudly.
+# Two things this must get right, and the naive version got both wrong:
+#   1. `wg-quick strip <iface>` reads the LIVE kernel state, so feeding it back
+#      to `syncconf` is a no-op that never applies a config-file change.
+#      The payload has to be built from the config file.
+#   2. `syncconf` reconciles peers, so a config file that is missing peers that
+#      exist live will silently delete them. Guard against that, and against a
+#      private key that does not match the running interface.
+
+# Build a syncconf payload from the config file: the interface private key plus
+# every [Peer]'s PublicKey / PresharedKey / AllowedIPs. AmneziaWG's Jc/Jmin/S1
+# parameters are interface-level tunables, not peer data, so they are excluded.
+_awg_syncconf_payload() {
+    local conf=$1
+    awk '
+        /^\[Interface\]/ { inint = 1; inpeer = 0; next }
+        /^\[Peer\]/      { inint = 0; inpeer = 1; next }
+        /^\[/            { inint = 0; inpeer = 0; next }
+        inint && /^[[:space:]]*PrivateKey[[:space:]]*=/ { print; next }
+        inpeer && /^[[:space:]]*(PublicKey|PresharedKey|AllowedIPs)[[:space:]]*=/ {
+            sub(/^[[:space:]]+/, "")
+            print
+            next
+        }
+    ' "$conf"
+}
+
 awg_apply_config() {
     local reason="${1:-unknown}"
-    if ! ip link show "$AWG_INTERFACE" >/dev/null 2>&1; then
-        _sync_log "iface=$AWG_INTERFACE absent; starting it (reason=$reason)"
-        awg-quick up "$AWG_INTERFACE" 2>/dev/null || true
-        return 0
+
+    if [ ! -f "$AWG_CONFIG" ]; then
+        _sync_log "iface=$AWG_INTERFACE no config at $AWG_CONFIG, nothing applied"
+        return 1
     fi
 
     local tool="awg"
     command -v awg >/dev/null 2>&1 || tool="wg"
+    command -v "$tool" >/dev/null 2>&1 || {
+        _sync_log "iface=$AWG_INTERFACE $tool not available"
+        return 1
+    }
 
-    # `wg-quick strip` emits the live config in the format syncconf wants.
-    local stripped
-    stripped=$(wg-quick strip "$AWG_INTERFACE" 2>/dev/null)
-    if [ -n "$stripped" ] && "$tool" syncconf "$AWG_INTERFACE" <(echo "$stripped") 2>/dev/null; then
-        _sync_log "iface=$AWG_INTERFACE syncconf OK (reason=$reason) peers=$(grep -c 'PublicKey' "$AWG_CONFIG")"
+    if ! ip link show "$AWG_INTERFACE" >/dev/null 2>&1; then
+        _sync_log "iface=$AWG_INTERFACE absent, bringing it up (reason=$reason)"
+        awg-quick up "$AWG_INTERFACE" 2>/dev/null || return 1
         return 0
     fi
 
-    # The failure mode that matters: our peers DID change on disk but are not on
-    # the interface. Report it instead of silently bouncing everyone.
-    _sync_log "iface=$AWG_INTERFACE SYNCFAILED (reason=$reason) peers=$(grep -c 'PublicKey' "$AWG_CONFIG")"
-    echo -e "${YELLOW}ВНИМАНИЕ: syncconf не удался, интерфейс НЕ перезагружен.${NC}"
-    echo -e "${YELLOW}Проверьте вручную: awg-quick down $AWG_INTERFACE && awg-quick up $AWG_INTERFACE${NC}"
+    # Guard 1: the interface key must match the file, or syncconf is meaningless.
+    local conf_pk live_pk
+    conf_pk=$(awk '/^[[:space:]]*PrivateKey[[:space:]]*=/ {print $3; exit}' "$AWG_CONFIG")
+    live_pk=$("$tool" show "$AWG_INTERFACE" private-key 2>/dev/null)
+    if [ -z "$conf_pk" ] || [ "$conf_pk" != "$live_pk" ]; then
+        _sync_log "iface=$AWG_INTERFACE KEY MISMATCH (reason=$reason) — refusing to sync"
+        echo -e "${RED}Приватный ключ в $AWG_CONFIG не совпадает с живым интерфейсом.${NC}" >&2
+        echo -e "${RED}Интерфейс НЕ изменён. Сверьте ключи вручную.${NC}" >&2
+        return 1
+    fi
+
+    # Guard 2: refuse to delete live peers the file does not mention. That is
+    # drift, not intent, and removing a connected peer here would look like a
+    # random disconnect. Override with AWG_ALLOW_PEER_REMOVAL=1 once reviewed.
+    local removal_allowed="${AWG_ALLOW_PEER_REMOVAL:-0}"
+    if [ "$removal_allowed" != "1" ]; then
+        local orphans
+        orphans=$(comm -13 \
+            <(grep -oE "PublicKey[[:space:]]*=[[:space:]]*[A-Za-z0-9+/=]+" "$AWG_CONFIG" \
+                 | awk '{print $3}' | sort -u) \
+            <("$tool" show "$AWG_INTERFACE" peers 2>/dev/null | sort -u) | wc -l)
+        if [ "$orphans" -gt 0 ]; then
+            _sync_log "iface=$AWG_INTERFACE $orphans live peers absent from config (reason=$reason) — refusing"
+            echo -e "${RED}На интерфейсе есть $orphans пиров, которых нет в конфиге.${NC}" >&2
+            echo -e "${RED}Интерфейс НЕ изменён. Разберитесь или задайте AWG_ALLOW_PEER_REMOVAL=1.${NC}" >&2
+            return 1
+        fi
+    fi
+
+    local payload
+    payload=$(_awg_syncconf_payload "$AWG_CONFIG")
+    if [ -z "$payload" ]; then
+        _sync_log "iface=$AWG_INTERFACE payload empty (reason=$reason)"
+        return 1
+    fi
+
+    if printf '%s\n' "$payload" | "$tool" syncconf "$AWG_INTERFACE" /dev/stdin 2>/dev/null; then
+        _sync_log "iface=$AWG_INTERFACE syncconf OK (reason=$reason) peers=$("$tool" show "$AWG_INTERFACE" peers | wc -l)"
+        return 0
+    fi
+
+    # syncconf can also be fed by a temp file; some builds dislike /dev/stdin.
+    local tmp; tmp=$(mktemp)
+    printf '%s\n' "$payload" > "$tmp"
+    if "$tool" syncconf "$AWG_INTERFACE" "$tmp" 2>/dev/null; then
+        rm -f "$tmp"
+        _sync_log "iface=$AWG_INTERFACE syncconf OK via tmpfile (reason=$reason) peers=$("$tool" show "$AWG_INTERFACE" peers | wc -l)"
+        return 0
+    fi
+    rm -f "$tmp"
+
+    # The failure that matters: the file says one thing, the interface another.
+    # Do NOT fall back to a bounce — that is exactly what we are avoiding.
+    _sync_log "iface=$AWG_INTERFACE SYNCFAILED (reason=$reason)"
+    echo -e "${YELLOW}ВНИМАНИЕ: syncconf не удался, интерфейс НЕ перезагружен.${NC}" >&2
+    echo -e "${YELLOW}Проверьте: $tool syncconf $AWG_INTERFACE <(awk '/Peer/{p=1} p' $AWG_CONFIG)${NC}" >&2
     return 1
 }
 
@@ -1252,6 +1329,11 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
                 sync_vless_uris ;;
             reality_status)
                 reality_status ;;
+            sync_awg|reconcile_awg)
+                # Force a reconcile of the AmneziaWG interface from its config
+                # file. Useful after a manual edit and as the non-interactive
+                # entry point for testing awg_apply_config.
+                awg_apply_config "${2:-manual}" ;;
             revoke_user|restore_user|expire_check)
                 if declare -F "nyx_$1" >/dev/null 2>&1; then
                     nyx_$1 "$2"
@@ -1259,7 +1341,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
                     echo "revoke library not loaded" >&2; exit 1
                 fi ;;
             *)
-                echo "Usage: $0 {add_user|del_user|list_users|remove_protocol|sync_naive_users|add_hy2_user|add_awg_user|add_naive_user|add_mieru_user|add_olcrtc_user|add_vless_user|add_trojan_user|set_reality_mode|sync_vless_uris|reality_status|revoke_user|restore_user|expire_check} [username] [protocol]"
+                echo "Usage: $0 {add_user|del_user|list_users|remove_protocol|sync_naive_users|add_hy2_user|add_awg_user|add_naive_user|add_mieru_user|add_olcrtc_user|add_vless_user|add_trojan_user|set_reality_mode|sync_vless_uris|reality_status|sync_awg|revoke_user|restore_user|expire_check} [username] [protocol]"
                 exit 1 ;;
         esac
         exit $?
