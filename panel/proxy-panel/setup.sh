@@ -248,6 +248,17 @@ visudo -c -f /etc/sudoers.d/nyxpanel >/dev/null \
     || die "generated sudoers file is invalid"
 
 # ------------------------------------------------------------------ units --
+say "caddy certificate permissions"
+# Caddy writes 0600 caddy:nyxcerts, which grants the group nothing. The TLS
+# services cannot open the certificate after a renewal, and only a restart
+# reveals it, so the mode is enforced on a timer.
+install -m 755 "$SOURCE_DIR/ops/caddy-cert-permissions.sh" "${INSTALL_DIR}/ops/caddy-cert-permissions.sh"
+install -m 644 "$SOURCE_DIR/ops/caddy-cert-permissions.service" /etc/systemd/system/caddy-cert-permissions.service
+install -m 644 "$SOURCE_DIR/ops/caddy-cert-permissions.timer" /etc/systemd/system/caddy-cert-permissions.timer
+systemctl daemon-reload
+systemctl enable --now caddy-cert-permissions.timer >/dev/null 2>&1 \
+    || say "could not enable caddy-cert-permissions.timer (check the unit)"
+
 say "systemd units"
 install -m 644 "$SOURCE_DIR/ops/panel.service" /etc/systemd/system/panel.service
 install -m 644 "$SOURCE_DIR/ops/nyxpanel-collector.service" \

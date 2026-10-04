@@ -1,0 +1,14 @@
+# Caddy renews roughly every 60 days and rewrites the files as 0600. Daily is far
+# more often than that, and the services only break on the next restart, so the
+# window in which a stale mode can bite someone is days rather than weeks.
+[Unit]
+Description=Daily Caddy certificate permission check
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=15m
+Unit=caddy-cert-permissions.service
+
+[Install]
+WantedBy=timers.target

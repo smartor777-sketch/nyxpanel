@@ -1,0 +1,13 @@
+# Re-apply group read on Caddy's certificates after every renewal.
+#
+# See ops/caddy-cert-permissions.sh for why: Caddy writes 0600 caddy:nyxcerts, so
+# the group ownership grants nothing, and any restart of hysteria2 / sing-box /
+# trojan-go then fails to open the certificate and crash-loops.
+[Unit]
+Description=Make Caddy certificates readable by the TLS services
+# Run after Caddy has written anything, and once a day regardless.
+After=caddy.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/nyxpanel/ops/caddy-cert-permissions.sh
