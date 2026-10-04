@@ -143,6 +143,23 @@ load_server_settings() {
     fi
 }
 
+# Hand newly created files to the state directory's owner.
+#
+# The orchestrator runs as root through sudo, so without this every config it
+# writes lands root:root 644 — readable by the panel but not deletable or
+# rewritable by it, which breaks removing a protocol and revoking access.
+_fix_state_owner() {
+    local dir=${1:-$BASE_DIR}
+    local owner
+    owner=$(stat -c '%U:%G' "$dir" 2>/dev/null) || return 0
+    [ "$owner" = "root:root" ] && return 0
+    chown -R "$owner" "$dir" 2>/dev/null || true
+    # Configs hold private keys: keep them group-only.
+    find "$dir" -type f \
+        \( -name '*.conf' -o -name '*.json' -o -name '*.uri' -o -name '.awg_pubkey' \) \
+        -exec chmod 640 {} + 2>/dev/null || true
+}
+
 init() {
     mkdir -p "$BASE_DIR"
     touch "$REGISTRY_FILE"
@@ -1523,13 +1540,17 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     if [ $# -gt 0 ]; then
         case "$1" in
             add_user|del_user|add_hy2_user|add_awg_user|add_naive_user|add_mieru_user|add_olcrtc_user|add_vless_user|add_trojan_user)
-                "$1" "$2" ;;
+                "$1" "$2"
+                # Root wrote these; the panel has to own them.
+                _fix_state_owner
+                ;;
             sync_naive_users|sync_naive)
                 sync_naive_users ;;
             list_users|list)
                 list_users ;;
             remove_protocol)
-                remove_protocol "$3" "$2" ;;
+                remove_protocol "$3" "$2"
+                _fix_state_owner ;;
             set_reality_mode)
                 set_reality_mode "$2" ;;
             sync_vless_uris)
