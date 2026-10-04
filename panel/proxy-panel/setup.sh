@@ -17,7 +17,9 @@ STATE_DIR=/var/lib/nyxpanel
 CONF_DIR=/etc/nyxpanel
 LOG_DIR=/var/log/nyxpanel
 RUN_USER=nyxpanel
-SOURCE_DIR="$(cd "$(dirname "$0")" && pwd)"
+# This script lives at <root>/panel/proxy-panel/setup.sh, so the repository
+# root is three levels up.
+SOURCE_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
 
 RED=$'\033[1;31m'; GREEN=$'\033[1;32m'; YELLOW=$'\033[1;33m'; NC=$'\033[0m'
 
