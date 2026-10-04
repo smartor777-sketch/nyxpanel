@@ -21,7 +21,14 @@ RestartSec=5s
 # The panel must not be able to write outside its state directory. Everything
 # that needs privilege goes through a short sudoers allowlist, because
 # proxy_manager.sh has to touch awg0.conf and restart daemons.
-NoNewPrivileges=true
+#
+# NoNewPrivileges is deliberately absent. It blocks the setuid transition sudo
+# relies on, so the panel fails every operation with
+#   sudo: The "no new privileges" flag is set, which prevents sudo from running
+#   as root.
+# It can be re-added only together with removing sudo: the orchestrator would
+# have to run as a root-side agent that the panel signals, rather than being
+# invoked by it. That is the design in nyx-architecture-dev-reconcile.md.
 PrivateTmp=true
 PrivateDevices=true
 ProtectKernelTunables=true
