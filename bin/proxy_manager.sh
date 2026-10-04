@@ -660,11 +660,25 @@ del_user() {
 
     # 2. Удаляем из AmneziaWG (если есть)
     if [ -f "$target_dir/.awg_pubkey" ] && [ -f "$AWG_CONFIG" ]; then
-        awk -v user="$username" '
-            $0 ~ "^# Peer: " user { skip=1; next }
-            skip && /^\[Peer\]/ { skip=0 }
-            !skip { print }
-        ' "$AWG_CONFIG" > /tmp/awg_tmp.conf && mv /tmp/awg_tmp.conf "$AWG_CONFIG"
+    # Drop the block belonging to this user: the "# Peer: <name>" comment and every
+    # line up to the blank line that ends the block.
+    #
+    # The previous rule cleared `skip` on the first "[Peer]" line and then printed it,
+    # because that line matched the skip branch (which has no `next`) and fell through
+    # to the print branch. Net effect: only the comment went away and the
+    # PublicKey/PresharedKey/AllowedIPs lines stayed. The reconcile then found the
+    # peer still in the file and removed nothing, so the user could not be deleted at
+    # all, and the orphaned header left a bare "[Peer]" behind.
+    #
+    # Blocks are separated by a blank line, and that is the safe boundary to stop on:
+    # stopping on a section header instead eats either this peer's header or the next
+    # peer's, depending on where the `next` goes.
+    awk -v user="$username" '
+        $0 ~ "^# Peer: " user "$" { skip=1; next }
+        skip && /^[[:space:]]*$/ { skip=0; next }
+        skip { next }
+        { print }
+    ' "$AWG_CONFIG" > /tmp/awg_tmp.conf && mv /tmp/awg_tmp.conf "$AWG_CONFIG"
 
         # The block above was just deleted deliberately.
         awg_apply_config "del_user:$1" 1
@@ -839,10 +853,13 @@ remove_protocol() {
             ;;
         awg)
             if [ -f "$BASE_DIR/$username/.awg_pubkey" ] && [ -f "$AWG_CONFIG" ]; then
+                # Same rule as del_user above — see the note there for why stopping on a
+                # blank line rather than on "[Peer]" is what makes it correct.
                 awk -v user="$username" '
-                    $0 ~ "^# Peer: " user { skip=1; next }
-                    skip && /^\[Peer\]/ { skip=0 }
-                    !skip { print }
+                    $0 ~ "^# Peer: " user "$" { skip=1; next }
+                    skip && /^[[:space:]]*$/ { skip=0; next }
+                    skip { next }
+                    { print }
                 ' "$AWG_CONFIG" > /tmp/awg_tmp.conf && mv /tmp/awg_tmp.conf "$AWG_CONFIG"
 
                 # The block above was just deleted deliberately.
