@@ -33,10 +33,11 @@ RestrictSUIDSGID=true
 RestrictRealtime=true
 LockPersonality=true
 MemoryDenyWriteExecute=true
+# Under ProtectSystem=strict the whole filesystem is read-only except these.
+# A second ReadWritePaths= line does not extend the list, it replaces it: with an
+# empty second line the panel had nowhere to write and sqlite failed to open.
 ReadWritePaths=/var/lib/nyxpanel /var/log/nyxpanel
 ReadOnlyPaths=/etc/nyxpanel /opt/nyxpanel
-# /etc/nyxpanel must be traversable by the panel user
-ReadWritePaths=
 
 [Install]
 WantedBy=multi-user.target
