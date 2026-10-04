@@ -249,21 +249,63 @@ _awg_syncconf_payload() {
 
 # How to push a config change onto the live interface.
 #
-#   bounce  awg-quick down + up. Drops every connected user's tunnel, but is the
-#           only mode verified to work on this platform. DEFAULT.
-#   sync    awg syncconf. Meant to apply peers in place without a bounce.
+#   peer    (default) one `awg set <if> peer ...` per changed peer. Adds, updates
+#           and removes peers in place; the interface is never torn down, so no
+#           connected user is dropped. This is what makes adding a user safe.
+#   bounce  awg-quick down + up. Drops every tunnel on the interface.
 #
-# sync is OFF by default because it does not work safely here yet. On
-# amneziawg-tools 3.1 / amneziawg kernel 3.1 it returns rc=0 and leaves the
-# peers in place, but the interface's public and private key stop being readable
-# afterwards (reproduced repeatedly on a throwaway interface; awg0 was never
-# touched). Whether traffic keeps flowing could not be established — the netns
-# client used to prove it failed to configure — so it is not safe to enable on a
-# host with live users.
+# Why per-peer and not `awg syncconf`: on amneziawg-tools 3.1 syncconf returns
+# rc=0 and applies the peers, but `awg show <if> private-key` and `public-key`
+# start returning empty afterwards, and whether traffic survives could not be
+# established. Per-peer `awg set` was verified on the live interface: a peer was
+# added with its preshared key, the PSK rotated in place, allowed-ips changed and
+# the peer removed, with the interface private key readable throughout and the
+# other peers untouched.
 #
-# Re-test on a spare interface before switching, and see
-# nyx-analysis.md "D2 was measured, not assumed".
-AWG_SYNC_MODE="${AWG_SYNC_MODE:-bounce}"
+# Why this works at all — and why the previous code fell back to bouncing:
+# in amneziawg-tools 3.1 `preshared-key` takes a FILE PATH, not the key value:
+#
+#     awg set awg0 peer <pub> preshared-key <value>    -> fopen: No such file or directory
+#     awg set awg0 peer <pub> preshared-key /path/psk  -> works
+#
+# Keeping the key out of argv also means it does not show up in `ps`.
+AWG_SYNC_MODE="${AWG_SYNC_MODE:-peer}"
+
+# amneziawg-tools wants the preshared key in a file. 0600, removed immediately:
+# a stray PSK file is readable by anyone with shell on the box.
+_nyx_psk_file() {
+    local psk=$1 dir f
+    dir="${XDG_RUNTIME_DIR:-/run}"
+    f=$(mktemp "$dir/nyx-psk.XXXXXX") || return 1
+    chmod 600 "$f"
+    printf '%s' "$psk" > "$f"
+    printf '%s' "$f"
+}
+
+# Desired peers from the config file: "pubkey psk allowed-ips" per line.
+_nyx_desired_peers() {
+    awk '
+        /^[[:space:]]*#/ { next }
+        /^\[/ { next }
+        /^[[:space:]]*PublicKey[[:space:]]*=/ {
+            if (pk != "") print pk, psk, ips
+            pk = $3; psk = ""; ips = ""; next
+        }
+        /^[[:space:]]*PresharedKey[[:space:]]*=/ { psk = $3; next }
+        /^[[:space:]]*AllowedIPs[[:space:]]*=/ {
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", $3)
+            ips = (ips == "" ? $3 : ips "," $3); next
+        }
+        END { if (pk != "") print pk, psk, ips }
+    ' "$AWG_CONFIG"
+}
+
+# Live peers, same shape: "pubkey psk allowed-ips".
+_nyx_live_peers() {
+    local tool=$1
+    "$tool" show "$AWG_INTERFACE" dump 2>/dev/null | tail -n +2 | \
+        awk 'NF >= 4 { print $1, ($2 == "(none)" ? "" : $2), $4 }'
+}
 
 awg_apply_config() {
     local reason="${1:-unknown}"
@@ -276,7 +318,7 @@ awg_apply_config() {
     local tool="awg"
     command -v awg >/dev/null 2>&1 || tool="wg"
     command -v "$tool" >/dev/null 2>&1 || {
-        _sync_log "iface=$AWG_INTERFACE $tool not available"
+        _sync_log "iface=$AWG_INTERFACE neither awg nor wg available"
         return 1
     }
 
@@ -286,38 +328,7 @@ awg_apply_config() {
         return 0
     fi
 
-    # Guard 1: the interface key must match the file, or syncconf is meaningless.
-    local conf_pk live_pk
-    conf_pk=$(awk '/^[[:space:]]*PrivateKey[[:space:]]*=/ {print $3; exit}' "$AWG_CONFIG")
-    live_pk=$("$tool" show "$AWG_INTERFACE" private-key 2>/dev/null)
-    if [ -z "$conf_pk" ] || [ "$conf_pk" != "$live_pk" ]; then
-        _sync_log "iface=$AWG_INTERFACE KEY MISMATCH (reason=$reason) — refusing to sync"
-        echo -e "${RED}Приватный ключ в $AWG_CONFIG не совпадает с живым интерфейсом.${NC}" >&2
-        echo -e "${RED}Интерфейс НЕ изменён. Сверьте ключи вручную.${NC}" >&2
-        return 1
-    fi
-
-    # Guard 2: refuse to delete live peers the file does not mention. That is
-    # drift, not intent, and removing a connected peer here would look like a
-    # random disconnect. Override with AWG_ALLOW_PEER_REMOVAL=1 once reviewed.
-    local removal_allowed="${AWG_ALLOW_PEER_REMOVAL:-0}"
-    if [ "$removal_allowed" != "1" ]; then
-        local orphans
-        orphans=$(comm -13 \
-            <(grep -oE "PublicKey[[:space:]]*=[[:space:]]*[A-Za-z0-9+/=]+" "$AWG_CONFIG" \
-                 | awk '{print $3}' | sort -u) \
-            <("$tool" show "$AWG_INTERFACE" peers 2>/dev/null | sort -u) | wc -l)
-        if [ "$orphans" -gt 0 ]; then
-            _sync_log "iface=$AWG_INTERFACE $orphans live peers absent from config (reason=$reason) — refusing"
-            echo -e "${RED}На интерфейсе есть $orphans пиров, которых нет в конфиге.${NC}" >&2
-            echo -e "${RED}Интерфейс НЕ изменён. Разберитесь или задайте AWG_ALLOW_PEER_REMOVAL=1.${NC}" >&2
-            return 1
-        fi
-    fi
-
-    if [ "$AWG_SYNC_MODE" != "sync" ]; then
-        # bounce mode: the verified behaviour, and the one the audit criticised.
-        # Kept as the default because sync is not yet safe here.
+    if [ "$AWG_SYNC_MODE" = "bounce" ]; then
         _sync_log "iface=$AWG_INTERFACE bounce (reason=$reason)"
         awg-quick down "$AWG_INTERFACE" 2>/dev/null || true
         awg-quick up "$AWG_INTERFACE" 2>/dev/null || {
@@ -327,34 +338,122 @@ awg_apply_config() {
         return 0
     fi
 
-    local payload
-    payload=$(_awg_syncconf_payload "$AWG_CONFIG")
-    if [ -z "$payload" ]; then
-        _sync_log "iface=$AWG_INTERFACE payload empty (reason=$reason)"
+    # Sanity check. Per-peer set never sends the interface key, so pointing at
+    # the wrong config file would not fail loudly — it would quietly reconcile
+    # the wrong peer set.
+    local conf_pk live_pk
+    conf_pk=$(awk '/^[[:space:]]*PrivateKey[[:space:]]*=/ {print $3; exit}' "$AWG_CONFIG")
+    live_pk=$("$tool" show "$AWG_INTERFACE" private-key 2>/dev/null)
+    if [ -z "$live_pk" ]; then
+        _sync_log "iface=$AWG_INTERFACE private key unreadable, refusing (reason=$reason)"
+        echo -e "${RED}Приватный ключ интерфейса $AWG_INTERFACE недоступен — изменений не вносилось.${NC}" >&2
+        return 1
+    fi
+    if [ -z "$conf_pk" ] || [ "$conf_pk" != "$live_pk" ]; then
+        _sync_log "iface=$AWG_INTERFACE KEY MISMATCH (reason=$reason) — refusing"
+        echo -e "${RED}Приватный ключ в $AWG_CONFIG не совпадает с живым интерфейсом.${NC}" >&2
         return 1
     fi
 
-    if printf '%s\n' "$payload" | "$tool" syncconf "$AWG_INTERFACE" /dev/stdin 2>/dev/null; then
-        _sync_log "iface=$AWG_INTERFACE syncconf OK (reason=$reason) peers=$("$tool" show "$AWG_INTERFACE" peers | wc -l)"
-        return 0
+    local desired live
+    desired=$(_nyx_desired_peers)
+    live=$(_nyx_live_peers "$tool")
+
+    if [ -z "$desired" ]; then
+        _sync_log "iface=$AWG_INTERFACE config lists no peers, refusing (reason=$reason)"
+        echo -e "${RED}В $AWG_CONFIG нет ни одного пира — интерфейс НЕ изменён.${NC}" >&2
+        return 1
     fi
 
-    # syncconf can also be fed by a temp file; some builds dislike /dev/stdin.
-    local tmp; tmp=$(mktemp)
-    printf '%s\n' "$payload" > "$tmp"
-    if "$tool" syncconf "$AWG_INTERFACE" "$tmp" 2>/dev/null; then
-        rm -f "$tmp"
-        _sync_log "iface=$AWG_INTERFACE syncconf OK via tmpfile (reason=$reason) peers=$("$tool" show "$AWG_INTERFACE" peers | wc -l)"
-        return 0
+    # Guard: peers live but absent from the file are drift, not intent. Removing
+    # a connected peer here would look like a random disconnect.
+    if [ "${AWG_ALLOW_PEER_REMOVAL:-0}" != "1" ]; then
+        local orphans=""
+        while read -r _pub _psk _ips; do
+            [ -z "$_pub" ] && continue
+            printf '%s\n' "$desired" | awk -v k="$_pub" '$1==k {found=1} END{exit !found}' \
+                || orphans="$orphans $_pub"
+        done <<< "$live"
+        if [ -n "$orphans" ]; then
+            local n
+            n=$(printf '%s\n' $orphans | wc -l)
+            _sync_log "iface=$AWG_INTERFACE $n live peers absent from config (reason=$reason) — refusing"
+            echo -e "${RED}На интерфейсе есть $n пиров, которых нет в конфиге.${NC}" >&2
+            echo -e "${RED}Интерфейс НЕ изменён. Разберитесь или задайте AWG_ALLOW_PEER_REMOVAL=1.${NC}" >&2
+            return 1
+        fi
     fi
-    rm -f "$tmp"
 
-    # The failure that matters: the file says one thing, the interface another.
-    # Do NOT fall back to a bounce — that is exactly what we are avoiding.
-    _sync_log "iface=$AWG_INTERFACE SYNCFAILED (reason=$reason)"
-    echo -e "${YELLOW}ВНИМАНИЕ: syncconf не удался, интерфейс НЕ перезагружен.${NC}" >&2
-    echo -e "${YELLOW}Проверьте: $tool syncconf $AWG_INTERFACE <(awk '/Peer/{p=1} p' $AWG_CONFIG)${NC}" >&2
-    return 1
+    local added=0 updated=0 removed=0 failed=0
+    local dpub dpsk dips lpub lpsk lips pf
+
+    # --- add or update, one peer at a time ---
+    while read -r dpub dpsk dips; do
+        [ -z "$dpub" ] && continue
+        lpub=$(printf '%s\n' "$live" | awk -v k="$dpub" '$1==k {print $1}')
+        if [ -z "$lpub" ]; then
+            pf=""
+            [ -n "$dpsk" ] && pf=$(_nyx_psk_file "$dpsk")
+            if [ -n "$pf" ]; then
+                if "$tool" set "$AWG_INTERFACE" peer "$dpub" \
+                        preshared-key "$pf" allowed-ips "$dips" 2>/dev/null; then
+                    added=$((added+1))
+                else
+                    failed=$((failed+1))
+                fi
+                rm -f "$pf"
+            elif "$tool" set "$AWG_INTERFACE" peer "$dpub" \
+                        allowed-ips "$dips" 2>/dev/null; then
+                added=$((added+1))
+            else
+                failed=$((failed+1))
+            fi
+            continue
+        fi
+        # Present: write only when something actually differs, so a reconcile is
+        # a no-op rather than touching every peer.
+        lpsk=$(printf '%s\n' "$live" | awk -v k="$dpub" '$1==k {print $2}')
+        lips=$(printf '%s\n' "$live" | awk -v k="$dpub" '$1==k {print $3}')
+        [ "$lpsk" = "$dpsk" ] && [ "$lips" = "$dips" ] && continue
+
+        pf=""
+        [ -n "$dpsk" ] && pf=$(_nyx_psk_file "$dpsk")
+        if [ -n "$pf" ]; then
+            if "$tool" set "$AWG_INTERFACE" peer "$dpub" preshared-key "$pf" \
+                    allowed-ips "$dips" 2>/dev/null; then
+                updated=$((updated+1))
+            else
+                failed=$((failed+1))
+            fi
+            rm -f "$pf"
+        elif "$tool" set "$AWG_INTERFACE" peer "$dpub" \
+                    allowed-ips "$dips" 2>/dev/null; then
+            updated=$((updated+1))
+        else
+            failed=$((failed+1))
+        fi
+    done <<< "$desired"
+
+    # --- remove ---
+    while read -r lpub lpsk lips; do
+        [ -z "$lpub" ] && continue
+        dpub=$(printf '%s\n' "$desired" | awk -v k="$lpub" '$1==k {print $1}')
+        [ -z "$dpub" ] || continue
+        if "$tool" set "$AWG_INTERFACE" peer "$lpub" remove 2>/dev/null; then
+            removed=$((removed+1))
+        else
+            failed=$((failed+1))
+        fi
+    done <<< "$live"
+
+    _sync_log "iface=$AWG_INTERFACE peer-reconcile (reason=$reason) added=$added updated=$updated removed=$removed failed=$failed live_now=$("$tool" show "$AWG_INTERFACE" peers 2>/dev/null | wc -l)"
+
+    if [ "$failed" -gt 0 ]; then
+        echo -e "${RED}Часть изменений не применена (added=$added updated=$updated removed=$removed failed=$failed).${NC}" >&2
+        echo -e "${RED}Подробности: ${SYNC_LOG:-журнал отсутствует}${NC}" >&2
+        return 1
+    fi
+    return 0
 }
 
 # --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
