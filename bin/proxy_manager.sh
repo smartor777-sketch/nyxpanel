@@ -222,16 +222,21 @@ _sync_log() {
 #      exist live will silently delete them. Guard against that, and against a
 #      private key that does not match the running interface.
 
-# Build a syncconf payload from the config file: the interface private key plus
-# every [Peer]'s PublicKey / PresharedKey / AllowedIPs. AmneziaWG's Jc/Jmin/S1
-# parameters are interface-level tunables, not peer data, so they are excluded.
+# Build a syncconf payload from the config file.
+#
+# Peers only. syncconf reconciles peers and refuses the interface's PrivateKey
+# outright ("Line unrecognized: PrivateKey=..."), so the key must not be sent —
+# it is verified separately by guard 1 below.
+#
+# AmneziaWG's Jc/Jmin/Jmax/S1..S4/H1..H4/I1/I5 parameters are interface-level
+# tunables that only take effect on a fresh interface, not per-peer data, so they
+# are excluded too. Changing them still requires a manual bounce, which the
+# comment below says out loud rather than pretending otherwise.
 _awg_syncconf_payload() {
     local conf=$1
     awk '
-        /^\[Interface\]/ { inint = 1; inpeer = 0; next }
-        /^\[Peer\]/      { inint = 0; inpeer = 1; next }
-        /^\[/            { inint = 0; inpeer = 0; next }
-        inint && /^[[:space:]]*PrivateKey[[:space:]]*=/ { print; next }
+        /^\[Peer\]/ { inpeer = 1; print; next }
+        /^\[/       { inpeer = 0; next }
         inpeer && /^[[:space:]]*(PublicKey|PresharedKey|AllowedIPs)[[:space:]]*=/ {
             sub(/^[[:space:]]+/, "")
             print
