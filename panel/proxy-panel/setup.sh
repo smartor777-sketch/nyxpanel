@@ -218,11 +218,13 @@ done
 say "privileges"
 install -d -m 750 /etc/sudoers.d
 SYSTEMCTL="$(command -v systemctl)"
+NFT="$(command -v nft || echo /usr/sbin/nft)"
 cat > /etc/sudoers.d/nyxpanel <<EOF
-# nyxpanel may run the orchestrator and restart these daemons. Nothing else.
+# nyxpanel may run the orchestrator, adjust the tproxy firewall chain, and drive
+# these specific systemd units. Nothing else.
 #
-# Cmnd_Alias members must be fully-qualified paths; a bare "systemctl" fails
-# visudo with "expected a fully-qualified path name".
+# Cmnd_Alias members must be fully-qualified paths, or visudo rejects the file
+# with "expected a fully-qualified path name".
 Defaults!${INSTALL_DIR}/bin/proxy_manager.sh !requiretty
 Cmnd_Alias NYX_MANAGER = ${INSTALL_DIR}/bin/proxy_manager.sh *
 Cmnd_Alias NYX_DAEMONS = ${SYSTEMCTL} restart xray, \
@@ -230,8 +232,16 @@ Cmnd_Alias NYX_DAEMONS = ${SYSTEMCTL} restart xray, \
                         ${SYSTEMCTL} restart sing-box-naive, \
                         ${SYSTEMCTL} restart trojan-go, \
                         ${SYSTEMCTL} restart tproxy-server, \
-                        ${SYSTEMCTL} reload caddy
-$RUN_USER ALL=(root) NOPASSWD: NYX_MANAGER, NYX_DAEMONS
+                        ${SYSTEMCTL} reload caddy, \
+                        ${SYSTEMCTL} daemon-reload, \
+                        ${SYSTEMCTL} reload-or-restart tproxy-server
+Cmnd_Alias NYX_TPROXY = ${NFT} -f -*, \
+                        ${SYSTEMCTL} enable mtproxy-*, \
+                        ${SYSTEMCTL} disable mtproxy-*, \
+                        ${SYSTEMCTL} start mtproxy-*, \
+                        ${SYSTEMCTL} stop mtproxy-*, \
+                        ${SYSTEMCTL} restart mtproxy-*
+$RUN_USER ALL=(root) NOPASSWD: NYX_MANAGER, NYX_DAEMONS, NYX_TPROXY
 EOF
 chmod 440 /etc/sudoers.d/nyxpanel
 visudo -c -f /etc/sudoers.d/nyxpanel >/dev/null \

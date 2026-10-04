@@ -121,8 +121,20 @@ PROTOCOLS = [
     ("troy",   "Trojan",              "_troyan.json", "_troyan.png"),
 ]
 
-def _cmd(*args):
-    return ["bash", MANAGER] + list(args)
+def _sudo_cmd(*args):
+    """Run the orchestrator as root through the sudoers allowlist.
+
+    The panel itself runs unprivileged and cannot read MANAGER (mode 750,
+    root:root) nor write awg0.conf. The allowlist in
+    /etc/sudoers.d/nyxpanel permits exactly this script and nothing else, so
+    calling bash on it directly fails with "Permission denied".
+
+    -n so a missing allowentry fails immediately instead of hanging on a prompt.
+    """
+    return ["sudo", "-n", MANAGER] + list(args)
+
+
+_cmd = _sudo_cmd
 
 
 SCRIPTS = {
@@ -427,7 +439,7 @@ def get_reality_state():
     state = {"mode": "normal", "target": "", "sni": "", "affected": "vless"}
     try:
         proc = subprocess.run(
-            ["bash", "/root/proxy_manager.sh", "reality_status"],
+            _sudo_cmd("reality_status"),
             capture_output=True, text=True, timeout=30
         )
         for line in (proc.stdout or "").splitlines():
@@ -448,7 +460,7 @@ def reality_toggle():
     env["TERM"] = "linux"
     try:
         proc = subprocess.run(
-            ["bash", "/root/proxy_manager.sh", "set_reality_mode", new_mode],
+            _sudo_cmd("set_reality_mode", new_mode),
             capture_output=True, encoding="utf-8", timeout=120, env=env
         )
         out = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', proc.stdout or "").strip()
@@ -835,7 +847,10 @@ def tproxy_write_tg_mappings(mappings):
         json.dump(mappings, f, indent=2)
 
 def tproxy_restart():
-    subprocess.run(["systemctl", "restart", "tproxy-server"], capture_output=True, timeout=15)
+    # systemctl is on the sudoers allowlist; calling it directly would fail for
+    # an unprivileged panel.
+    subprocess.run(["sudo", "-n", "/usr/bin/systemctl", "restart", "tproxy-server"],
+                   capture_output=True, timeout=15)
 
 def tproxy_get_hostname():
     try:
@@ -917,16 +932,16 @@ ProtectSystem=strict
 WantedBy=multi-user.target
 """)
 
-    subprocess.run(["systemctl", "daemon-reload"], capture_output=True, timeout=10)
-    subprocess.run(["systemctl", "enable", f"mtproxy-{name}"], capture_output=True, timeout=10)
-    subprocess.run(["systemctl", "start", f"mtproxy-{name}"], capture_output=True, timeout=10)
+    subprocess.run(["sudo", "-n", "/usr/bin/systemctl", "daemon-reload"], capture_output=True, timeout=10)
+    subprocess.run(["sudo", "-n", "/usr/bin/systemctl", "enable", f"mtproxy-{name}"], capture_output=True, timeout=10)
+    subprocess.run(["sudo", "-n", "/usr/bin/systemctl", "start", f"mtproxy-{name}"], capture_output=True, timeout=10)
     tproxy_update_firewall()
 
 def tproxy_delete_mtproxy(name):
     """Stop and remove an mtproxy instance."""
-    subprocess.run(["systemctl", "stop", f"mtproxy-{name}"], capture_output=True, timeout=10)
-    subprocess.run(["systemctl", "disable", f"mtproxy-{name}"], capture_output=True, timeout=10)
-    subprocess.run(["systemctl", "daemon-reload"], capture_output=True, timeout=10)
+    subprocess.run(["sudo", "-n", "/usr/bin/systemctl", "stop", f"mtproxy-{name}"], capture_output=True, timeout=10)
+    subprocess.run(["sudo", "-n", "/usr/bin/systemctl", "disable", f"mtproxy-{name}"], capture_output=True, timeout=10)
+    subprocess.run(["sudo", "-n", "/usr/bin/systemctl", "daemon-reload"], capture_output=True, timeout=10)
     for path in [
         f"/etc/mtproxy/mtproxy-{name}.env",
         f"/usr/local/bin/mtproxy-{name}.sh",
@@ -944,7 +959,8 @@ def tproxy_update_firewall():
     used.add(8888)
     ports_str = ", ".join(str(p) for p in sorted(used))
     cmd = f"nft flush chain inet tproxy_backend local_backend && nft add rule inet tproxy_backend local_backend iifname != lo tcp dport {{ {ports_str} }} drop"
-    subprocess.run(cmd, shell=True, capture_output=True, timeout=10)
+    subprocess.run(["sudo", "-n", "/usr/sbin/nft", "-f", "-"], input=cmd + "\n",
+                   text=True, capture_output=True, timeout=10)
 
 @app.route("/self/tproxy")
 def tproxy_list():
