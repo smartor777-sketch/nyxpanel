@@ -380,8 +380,22 @@ awg_dump() {
     "$tool" show "$AWG_INTERFACE" dump 2>/dev/null
 }
 
+# awg_apply_config <reason> [removing]
+#
+#   removing  set by the callers that have just deleted a peer block from
+#             awg0.conf on purpose (del_user, remove_protocol, revoke). Without
+#             it the drift guard below refuses: it sees a live peer that is
+#             absent from the file and concludes something is wrong, when in
+#             fact the caller is the one that removed it. Omitting it there made
+#             revoke fail with "На интерфейсе есть 1 пиров, которых нет в
+#             конфиге" while refusing to do the thing it was called to do.
+#
+#             It authorises removing exactly what is absent from the file, which
+#             is the operation's whole purpose at those three call sites. Any
+#             other caller still gets the guard.
 awg_apply_config() {
     local reason="${1:-unknown}"
+    local allow_removal="${2:-0}"
 
     if [ ! -f "$AWG_CONFIG" ]; then
         _sync_log "iface=$AWG_INTERFACE no config at $AWG_CONFIG, nothing applied"
@@ -440,7 +454,7 @@ awg_apply_config() {
 
     # Guard: peers live but absent from the file are drift, not intent. Removing
     # a connected peer here would look like a random disconnect.
-    if [ "${AWG_ALLOW_PEER_REMOVAL:-0}" != "1" ]; then
+    if [ "$allow_removal" != "1" ] && [ "${AWG_ALLOW_PEER_REMOVAL:-0}" != "1" ]; then
         local orphans=""
         while read -r _pub _psk _ips; do
             [ -z "$_pub" ] && continue
@@ -652,7 +666,8 @@ del_user() {
             !skip { print }
         ' "$AWG_CONFIG" > /tmp/awg_tmp.conf && mv /tmp/awg_tmp.conf "$AWG_CONFIG"
 
-        awg_apply_config "del_user:$1"
+        # The block above was just deleted deliberately.
+        awg_apply_config "del_user:$1" 1
         echo -e "${GREEN}Удален из AmneziaWG.${NC}"
     fi
 
@@ -830,7 +845,8 @@ remove_protocol() {
                     !skip { print }
                 ' "$AWG_CONFIG" > /tmp/awg_tmp.conf && mv /tmp/awg_tmp.conf "$AWG_CONFIG"
 
-                awg_apply_config "remove_protocol:$username"
+                # The block above was just deleted deliberately.
+                awg_apply_config "remove_protocol:$username" 1
                 rm -f "$BASE_DIR/$username/.awg_pubkey"
             fi
             rm -f "$BASE_DIR/$username/${username}_awg.conf"

@@ -95,7 +95,9 @@ nyx_revoke_user() {
     local pub; pub=$(nyx_user_pubkey "$username")
     if [ -n "$pub" ] && [ -f "$AWG_CONFIG" ] && grep -qF "$pub" "$AWG_CONFIG"; then
         _nyx_strip_awg_peer "$pub" "$AWG_CONFIG"
-        if awg_apply_config "revoke:$username"; then touched="$touched awg"
+        # The peer block was just deleted from awg0.conf, so the drift guard
+        # must not treat that as something to refuse.
+        if awg_apply_config "revoke:$username" 1; then touched="$touched awg"
         else failed="$failed awg"; fi
     fi
 
