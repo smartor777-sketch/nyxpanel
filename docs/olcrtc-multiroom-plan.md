@@ -35,7 +35,7 @@ mode: shared          # одна комната на всех (текущее п
 Ничего не меняется.
 
 ```
-Сервер → комната: meet.egovm.ru/pxy-retired.invalid
+Сервер → комната: meet.egovm.ru/pxy-prod-legacy.example.com
 Клиент → та же комната, claims или UUID
 ```
 
@@ -46,7 +46,7 @@ mode: shared          # одна комната на всех (текущее п
 ### 3.1 Принцип
 
 При добавлении пользователя (`add_olcrtc_user`) запускается **отдельный** olcrtc-сервер с:
-- своей Jitsi-комнатой `pxy-retired.invalid-{username}`
+- своей Jitsi-комнатой `pxy-prod-legacy.example.com-{username}`
 - своим SOCKS5-портом (например, 11000 + user_id)
 - своим systemd-юнитом `olcrtc@{username}.service`
 
@@ -67,7 +67,7 @@ mode: shared          # одна комната на всех (текущее п
          provider: jitsi
          users_file: /etc/olcrtc/users_{user}.json
        room:
-         id: "https://meet.egovm.ru/pxy-retired.invalid-{user}"
+         id: "https://meet.egovm.ru/pxy-prod-legacy.example.com-{user}"
        crypto:
          key: SAME_MASTER_KEY
        socks:
@@ -166,7 +166,7 @@ mode: isolated
 
 ### 4.1 Принцип
 
-Один процесс olcrtc слушает **комнату-диспетчер** (`pxy-retired.invalid-dispatch`).  
+Один процесс olcrtc слушает **комнату-диспетчер** (`pxy-prod-legacy.example.com-dispatch`).  
 Когда клиент подключается к диспетчеру, сервер:
 1. Проверяет claims/UUID
 2. Создаёт (или получает уже активную) сессию в **отдельной** временной комнате
@@ -242,7 +242,7 @@ type Manager struct {
 ```json
 {
   "type": "redirect",
-  "room": "https://meet.egovm.ru/pxy-retired.invalid-session-a1b2c3",
+  "room": "https://meet.egovm.ru/pxy-prod-legacy.example.com-session-a1b2c3",
   "port": 11001
 }
 ```
@@ -295,7 +295,7 @@ olcrtc://jitsi?datachannel&user=X&pass=Y&mode=dynamic@DISPATCH_ROOM#KEY$TAG
 # Режим dynamic
 mode: dynamic
 dispatch:
-  room: "https://meet.egovm.ru/pxy-retired.invalid-dispatch"
+  room: "https://meet.egovm.ru/pxy-prod-legacy.example.com-dispatch"
   session_ttl: 5m
   max_sessions: 50
   port_start: 12000
@@ -611,9 +611,9 @@ socks:
 ```
 
 Разные режимы → **разные комнаты в YAML**, клиент этого не замечает:
-- **shared**: `room.id: meet.egovm.ru/pxy-retired.invalid`
-- **isolated**: `room.id: meet.egovm.ru/pxy-retired.invalid-user02`
-- **dynamic**: `room.id: meet.egovm.ru/pxy-retired.invalid-dispatch`
+- **shared**: `room.id: meet.egovm.ru/pxy-prod-legacy.example.com`
+- **isolated**: `room.id: meet.egovm.ru/pxy-prod-legacy.example.com-user02`
+- **dynamic**: `room.id: meet.egovm.ru/pxy-prod-legacy.example.com-dispatch`
 
 Панель при скачивании конфига отдаёт YAML с правильной комнатой — клиент просто работает.
 
@@ -724,7 +724,7 @@ Mobile.SetDispatcherCallback(object : DispatcherCallback {
       "got": "user02"
     },
     "recovery": [
-      "Скачайте новый конфиг с панели https://retired.invalid:8443/panel/",
+      "Скачайте новый конфиг с панели https://prod-legacy.example.com:8443/panel/",
       "Или обратитесь к администратору"
     ],
     "auto_recoverable": false
@@ -775,7 +775,7 @@ Mobile.SetDispatcherCallback(object : DispatcherCallback {
       "got": "user02"
     },
     "recovery": [
-      "Скачайте новый конфиг с панели https://retired.invalid:8443/panel/"
+      "Скачайте новый конфиг с панели https://prod-legacy.example.com:8443/panel/"
     ],
     "auto_recoverable": false
   }
@@ -798,7 +798,7 @@ Mobile.SetDispatcherCallback(object : DispatcherCallback {
       "got": "wrongpassword"
     },
     "recovery": [
-      "Скачайте новый конфиг с панели https://retired.invalid:8443/panel/",
+      "Скачайте новый конфиг с панели https://prod-legacy.example.com:8443/panel/",
       "Если вы помните пароль — введите его заново в клиенте"
     ],
     "auto_recoverable": false
@@ -818,14 +818,14 @@ Mobile.SetDispatcherCallback(object : DispatcherCallback {
     "message": "Ваш профиль перемещён в отдельную комнату",
     "details": {
       "field": "room.id",
-      "expected": "meet.egovm.ru/pxy-retired.invalid-user02",
-      "got": "meet.egovm.ru/pxy-retired.invalid"
+      "expected": "meet.egovm.ru/pxy-prod-legacy.example.com-user02",
+      "got": "meet.egovm.ru/pxy-prod-legacy.example.com"
     },
     "recovery": [
       "Клиент автоматически переподключится к правильной комнате"
     ],
     "auto_recoverable": true,
-    "correct_room": "meet.egovm.ru/pxy-retired.invalid-user02",
+    "correct_room": "meet.egovm.ru/pxy-prod-legacy.example.com-user02",
     "correct_port": 11001
   }
 }
@@ -901,7 +901,7 @@ DTLS error: handshake failure, no shared cipher → code: CRYPTO_KEY_MISMATCH
 ```
 [!] Ошибка конфига: Пользователь 'Marlin' не найден
     Возможно, вы имели в виду: user02, user01, test
-    Скачайте новый конфиг: https://retired.invalid:8443/panel/
+    Скачайте новый конфиг: https://prod-legacy.example.com:8443/panel/
 ```
 
 **Android (olcboxME):**
