@@ -974,8 +974,9 @@ add_awg_user() {
     local peers_before peers_after
     peers_before=$(grep -c "^PublicKey" "$AWG_CONFIG")
     _sync_log "awg-add user=$username conf=$AWG_CONFIG peers_before=$peers_before ip=$client_ip"
+    _sync_log "awg-add diag path=$PATH cat=$(command -v cat || echo NONE) awk=$(command -v awk || echo NONE) uid=$(id -u) size=$(stat -c %s "$AWG_CONFIG" 2>&1) writable=$( [ -w "$AWG_CONFIG" ] && echo yes || echo no )"
 
-    cat <<EOF >> "$AWG_CONFIG"
+    cat <<EOF >> "$AWG_CONFIG" 2>>"$SYNC_LOG"
 
 # Peer: $username
 [Peer]
