@@ -1,0 +1,23 @@
+# Run the traffic collector on a timer.
+#
+# It was never scheduled at all, which is why daily_traffic held 0 rows.
+# A systemd timer rather than cron so failures are visible in `journalctl` and
+# the run has a timeout.
+[Unit]
+Description=nyxpanel traffic collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=nyxpanel
+Group=nyxpanel
+WorkingDirectory=/opt/nyxpanel/panel
+EnvironmentFile=/etc/nyxpanel/panel.env
+ExecStart=/usr/bin/python3 /opt/nyxpanel/panel/collector.py --expire
+TimeoutStartSec=120
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/nyxpanel

@@ -18,7 +18,9 @@ AWG_INTERFACE="awg0"
 SERVER_DOMAIN="vpn.example.com"
 AWG_SUBNET="10.9.9"
 NAIVE_PORT="8443" 
-MIERU_IP="203.0.113.20"
+# H4: infrastructure addresses and secrets come from /etc/nyxpanel/proxy.env,
+# never from the body of this file. See ops/nyxpanel.env.example.
+MIERU_IP="${MIERU_IP:-}"
 MIERU_PORTS="444-448"
 MIERU_CONFIG="/etc/mita/server.json"
 
@@ -43,9 +45,9 @@ VLESS_USERS_FILE="/etc/xray/users.json"
 XRAY_SERVICE="xray"
 VLESS_HOST="${SERVER_DOMAIN}"
 VLESS_PORT="4433"
-VLESS_SNI="1.1.1.1"
-VLESS_PUBLIC_KEY="hmCZQjda7fsDImaxq0Xw1Z8o-6Zy4bS7EpdAyqKBMjM="
-VLESS_SHORT_ID="0f320668bd0a1838"
+VLESS_SNI="${VLESS_SNI:-}"
+VLESS_PUBLIC_KEY="${VLESS_PUBLIC_KEY:-}"
+VLESS_SHORT_ID="${VLESS_SHORT_ID:-}"
 VLESS_PATH="%2Fvless"
 
 # Цвета
@@ -114,7 +116,94 @@ init() {
     if ! command -v yq &> /dev/null; then echo -e "${RED}Ошибка: установите yq (apt install yq -y)${NC}"; exit 1; fi
     if ! command -v qrencode &> /dev/null; then echo -e "${RED}Ошибка: установите qrencode (apt install qrencode -y)${NC}"; exit 1; fi
     if ! command -v awg &> /dev/null; then echo -e "${RED}Ошибка: утилита awg не найдена. Установлен ли AmneziaWG?${NC}"; exit 1; fi
+    load_env_overrides
     load_server_settings
+    require_config
+    load_revoke_lib
+}
+
+# H4/D3: a missing value must be a loud error, not an empty string that later
+# produces a malformed link — which is exactly how a VLESS URI came out blank.
+require_config() {
+    local missing=()
+    # Only the values that the protocol being touched actually needs. Called
+    # again per-command for protocol-specific ones.
+    [ -z "$SERVER_DOMAIN" ] && missing+=("SERVER_DOMAIN")
+    [ -z "$VLESS_SNI" ] && missing+=("VLESS_SNI")
+    [ -z "$VLESS_PUBLIC_KEY" ] && missing+=("VLESS_PUBLIC_KEY")
+    [ -z "$VLESS_SHORT_ID" ] && missing+=("VLESS_SHORT_ID")
+    if [ ${#missing[@]} -gt 0 ]; then
+        echo -e "${RED}Ошибка: не заданы переменные: ${missing[*]}${NC}" >&2
+        echo -e "${RED}Задайте их в ${NYX_ENV:-/etc/nyxpanel/proxy.env}${NC}" >&2
+        return 1
+    fi
+    return 0
+}
+
+# Revoke/restore live in their own file so the CLI, the panel and any future
+# agent share one implementation instead of three drifting copies.
+load_revoke_lib() {
+    local here; here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    for cand in "$here/lib/nyx-revoke.sh" /opt/nyxpanel/lib/nyx-revoke.sh; do
+        if [ -f "$cand" ]; then
+            # shellcheck source=/dev/null
+            . "$cand"
+            return 0
+        fi
+    done
+    echo -e "${RED}Ошибка: не найден lib/nyx-revoke.sh — отзыв доступа не будет работать.${NC}" >&2
+    return 1
+}
+
+# Per-host values live in one place instead of being edited into this script's
+# body on every machine, which is how the four copies of it drifted apart.
+load_env_overrides() {
+    local env_file="${NYX_ENV:-/etc/nyxpanel/proxy.env}"
+    [ -f "$env_file" ] || return 0
+    set -a
+    # shellcheck disable=SC1090
+    . "$env_file"
+    set +a
+    SYNC_LOG="${SYNC_LOG:-/var/log/nyxproxy/sync.log}"
+    mkdir -p "$(dirname "$SYNC_LOG")" 2>/dev/null || true
+}
+
+_sync_log() {
+    [ -n "${SYNC_LOG:-}" ] && echo "$(date -Is) $*" >> "$SYNC_LOG" 2>/dev/null || true
+}
+
+# D2: apply awg0.conf to the live interface WITHOUT bouncing it.
+#
+# The previous code did `awg-quick down` + `awg-quick up`, which tears the whole
+# interface down — so adding one user dropped every connected user. syncconf
+# applies only our peers and leaves other tunnels untouched.
+#
+# Falls back to down/up only if syncconf is unavailable, and says so loudly.
+awg_apply_config() {
+    local reason="${1:-unknown}"
+    if ! ip link show "$AWG_INTERFACE" >/dev/null 2>&1; then
+        _sync_log "iface=$AWG_INTERFACE absent; starting it (reason=$reason)"
+        awg-quick up "$AWG_INTERFACE" 2>/dev/null || true
+        return 0
+    fi
+
+    local tool="awg"
+    command -v awg >/dev/null 2>&1 || tool="wg"
+
+    # `wg-quick strip` emits the live config in the format syncconf wants.
+    local stripped
+    stripped=$(wg-quick strip "$AWG_INTERFACE" 2>/dev/null)
+    if [ -n "$stripped" ] && "$tool" syncconf "$AWG_INTERFACE" <(echo "$stripped") 2>/dev/null; then
+        _sync_log "iface=$AWG_INTERFACE syncconf OK (reason=$reason) peers=$(grep -c 'PublicKey' "$AWG_CONFIG")"
+        return 0
+    fi
+
+    # The failure mode that matters: our peers DID change on disk but are not on
+    # the interface. Report it instead of silently bouncing everyone.
+    _sync_log "iface=$AWG_INTERFACE SYNCFAILED (reason=$reason) peers=$(grep -c 'PublicKey' "$AWG_CONFIG")"
+    echo -e "${YELLOW}ВНИМАНИЕ: syncconf не удался, интерфейс НЕ перезагружен.${NC}"
+    echo -e "${YELLOW}Проверьте вручную: awg-quick down $AWG_INTERFACE && awg-quick up $AWG_INTERFACE${NC}"
+    return 1
 }
 
 # --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
@@ -239,9 +328,8 @@ del_user() {
             skip && /^\[Peer\]/ { skip=0 }
             !skip { print }
         ' "$AWG_CONFIG" > /tmp/awg_tmp.conf && mv /tmp/awg_tmp.conf "$AWG_CONFIG"
-        
-        awg-quick down "$AWG_INTERFACE" 2>/dev/null || true
-        awg-quick up "$AWG_INTERFACE" 2>/dev/null || true
+
+        awg_apply_config "del_user:$1"
         echo -e "${GREEN}Удален из AmneziaWG.${NC}"
     fi
 
@@ -418,9 +506,8 @@ remove_protocol() {
                     skip && /^\[Peer\]/ { skip=0 }
                     !skip { print }
                 ' "$AWG_CONFIG" > /tmp/awg_tmp.conf && mv /tmp/awg_tmp.conf "$AWG_CONFIG"
-                
-                awg-quick down "$AWG_INTERFACE" 2>/dev/null || true
-                awg-quick up "$AWG_INTERFACE" 2>/dev/null || true
+
+                awg_apply_config "remove_protocol:$username"
                 rm -f "$BASE_DIR/$username/.awg_pubkey"
             fi
             rm -f "$BASE_DIR/$username/${username}_awg.conf"
@@ -584,22 +671,32 @@ PresharedKey = $psk
 AllowedIPs = $client_ip
 EOF
 
-    awg-quick down "$AWG_INTERFACE" 2>/dev/null || true
-    awg-quick up "$AWG_INTERFACE" 2>/dev/null || true
+    awg_apply_config "add_awg_user:$username"
 
     echo "$client_pub" > "$BASE_DIR/$username/.awg_pubkey"
+
+    # H11: resolvers are a setting. Empty means "do not override the client's
+    # DNS", which is the honest default for a self-hosted tunnel — silently
+    # pointing every client at one resolver was a leak and a surprise.
+    # AWG writes a plain resolver list here. For DoH/DoT the client app needs its
+    # own setting, so this stays a plain list and the note goes in the manual.
+    local dns_line=""
+    [ -n "${AWG_CLIENT_DNS:-}" ] && dns_line="DNS = ${AWG_CLIENT_DNS}"
+    # P2: 0.0.0.0/0 routes everything through the server. AWG_ALLOWED_IPS can
+    # narrow it, e.g. to exclude RFC1918 so LAN traffic stays local.
+    local allowed="${AWG_ALLOWED_IPS:-0.0.0.0/0, ::/0}"
 
     local client_conf="[Interface]
 PrivateKey = $client_priv
 Address = $client_ip
-DNS = 77.88.8.8, 77.88.8.1
+$dns_line
 $awg_params
 
 [Peer]
 PublicKey = $server_pub
 PresharedKey = $psk
 Endpoint = ${SERVER_DOMAIN}:${server_port}
-AllowedIPs = 0.0.0.0/0, ::/0
+AllowedIPs = $allowed
 PersistentKeepalive = 25"
 
     echo "$client_conf" > "$BASE_DIR/$username/${username}_awg.conf"
@@ -926,7 +1023,7 @@ add_vless_user() {
     update_xray_config
 
     # Генерируем vless:// URI
-    local link="vless://${uuid}@${VLESS_HOST}:${VLESS_PORT}?security=reality&type=xhttp&path=${VLESS_PATH}&sni=1.1.1.1&fp=firefox&pbk=${VLESS_PUBLIC_KEY}&sid=${VLESS_SHORT_ID}&spx=%2Fdns-query%2F#${username}"
+    local link="vless://${uuid}@${VLESS_HOST}:${VLESS_PORT}?security=reality&type=xhttp&path=${VLESS_PATH}&sni=${VLESS_SNI}&fp=firefox&pbk=${VLESS_PUBLIC_KEY}&sid=${VLESS_SHORT_ID}&spx=%2Fdns-query%2F#${username}"
     echo "$link" > "$BASE_DIR/$username/${username}_vless.uri"
 
     # QR-код из URI
@@ -1155,8 +1252,14 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
                 sync_vless_uris ;;
             reality_status)
                 reality_status ;;
+            revoke_user|restore_user|expire_check)
+                if declare -F "nyx_$1" >/dev/null 2>&1; then
+                    nyx_$1 "$2"
+                else
+                    echo "revoke library not loaded" >&2; exit 1
+                fi ;;
             *)
-                echo "Usage: $0 {add_user|del_user|list_users|remove_protocol|sync_naive_users|add_hy2_user|add_awg_user|add_naive_user|add_mieru_user|add_olcrtc_user|add_vless_user|add_trojan_user|set_reality_mode|sync_vless_uris|reality_status} [username] [protocol]"
+                echo "Usage: $0 {add_user|del_user|list_users|remove_protocol|sync_naive_users|add_hy2_user|add_awg_user|add_naive_user|add_mieru_user|add_olcrtc_user|add_vless_user|add_trojan_user|set_reality_mode|sync_vless_uris|reality_status|revoke_user|restore_user|expire_check} [username] [protocol]"
                 exit 1 ;;
         esac
         exit $?

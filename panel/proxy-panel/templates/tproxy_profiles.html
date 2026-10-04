@@ -144,7 +144,7 @@
         <tr>
           <td><strong>{{ p.name }}</strong></td>
           <td style="font-family:monospace;font-size:0.8rem">{{ hostname }}</td>
-          <td class="secret-cell">{{ p.secret }}</td>
+          <td class="secret-cell" id="secret-{{ p.name }}">{{ p.secret[:4] }}…{{ p.secret[-4:] }}</td>
           <td>{{ p.get('backend', '127.0.0.1:2398') }}</td>
           <td>{{ p.get('carrier_mode', 'https') }}</td>
           <td>
@@ -154,7 +154,7 @@
             </form>
           </td>
           <td class="actions">
-            <button class="copy-btn" onclick="copyKey('{{ p.secret }}')" data-i18n="copy">Копировать</button>
+            <button type="button" class="copy-btn" onclick="revealKey('{{ p.name }}', 'secret-{{ p.name }}', this)" data-i18n="copy">Показать</button>
             <form method="POST" action="/self/tproxy/{{ p.name }}/set-mode" style="display:inline">
               <input type="hidden" name="carrier_mode" value="https">
               <button type="submit" class="mode-btn {{ 'active' if p.get('carrier_mode') == 'https' else '' }}">HTTPS</button>
@@ -188,7 +188,7 @@
           <span class="pc-mode">{{ p.get('carrier_mode', 'https') }}</span>
         </div>
         <div class="pc-row"><span>Host</span><code>{{ hostname }}</code></div>
-        <div class="pc-row"><span data-i18n="colKey">Ключ</span><code>{{ p.secret }}</code></div>
+        <div class="pc-row"><span data-i18n="colKey">Ключ</span><code id="secret-{{ p.name }}">{{ p.secret[:4] }}…{{ p.secret[-4:] }}</code></div>
         <div class="pc-row"><span>Backend</span><code>{{ p.get('backend', '127.0.0.1:2398') }}</code></div>
         <div class="pc-tg">
           <form method="POST" action="/self/tproxy/{{ p.name }}/set-tg-user">
@@ -197,7 +197,7 @@
           </form>
         </div>
         <div class="pc-actions">
-          <button class="copy-btn" onclick="copyKey('{{ p.secret }}')" data-i18n="copy">Копировать</button>
+          <button type="button" class="copy-btn" onclick="revealKey('{{ p.name }}', 'secret-{{ p.name }}', this)" data-i18n="copy">Показать</button>
           <form method="POST" action="/self/tproxy/{{ p.name }}/set-mode">
             <input type="hidden" name="carrier_mode" value="https">
             <button type="submit" class="mode-btn {{ 'active' if p.get('carrier_mode') == 'https' else '' }}">HTTPS</button>
@@ -297,6 +297,38 @@ async function copyKey(key) {
     await navigator.clipboard.writeText(key);
     showToast(_('copied'), 'ok');
   } catch(e) { showToast(_('copyFail'), 'err'); }
+}
+
+// H2: the full secret is no longer embedded in the page. Fetch it on demand from
+// an audited POST endpoint, show it briefly, then put the mask back.
+async function revealKey(name, cellId, btn) {
+  const cell = document.getElementById(cellId);
+  if (!cell) return;
+  if (cell.dataset.revealed === '1') {
+    cell.textContent = cell.dataset.masked;
+    cell.dataset.revealed = '0';
+    btn.textContent = 'Показать';
+    return;
+  }
+  btn.disabled = true;
+  try {
+    const r = await fetch('/self/tproxy/' + encodeURIComponent(name) + '/reveal', {
+      method: 'POST',
+      headers: {'X-Requested-With': 'fetch'}
+    });
+    if (!r.ok) throw new Error('http ' + r.status);
+    const j = await r.json();
+    if (!j.key) throw new Error('no key');
+    cell.dataset.masked = cell.textContent;
+    cell.textContent = j.key;
+    cell.dataset.revealed = '1';
+    btn.textContent = 'Скрыть';
+    showToast('Секрет показан — действие записано в журнал', 'ok');
+  } catch(e) {
+    showToast('Не удалось получить секрет', 'err');
+  } finally {
+    btn.disabled = false;
+  }
 }
 </script>
 </body>

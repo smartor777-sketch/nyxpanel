@@ -1,17 +1,61 @@
 #!/usr/bin/env python3
 """NYX Panel — Flask + SQLite"""
-import subprocess, os, json, re, sqlite3, datetime, secrets as pysecrets
+import subprocess, os, json, re, sqlite3, datetime, secrets as pysecrets, hashlib, sys
 from pathlib import Path
+from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, send_file, flash, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("PANEL_SECRET", os.urandom(16).hex())
-PANEL_VERSION = "1.12"
 
-BASE_DIR = Path("/root/proxy_users")
+
+def _load_env(path="/etc/nyxpanel/panel.env"):
+    """Read KEY=VALUE pairs from a plain env file. Missing file is fine."""
+    try:
+        for raw in Path(path).read_text().splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, _, v = line.partition("=")
+            os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+    except FileNotFoundError:
+        pass
+
+
+_load_env()
+
+
+def utcnow_iso():
+    """Timezone-aware UTC timestamp.
+
+    datetime.utcnow() is deprecated and compares badly against expires_at values
+    written by older code, so every timestamp in the panel goes through here.
+    """
+    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).isoformat()
+
+
+def _require_env(name, why):
+    v = os.environ.get(name)
+    if not v:
+        print(f"FATAL: {name} is not set. {why}", file=sys.stderr)
+        sys.exit(1)
+    return v
+
+
+# Fail fast (H5). The previous os.urandom fallback meant every panel crash —
+# panel.service has Restart=always — silently logged out every session.
+PANEL_SECRET = _require_env(
+    "PANEL_SECRET",
+    "It signs session cookies. Generate one with: python3 -c \"import secrets;print(secrets.token_hex(32))\"",
+)
+app.secret_key = PANEL_SECRET
+PANEL_VERSION = "1.13"
+
+BASE_DIR = Path(os.environ.get("NYX_BASE_DIR", "/root/proxy_users"))
 REGISTRY = BASE_DIR / ".registry"
-DB_PATH = "/opt/proxy-panel/panel.db"
+DB_PATH = os.environ.get("NYX_DB_PATH", "/opt/proxy-panel/panel.db")
+PANEL_DIR = os.path.dirname(os.path.abspath(__file__))
+MANAGER = os.environ.get("NYX_MANAGER", "/root/proxy_manager.sh")
 
 # Протоколы, которые затрагивает переключатель REALITY mode (whitelist/normal)
 REALITY_AFFECTED = [
@@ -20,6 +64,52 @@ REALITY_AFFECTED = [
 
 def is_admin():
     return session.get("self_role") == "admin"
+
+
+def is_logged_in():
+    return bool(session.get("self_user"))
+
+
+def require_admin(fn):
+    """Guard for read-only JSON endpoints.
+
+    These used to be reachable from the internet with no session at all, which
+    leaked the full user list and per-user traffic. Applied as a decorator so a
+    future route cannot forget the check.
+    """
+    @wraps(fn)
+    def wrapper(*a, **kw):
+        if not is_logged_in():
+            return jsonify({"error": "unauthorized"}), 401
+        if not is_admin():
+            return jsonify({"error": "forbidden"}), 403
+        return fn(*a, **kw)
+    return wrapper
+
+
+# --- subscription tokens (C1) ---
+def hash_sub_token(tok):
+    return hashlib.sha256(tok.encode()).hexdigest()
+
+
+def user_sub_token(username):
+    """Return the raw token for a user, minting one on first use.
+
+    Stored hashed; the raw value is shown once and re-derivable only by rotating.
+    """
+    db = get_db()
+    row = db.execute("SELECT token_hash FROM sub_tokens WHERE username = ?", (username,)).fetchone()
+    if row:
+        db.close()
+        raise RuntimeError("token exists; use rotate")
+    tok = pysecrets.token_urlsafe(32)
+    db.execute(
+        "INSERT INTO sub_tokens (username, token_hash, created_at) VALUES (?, ?, ?)",
+        (username, hash_sub_token(tok), utcnow_iso()),
+    )
+    db.commit()
+    db.close()
+    return tok
 
 PROTOCOLS = [
     ("hy2",    "Hysteria 2",      "_hy2.json",    "_hy2.png"),
@@ -31,23 +121,31 @@ PROTOCOLS = [
     ("troy",   "Trojan",              "_troyan.json", "_troyan.png"),
 ]
 
+def _cmd(*args):
+    return ["bash", MANAGER] + list(args)
+
+
 SCRIPTS = {
-    "add_user":      ["bash", "/root/proxy_manager.sh", "add_user"],
-    "del_user":      ["bash", "/root/proxy_manager.sh", "del_user"],
-    "add_hy2":       ["bash", "/root/proxy_manager.sh", "add_hy2_user"],
-    "del_hy2":       ["bash", "/root/proxy_manager.sh", "remove_protocol", "hy2"],
-    "add_awg":       ["bash", "/root/proxy_manager.sh", "add_awg_user"],
-    "del_awg":       ["bash", "/root/proxy_manager.sh", "remove_protocol", "awg"],
-    "add_naive":     ["bash", "/root/proxy_manager.sh", "add_naive_user"],
-    "del_naive":     ["bash", "/root/proxy_manager.sh", "remove_protocol", "naive"],
-    "add_mieru":     ["bash", "/root/proxy_manager.sh", "add_mieru_user"],
-    "del_mieru":     ["bash", "/root/proxy_manager.sh", "remove_protocol", "mieru"],
-    "add_olcrtc":    ["bash", "/root/proxy_manager.sh", "add_olcrtc_user"],
-    "del_olcrtc":    ["bash", "/root/proxy_manager.sh", "remove_protocol", "olcrtc"],
-    "add_vless":     ["bash", "/root/proxy_manager.sh", "add_vless_user"],
-    "del_vless":     ["bash", "/root/proxy_manager.sh", "remove_protocol", "vless"],
-    "add_troy":      ["bash", "/root/proxy_manager.sh", "add_trojan_user"],
-    "del_troy":      ["bash", "/root/proxy_manager.sh", "remove_protocol", "troy"],
+    "add_user":      _cmd("add_user"),
+    "del_user":      _cmd("del_user"),
+    "add_hy2":       _cmd("add_hy2_user"),
+    "del_hy2":       _cmd("remove_protocol", "hy2"),
+    "add_awg":       _cmd("add_awg_user"),
+    "del_awg":       _cmd("remove_protocol", "awg"),
+    "add_naive":     _cmd("add_naive_user"),
+    "del_naive":     _cmd("remove_protocol", "naive"),
+    "add_mieru":     _cmd("add_mieru_user"),
+    "del_mieru":     _cmd("remove_protocol", "mieru"),
+    "add_olcrtc":    _cmd("add_olcrtc_user"),
+    "del_olcrtc":    _cmd("remove_protocol", "olcrtc"),
+    "add_vless":     _cmd("add_vless_user"),
+    "del_vless":     _cmd("remove_protocol", "vless"),
+    "add_troy":      _cmd("add_trojan_user"),
+    "del_troy":      _cmd("remove_protocol", "troy"),
+    # D1/C3: revoke and restore live access without reissuing keys.
+    "revoke":        _cmd("revoke_user"),
+    "restore":       _cmd("restore_user"),
+    "expire_check":  _cmd("expire_check"),
 }
 
 # --- SQLite ---
@@ -57,9 +155,80 @@ def get_db():
     db.execute("PRAGMA journal_mode=WAL")
     return db
 
+# --- schema migrations (H6) ---
+# Replaces the previous "try ALTER TABLE at every start": there was no way to
+# tell which steps had been applied, so nothing could be rolled back.
+MIGRATIONS = [
+    (1, "baseline columns", [
+        "ALTER TABLE users ADD COLUMN password_hash TEXT DEFAULT ''",
+        "ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'",
+        "ALTER TABLE users ADD COLUMN can_reset_traffic INTEGER DEFAULT 0",
+    ]),
+    (2, "real revocation (C3)", [
+        # revoked_at != NULL means keys are dead. `active` keeps meaning
+        # "created and switched on" so that re-enabling is distinguishable
+        # from first issuance.
+        "ALTER TABLE users ADD COLUMN revoked_at TIMESTAMP",
+        "ALTER TABLE users ADD COLUMN revoked_reason TEXT DEFAULT ''",
+    ]),
+    (3, "subscription tokens (C1)", [
+        """CREATE TABLE IF NOT EXISTS sub_tokens (
+               id INTEGER PRIMARY KEY AUTOINCREMENT,
+               username TEXT UNIQUE NOT NULL,
+               token_hash TEXT UNIQUE NOT NULL,
+               created_at TIMESTAMP,
+               expires_at TIMESTAMP,
+               revoked_at TIMESTAMP
+           )""",
+    ]),
+    (4, "audit log", [
+        """CREATE TABLE IF NOT EXISTS audit_log (
+               id INTEGER PRIMARY KEY AUTOINCREMENT,
+               ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+               actor TEXT DEFAULT '',
+               action TEXT NOT NULL,
+               target TEXT DEFAULT '',
+               detail TEXT DEFAULT ''
+           )""",
+    ]),
+    (5, "revocation result per protocol (C3 transparency)", [
+        """CREATE TABLE IF NOT EXISTS revocation_state (
+               id INTEGER PRIMARY KEY AUTOINCREMENT,
+               username TEXT NOT NULL,
+               protocol TEXT NOT NULL,
+               revoked_at TIMESTAMP,
+               confirmed_at TIMESTAMP,
+               detail TEXT DEFAULT '',
+               UNIQUE(username, protocol)
+           )""",
+    ]),
+    (6, "collector bookkeeping (D5)", [
+        """CREATE TABLE IF NOT EXISTS collector_state (
+               key TEXT PRIMARY KEY,
+               value TEXT NOT NULL,
+               updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+           )""",
+    ]),
+]
+
+SCHEMA_VERSION = max(v for v, _, _ in MIGRATIONS)
+
+
+def _applied_versions(db):
+    try:
+        return {r[0] for r in db.execute("SELECT version FROM schema_migrations")}
+    except sqlite3.OperationalError:
+        return set()
+
+
 def init_db():
     db = get_db()
     db.executescript("""
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            version INTEGER PRIMARY KEY,
+            description TEXT,
+            applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
@@ -88,21 +257,41 @@ def init_db():
             UNIQUE(username, protocol, date)
         );
     """)
-    try:
-        db.execute("ALTER TABLE users ADD COLUMN password_hash TEXT DEFAULT ''")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        db.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        db.execute("ALTER TABLE users ADD COLUMN can_reset_traffic INTEGER DEFAULT 0")
-    except sqlite3.OperationalError:
-        pass
+    applied = _applied_versions(db)
+    for version, desc, stmts in MIGRATIONS:
+        if version in applied:
+            continue
+        for stmt in stmts:
+            # Columns may already exist on databases created by the old code,
+            # which added them with bare "try ALTER". Treat that as done.
+            try:
+                db.execute(stmt)
+            except sqlite3.OperationalError as e:
+                if "duplicate column name" in str(e).lower():
+                    continue
+                raise
+        db.execute(
+            "INSERT OR IGNORE INTO schema_migrations (version, description) VALUES (?, ?)",
+            (version, desc),
+        )
+        print(f"[schema] applied migration {version}: {desc}")
     db.commit()
     migrate_from_registry(db)
     db.close()
+
+
+def audit(action, target="", detail="", actor=None):
+    who = actor or session.get("self_user") or "system"
+    try:
+        db = get_db()
+        db.execute(
+            "INSERT INTO audit_log (actor, action, target, detail) VALUES (?, ?, ?, ?)",
+            (who, action, target, detail[:2000]),
+        )
+        db.commit()
+        db.close()
+    except Exception:
+        pass
 
 def migrate_from_registry(db):
     """Migrate existing file-based users to SQLite."""
@@ -133,23 +322,82 @@ def get_file_users():
 
 def get_db_users():
     db = get_db()
-    rows = db.execute("SELECT username, expires_at, active, password_hash, can_reset_traffic FROM users WHERE username != 'admin' ORDER BY username").fetchall()
+    rows = db.execute(
+        "SELECT username, expires_at, active, password_hash, can_reset_traffic, "
+        "revoked_at, revoked_reason FROM users WHERE username != 'admin' ORDER BY username"
+    ).fetchall()
+    # Per-protocol revocation confirmation, so the UI can tell the admin what is
+    # actually dead rather than claiming success on a flag flip.
+    rev = {}
+    for r in db.execute("SELECT username, protocol, confirmed_at FROM revocation_state"):
+        rev.setdefault(r["username"], {})[r["protocol"]] = bool(r["confirmed_at"])
+    has_sub = {r[0] for r in db.execute("SELECT username FROM sub_tokens WHERE revoked_at IS NULL")}
     db.close()
     users = []
     for row in rows:
+        name = row["username"]
         protos = {}
-        for key, name, cfg, qr in PROTOCOLS:
-            f = BASE_DIR / row["username"] / f"{row['username']}{cfg}"
-            protos[key] = f.exists()
+        for key, pname, cfg, qr in PROTOCOLS:
+            protos[key] = BASE_DIR / name / f"{name}{cfg}"
+            protos[key] = protos[key].exists()
         users.append({
-            "name": row["username"],
+            "name": name,
             "protocols": protos,
             "active": bool(row["active"]),
+            "revoked": bool(row["revoked_at"]),
+            "revoked_at": row["revoked_at"],
+            "revoked_reason": row["revoked_reason"] or "",
+            "revoked_protocols": [p for p, ok in rev.get(name, {}).items() if ok],
+            "has_subscription": name in has_sub,
             "expires_at": row["expires_at"],
             "has_password": bool(row["password_hash"]),
             "can_reset_traffic": bool(row["can_reset_traffic"]),
         })
     return users
+
+
+def apply_revocation(username, revoke=True, reason="manual"):
+    """D1/C3 — actually cut access, and record what was confirmed.
+
+    Returns (ok, message, detail_rows). detail_rows is what the admin sees, so a
+    partial failure is visible instead of hidden behind a green flash.
+    """
+    db = get_db()
+    now = utcnow_iso()
+    if revoke:
+        db.execute(
+            "UPDATE users SET revoked_at = ?, revoked_reason = ?, active = 0 WHERE username = ?",
+            (now, reason, username),
+        )
+    else:
+        db.execute(
+            "UPDATE users SET revoked_at = NULL, revoked_reason = '', active = 1 WHERE username = ?",
+            (username,),
+        )
+    db.execute("DELETE FROM revocation_state WHERE username = ?", (username,))
+    db.commit()
+    db.close()
+
+    ok, msg = call_script("revoke" if revoke else "restore", username)
+    audit("revoke" if revoke else "restore", username,
+          f"reason={reason} rc={ok} {msg[:200]}")
+    rows = []
+    for key, pname, cfg, qr in PROTOCOLS:
+        if not (BASE_DIR / username / f"{username}{cfg}").exists():
+            continue
+        rows.append({"protocol": key, "name": pname, "detail": msg[:300]})
+    if ok:
+        db = get_db()
+        for r in rows:
+            db.execute(
+                "INSERT OR REPLACE INTO revocation_state "
+                "(username, protocol, revoked_at, confirmed_at, detail) VALUES (?,?,?,?,?)",
+                (username, r["protocol"], now if revoke else None,
+                 now if ok else None, r["detail"]),
+            )
+        db.commit()
+        db.close()
+    return ok, msg, rows
 
 def call_script(name, username):
     cmd = SCRIPTS.get(name)
@@ -321,15 +569,44 @@ def set_expiry(name):
 
 @app.route("/self/user/<name>/toggle", methods=["POST"])
 def toggle_user(name):
+    """C3 — this used to flip `active` in SQLite and nothing else, so the panel
+    showed a disabled user whose peers were still live in awg0.conf, xray,
+    every other daemon, and in the subscription files."""
     if not is_admin():
         return redirect("/self/login")
     db = get_db()
-    row = db.execute("SELECT active FROM users WHERE username = ?", (name,)).fetchone()
-    if row:
-        new = 0 if row["active"] else 1
-        db.execute("UPDATE users SET active = ? WHERE username = ?", (new, name))
-        db.commit()
+    row = db.execute("SELECT active, revoked_at FROM users WHERE username = ?", (name,)).fetchone()
     db.close()
+    if not row:
+        flash("No such user", "error")
+        return redirect(request.referrer or "/self/")
+    if row["revoked_at"]:
+        ok, msg, rows = apply_revocation(name, revoke=False, reason="un-revoked")
+    else:
+        ok, msg, rows = apply_revocation(name, revoke=True, reason="manual toggle")
+    if ok:
+        flash(f"{'Access restored' if row['revoked_at'] else 'Access revoked'} for {name} — {msg[:200]}", "ok")
+    else:
+        flash(f"FAILED to change access for {name}: {msg[:300]}", "error")
+    return redirect(request.referrer or "/self/")
+
+
+@app.route("/self/user/<name>/revoke", methods=["POST"])
+def revoke_user(name):
+    if not is_admin():
+        return redirect("/self/login")
+    reason = request.form.get("reason", "manual").strip()[:64]
+    ok, msg, rows = apply_revocation(name, revoke=True, reason=reason)
+    flash(("Access revoked" if ok else "FAILED to revoke") + f": {msg[:250]}", "ok" if ok else "error")
+    return redirect(request.referrer or "/self/")
+
+
+@app.route("/self/user/<name>/restore", methods=["POST"])
+def restore_user(name):
+    if not is_admin():
+        return redirect("/self/login")
+    ok, msg, rows = apply_revocation(name, revoke=False, reason="restored")
+    flash(("Access restored, same keys" if ok else "FAILED to restore") + f": {msg[:250]}", "ok" if ok else "error")
     return redirect(request.referrer or "/self/")
 
 @app.route("/self/user/<name>/reset-traffic", methods=["POST"])
@@ -795,14 +1072,46 @@ def tproxy_edit(name):
 
 @app.route("/self/tproxy/<name>/info")
 def tproxy_info(name):
+    """H2 — used to return the full secret, which then also sat in the DOM as
+    copyKey('<secret>') and in browser history. Now masked; the full value is
+    only available through an explicit, logged, admin-only POST."""
     if not is_admin():
         return redirect("/self/login")
     profiles = tproxy_read_profiles()
     hostname = tproxy_get_hostname()
     for p in profiles:
         if p["name"] == name:
-            return jsonify({"name": name, "host": hostname, "key": p["secret"], "carrier_mode": p.get("carrier_mode", "https")})
+            return jsonify({
+                "name": name,
+                "host": hostname,
+                "key_masked": mask_secret(p["secret"]),
+                "reveal_required": True,
+                "reveal_url": f"/self/tproxy/{name}/reveal",
+                "carrier_mode": p.get("carrier_mode", "https"),
+            })
     return jsonify({"error": "not found"}), 404
+
+
+def mask_secret(s):
+    s = str(s or "")
+    if len(s) <= 8:
+        return "•" * len(s)
+    return s[:4] + "…" + s[-4:]
+
+
+@app.route("/self/tproxy/<name>/reveal", methods=["POST"])
+def tproxy_reveal(name):
+    """Deliberate, audited retrieval of the full secret. POST only, admin only."""
+    if not is_admin():
+        return redirect("/self/login")
+    profiles = tproxy_read_profiles()
+    target = next((p for p in profiles if p["name"] == name), None)
+    if not target:
+        return jsonify({"error": "not found"}), 404
+    audit("tproxy_secret_reveal", name, "full secret returned to admin UI")
+    # Served as JSON on POST so the value never lands in a GET-able page,
+    # browser history, or the rendered admin table.
+    return jsonify({"name": name, "key": target["secret"]})
 
 @app.route("/self/tproxy/guide")
 def tproxy_guide():
@@ -826,19 +1135,31 @@ def tproxy_guide():
                            admin_name=session.get("self_user"), version=PANEL_VERSION)
 
 # --- API v1 ---
+# C1: every route below was reachable from the internet with no session at all,
+# because Caddy proxies /self/* without authn. /self/api/v1/sub/<username> then
+# returned that user's full config set including AWG private keys — and
+# /self/api/v1/users handed out the list of usernames to iterate over.
+# Stats now require an admin session; config delivery requires an opaque token.
+
 @app.route("/self/api/traffic")
 @app.route("/self/api/traffic/<name>")
+@require_admin
 def self_api_traffic(name=None):
     return api_traffic(name)
 
 @app.route("/self/api/v1/users")
+@require_admin
 def api_users():
     db = get_db()
-    rows = db.execute("SELECT username, created_at, expires_at, active, note FROM users ORDER BY username").fetchall()
+    rows = db.execute(
+        "SELECT username, created_at, expires_at, active, revoked_at, note "
+        "FROM users ORDER BY username"
+    ).fetchall()
     db.close()
     return json.dumps([dict(r) for r in rows], ensure_ascii=False, default=str)
 
 @app.route("/self/api/v1/traffic/totals")
+@require_admin
 def api_traffic_totals():
     db = get_db()
     rows = db.execute(
@@ -849,6 +1170,7 @@ def api_traffic_totals():
 
 @app.route("/self/api/v1/traffic")
 @app.route("/self/api/v1/traffic/<name>")
+@require_admin
 def api_traffic(name=None):
     days = request.args.get("days", 30, type=int)
     db = get_db()
@@ -875,12 +1197,11 @@ def api_traffic(name=None):
     db.close()
     return json.dumps([dict(r) for r in rows], default=str)
 
-@app.route("/self/api/v1/sub/<name>")
-def api_subscription(name):
-    ua = (request.headers.get("User-Agent", "") or "").lower()
+def _build_subscription(name):
+    """Assemble the base64 subscription payload for one user."""
     base = BASE_DIR / name
     if not base.exists():
-        return "User not found", 404
+        return None
 
     links = []
     for key, pname, cfg_suffix, qr_suffix in PROTOCOLS:
@@ -913,13 +1234,167 @@ def api_subscription(name):
     base_url = request.url_root.rstrip("/")
     standalone_path = base / f"{name}_mieru_standalone.json"
     if standalone_path.exists():
-        links.append(f"mieru config: {base_url}/self/user/{name}/config/mieru")
+        links.append(f"mieru config: {base_url}/sub/{name}/mieru")
     payload = base64.b64encode("\n".join(links).encode()).decode()
 
     # All major clients (V2RayNG, NekoBox, Hiddify, Sing-box, Clash)
     # expect plain base64 in response body
     return payload, 200, {"Content-Type": "text/plain; charset=utf-8"}
 
+
+def _resolve_sub_token(tok):
+    """Return the username for a valid, unrevoked, unexpired token, else None."""
+    if not tok or len(tok) < 16:
+        return None
+    db = get_db()
+    row = db.execute(
+        "SELECT username, expires_at, revoked_at FROM sub_tokens WHERE token_hash = ?",
+        (hash_sub_token(tok),),
+    ).fetchone()
+    db.close()
+    if not row or row["revoked_at"]:
+        return None
+    if row["expires_at"] and row["expires_at"] < utcnow_iso():
+        return None
+    return row["username"]
+
+
+@app.route("/sub/<token>")
+def subscription_by_token(token):
+    """Public subscription endpoint — opaque token only.
+
+    Before this existed the endpoint was /self/api/v1/sub/<username> with no
+    check whatsoever, reachable through Caddy with no authn.
+    """
+    name = _resolve_sub_token(token)
+    if not name:
+        return "Not found", 404
+    db = get_db()
+    revoked = db.execute("SELECT revoked_at FROM users WHERE username = ?", (name,)).fetchone()
+    db.close()
+    if revoked and revoked["revoked_at"]:
+        # A revoked user's link goes dark, but the token stays valid so that
+        # restoring access works without reissuing the URL.
+        return "subscription revoked", 410
+    return _build_subscription(name)
+
+
+@app.route("/self/api/v1/sub/<token>")
+def api_subscription(token):
+    """Legacy path, now token-based. Kept so existing client URLs keep working."""
+    return subscription_by_token(token)
+
+
+@app.route("/sub/<token>/<proto>")
+def subscription_file(token, proto):
+    """Download one raw config file through the same token gate."""
+    name = _resolve_sub_token(token)
+    if not name:
+        return "Not found", 404
+    suffix_map = dict((p[0], p[2]) for p in PROTOCOLS)
+    suffix = suffix_map.get(proto)
+    if not suffix:
+        return "Not found", 404
+    path = BASE_DIR / name / f"{name}{suffix}"
+    if not path.exists():
+        return "Not found", 404
+    return send_file(str(path), as_attachment=True, download_name=f"{name}{suffix}")
+
+
+@app.route("/self/user/<name>/sub-token", methods=["POST"])
+def issue_sub_token(name):
+    """Mint or reissue a subscription token. The raw value is shown once."""
+    if not is_admin():
+        return redirect("/self/login")
+    db = get_db()
+    exists = db.execute("SELECT 1 FROM sub_tokens WHERE username = ?", (name,)).fetchone()
+    if exists:
+        db.close()
+        flash("Token already issued — use Rotate to get a new one", "error")
+        return redirect(request.referrer or "/self/")
+    tok = pysecrets.token_urlsafe(32)
+    expires = request.form.get("expires", "").strip() or None
+    db.execute(
+        "INSERT INTO sub_tokens (username, token_hash, created_at, expires_at) VALUES (?,?,?,?)",
+        (name, hash_sub_token(tok), utcnow_iso(), expires),
+    )
+    db.commit()
+    db.close()
+    audit("sub_token_issue", name, f"expires={expires}")
+    link = f"{request.url_root.rstrip('/')}/sub/{tok}"
+    flash(f"Subscription link for {name} (shown once): {link}", "ok")
+    return redirect(request.referrer or "/self/")
+
+
+@app.route("/self/user/<name>/sub-token/rotate", methods=["POST"])
+def rotate_sub_token(name):
+    if not is_admin():
+        return redirect("/self/login")
+    db = get_db()
+    exists = db.execute("SELECT 1 FROM sub_tokens WHERE username = ?", (name,)).fetchone()
+    if not exists:
+        db.close()
+        flash("No token to rotate", "error")
+        return redirect(request.referrer or "/self/")
+    tok = pysecrets.token_urlsafe(32)
+    db.execute(
+        "UPDATE sub_tokens SET token_hash = ?, created_at = ?, revoked_at = NULL, expires_at = NULL WHERE username = ?",
+        (hash_sub_token(tok), utcnow_iso(), name),
+    )
+    db.commit()
+    db.close()
+    audit("sub_token_rotate", name)
+    flash(f"New subscription link for {name} (old one is dead): "
+          f"{request.url_root.rstrip('/')}/sub/{tok}", "ok")
+    return redirect(request.referrer or "/self/")
+
+
+@app.route("/self/user/<name>/sub-token/revoke", methods=["POST"])
+def revoke_sub_token(name):
+    """Kill the URL without interrupting a live tunnel — unlike Block, which
+    revokes the credentials themselves."""
+    if not is_admin():
+        return redirect("/self/login")
+    db = get_db()
+    db.execute("UPDATE sub_tokens SET revoked_at = ? WHERE username = ?",
+               (utcnow_iso(), name))
+    db.commit()
+    db.close()
+    audit("sub_token_revoke", name)
+    flash(f"Subscription URL disabled for {name}. Already-connected clients stay connected.", "ok")
+    return redirect(request.referrer or "/self/")
+
+
+@app.route("/self/cron/expire", methods=["POST"])
+def cron_expire():
+    """Revoke access for users whose expiry has passed.
+
+    D5/C3: expiry used to be handled in collector.py by writing active=0, which
+    had no effect on any daemon — so 'expires' was decorative. It now goes
+    through the same revocation path as a manual block.
+    """
+    secret = _require_env("CRON_SECRET", "Set CRON_SECRET to call /self/cron/expire")
+    if not secrets_compare(request.headers.get("X-Cron-Secret", ""), secret):
+        return "forbidden", 403
+    db = get_db()
+    now = utcnow_iso()
+    rows = db.execute(
+        "SELECT username FROM users WHERE expires_at IS NOT NULL "
+        "AND expires_at < ? AND revoked_at IS NULL AND username != 'admin'",
+        (now,),
+    ).fetchall()
+    db.close()
+    for r in rows:
+        apply_revocation(r["username"], revoke=True, reason="expired")
+        print(f"[expire] revoked {r['username']}")
+    return jsonify({"revoked": [r["username"] for r in rows]}), 200
+
+
+def secrets_compare(a, b):
+    import hmac
+    return hmac.compare_digest(a.encode(), b.encode())
+
+
 if __name__ == "__main__":
     init_db()
-    app.run(host="127.0.0.1", port=5000, debug=False)
+    app.run(host="127.0.0.1", port=int(os.environ.get("NYX_PORT", 5000)), debug=False)

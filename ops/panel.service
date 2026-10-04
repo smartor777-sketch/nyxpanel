@@ -1,0 +1,40 @@
+[Unit]
+Description=nyxpanel web panel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nyxpanel
+Group=nyxpanel
+WorkingDirectory=/opt/nyxpanel/panel
+EnvironmentFile=/etc/nyxpanel/panel.env
+Environment=NYX_BASE_DIR=/var/lib/nyxpanel/users
+Environment=NYX_DB_PATH=/var/lib/nyxpanel/panel.db
+Environment=NYX_MANAGER=/opt/nyxpanel/bin/proxy_manager.sh
+Environment=NYX_ENV=/etc/nyxpanel/proxy.env
+Environment=NYX_PORT=5000
+ExecStart=/usr/bin/python3 /opt/nyxpanel/panel/app.py
+Restart=on-failure
+RestartSec=5s
+
+# The panel must not be able to write outside its state directory. Everything
+# that needs privilege goes through a short sudoers allowlist, because
+# proxy_manager.sh has to touch awg0.conf and restart daemons.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+ReadWritePaths=/var/lib/nyxpanel /var/log/nyxpanel
+ReadOnlyPaths=/etc/nyxpanel /opt/nyxpanel
+
+[Install]
+WantedBy=multi-user.target
