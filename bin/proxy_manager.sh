@@ -190,7 +190,11 @@ load_env_overrides() {
         esac
 
         # Caller-supplied values take precedence over the file.
-        if [ -n "${!key+x}" ]; then
+        #
+        # Non-empty, not merely defined: the settings block declares things as
+        # ${VAR:-}, so every one of them exists as an empty string before this
+        # runs. Testing for existence made the file unreachable for every key.
+        if [ -n "${!key}" ]; then
             continue
         fi
         printf -v "$key" '%s' "$value"
