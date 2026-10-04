@@ -245,6 +245,24 @@ _awg_syncconf_payload() {
     ' "$conf"
 }
 
+# How to push a config change onto the live interface.
+#
+#   bounce  awg-quick down + up. Drops every connected user's tunnel, but is the
+#           only mode verified to work on this platform. DEFAULT.
+#   sync    awg syncconf. Meant to apply peers in place without a bounce.
+#
+# sync is OFF by default because it does not work safely here yet. On
+# amneziawg-tools 3.1 / amneziawg kernel 3.1 it returns rc=0 and leaves the
+# peers in place, but the interface's public and private key stop being readable
+# afterwards (reproduced repeatedly on a throwaway interface; awg0 was never
+# touched). Whether traffic keeps flowing could not be established — the netns
+# client used to prove it failed to configure — so it is not safe to enable on a
+# host with live users.
+#
+# Re-test on a spare interface before switching, and see
+# nyx-analysis.md "D2 was measured, not assumed".
+AWG_SYNC_MODE="${AWG_SYNC_MODE:-bounce}"
+
 awg_apply_config() {
     local reason="${1:-unknown}"
 
@@ -293,6 +311,18 @@ awg_apply_config() {
             echo -e "${RED}Интерфейс НЕ изменён. Разберитесь или задайте AWG_ALLOW_PEER_REMOVAL=1.${NC}" >&2
             return 1
         fi
+    fi
+
+    if [ "$AWG_SYNC_MODE" != "sync" ]; then
+        # bounce mode: the verified behaviour, and the one the audit criticised.
+        # Kept as the default because sync is not yet safe here.
+        _sync_log "iface=$AWG_INTERFACE bounce (reason=$reason)"
+        awg-quick down "$AWG_INTERFACE" 2>/dev/null || true
+        awg-quick up "$AWG_INTERFACE" 2>/dev/null || {
+            _sync_log "iface=$AWG_INTERFACE BOUNCEFAILED (reason=$reason)"
+            return 1
+        }
+        return 0
     fi
 
     local payload
