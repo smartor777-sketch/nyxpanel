@@ -974,7 +974,16 @@ add_awg_user() {
     local peers_before peers_after
     peers_before=$(grep -c "^PublicKey" "$AWG_CONFIG")
     _sync_log "awg-add user=$username conf=$AWG_CONFIG peers_before=$peers_before ip=$client_ip"
-    _sync_log "awg-add diag path=$PATH cat=$(command -v cat || echo NONE) awk=$(command -v awk || echo NONE) uid=$(id -u) size=$(stat -c %s "$AWG_CONFIG" 2>&1) writable=$( [ -w "$AWG_CONFIG" ] && echo yes || echo no )"
+    # Precondition, not a diagnostic. Under a systemd sandbox this is reachable
+    # while uid 0 and still not writable, because the mount namespace is
+    # inherited by sudo's children. Checking here names the cause; checking after
+    # the append only shows a peer count that did not move.
+    if [ ! -w "$AWG_CONFIG" ]; then
+        _sync_log "awg-add REFUSED user=$username conf=$AWG_CONFIG not writable by uid $(id -u)"
+        echo -e "${RED}$AWG_CONFIG недоступен для записи (uid $(id -u)). Интерфейс НЕ изменён.${NC}" >&2
+        echo -e "${RED}Если панель запущена systemd-юнитом — проверьте ReadWritePaths.${NC}" >&2
+        return 1
+    fi
 
     cat <<EOF >> "$AWG_CONFIG" 2>>"$SYNC_LOG"
 
