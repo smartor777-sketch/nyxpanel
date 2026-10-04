@@ -157,14 +157,46 @@ load_revoke_lib() {
 
 # Per-host values live in one place instead of being edited into this script's
 # body on every machine, which is how the four copies of it drifted apart.
+#
+# The file is parsed, not sourced. Sourcing it broke on real values:
+#   AWG_ALLOWED_IPS=0.0.0.0/0, ::/0
+# has a space, so bash treated "::/0" as a command name and errored mid-load.
+#
+# Values already present in the environment win, so an explicit override such as
+#   AWG_INTERFACE=awgtest0 bash proxy_manager.sh sync_awg
+# is not silently replaced by the file.
 load_env_overrides() {
     local env_file="${NYX_ENV:-/etc/nyxpanel/proxy.env}"
     [ -f "$env_file" ] || return 0
-    set -a
-    # shellcheck disable=SC1090
-    . "$env_file"
-    set +a
-    SYNC_LOG="${SYNC_LOG:-/var/log/nyxproxy/sync.log}"
+
+    local line key value
+    while IFS= read -r line || [ -n "$line" ]; do
+        line="${line%%#*}"
+        line="${line#"${line%%[![:space:]]*}"}"
+        [ -z "$line" ] && continue
+        case "$line" in *=*) ;; *) continue ;; esac
+
+        key="${line%%=*}"
+        value="${line#*=}"
+        # trim surrounding whitespace
+        key="${key%"${key##*[![:space:]]}"}"
+        value="${value#"${value%%[![:space:]]*}"}"
+        value="${value%"${value##*[![:space:]]}"}"
+        # strip one layer of matching quotes
+        case "$value" in
+            \"*\") value="${value:1:${#value}-2}" ;;
+            \'*\') value="${value:1:${#value}-2}" ;;
+        esac
+
+        # Caller-supplied values take precedence over the file.
+        if [ -n "${!key+x}" ]; then
+            continue
+        fi
+        printf -v "$key" '%s' "$value"
+        export "$key"
+    done < "$env_file"
+
+    SYNC_LOG="${SYNC_LOG:-/var/log/nyxpanel/sync.log}"
     mkdir -p "$(dirname "$SYNC_LOG")" 2>/dev/null || true
 }
 
