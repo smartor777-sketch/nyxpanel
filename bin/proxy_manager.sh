@@ -971,6 +971,10 @@ add_awg_user() {
     local server_port=$(grep -E "^\s*ListenPort" "$AWG_CONFIG" | awk '{print $3}')
     local awg_params=$(grep -E "^\s*(Jc|Jmin|Jmax|S1|S2|S3|S4|H1|H2|H3|H4|I1|I5|ContentPaddingAddition|RekeyAfterTime)" "$AWG_CONFIG" | sed 's/^\s*//')
 
+    local peers_before peers_after
+    peers_before=$(grep -c "^PublicKey" "$AWG_CONFIG")
+    _sync_log "awg-add user=$username conf=$AWG_CONFIG peers_before=$peers_before ip=$client_ip"
+
     cat <<EOF >> "$AWG_CONFIG"
 
 # Peer: $username
@@ -979,6 +983,16 @@ PublicKey = $client_pub
 PresharedKey = $psk
 AllowedIPs = $client_ip
 EOF
+
+    # The append is the whole point of this command, so confirm it landed rather
+    # than reporting success and leaving the interface untouched.
+    peers_after=$(grep -c "^PublicKey" "$AWG_CONFIG")
+    if [ "$peers_after" -le "$peers_before" ]; then
+        _sync_log "awg-add FAILED user=$username conf unchanged ($peers_before)"
+        echo -e "${RED}Не удалось записать пира в $AWG_CONFIG — интерфейс НЕ изменён.${NC}" >&2
+        return 1
+    fi
+    _sync_log "awg-add wrote user=$username peers_after=$peers_after"
 
     awg_apply_config "add_awg_user:$username"
 
