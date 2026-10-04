@@ -760,6 +760,14 @@ list_users() {
         [ -f "$BASE_DIR/$user/${user}_vless.uri" ] && echo "   - VLESS+XHTTP+REALITY (✓)"
         [ -f "$BASE_DIR/$user/${user}_troyan.json" ] && echo "   - Trojan (✓)"
     done < "$REGISTRY_FILE"
+
+    # Explicit success. The loop's status is that of the last `[ -f … ] && echo`
+    # of the last user, so on a host where the final user lacks the last protocol
+    # checked, this function returned 1 despite printing a perfectly good list.
+    # call_script() treats a non-zero exit as failure, so the panel would report
+    # a working listing as an error — and only on some hosts, which is the worst
+    # kind of bug to notice.
+    return 0
 }
 
 remove_protocol() {
