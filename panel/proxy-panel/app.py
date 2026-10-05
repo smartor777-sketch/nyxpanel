@@ -824,27 +824,66 @@ TPROXY_PROFILES_PATH = "/etc/tproxy-server/profiles.json"
 TPROXY_CONFIG_PATH = "/etc/tproxy-server/config.json"
 TPROXY_TG_MAPPINGS_PATH = "/etc/tproxy-server/tg_mappings.json"
 
-def tproxy_read_profiles():
+# tproxy via the orchestrator, not a direct read.
+#
+# tproxy-server will not start unless profiles_file is 0600 owned by its own user:
+# that file holds every MTProxy secret. A group grant cannot satisfy that, and
+# loosening the mode makes the daemon refuse to run. So the file stays private and
+# the access goes through proxy_manager.sh, which is on the sudoers allowlist — the
+# same route the AWG counters and the Xray config already take.
+#
+# The previous version read the file directly and ended in `except: return []`,
+# which swallowed PermissionError. That is why the page said "no profiles yet"
+# rather than reporting that it could not read them.
+
+def _tproxy_orchestrator(action, payload=None):
+    """Run one orchestrator verb as root and return its stdout, or None."""
+    import subprocess
     try:
-        with open(TPROXY_PROFILES_PATH) as f:
-            return json.load(f).get("profiles", [])
-    except Exception:
+        proc = subprocess.run(
+            ["sudo", "-n", MANAGER, f"tproxy_{action}"],
+            input=payload, capture_output=True, encoding="utf-8", timeout=30)
+    except subprocess.TimeoutExpired:
+        print(f"[tproxy] {action}: timed out", flush=True)
+        return None
+    except Exception as e:
+        print(f"[tproxy] {action}: {type(e).__name__}: {e}", flush=True)
+        return None
+    if proc.returncode != 0:
+        print(f"[tproxy] {action} failed rc={proc.returncode}: "
+              f"{(proc.stderr or '').strip()[:200]}", flush=True)
+        return None
+    return proc.stdout
+
+def tproxy_read_profiles():
+    out = _tproxy_orchestrator("profiles_get")
+    if out is None:
+        return []
+    try:
+        return json.loads(out).get("profiles", [])
+    except Exception as e:
+        print(f"[tproxy] profiles_get returned unusable JSON: {e}", flush=True)
         return []
 
 def tproxy_write_profiles(profiles):
-    with open(TPROXY_PROFILES_PATH, "w") as f:
-        json.dump({"profiles": profiles}, f, indent=2)
+    payload = json.dumps({"profiles": profiles}, indent=2)
+    if _tproxy_orchestrator("profiles_set", payload) is None:
+        raise OSError("could not write tproxy profiles")
 
 def tproxy_read_tg_mappings():
+    out = _tproxy_orchestrator("mappings_get")
+    if out is None:
+        return {}
     try:
-        with open(TPROXY_TG_MAPPINGS_PATH) as f:
-            return json.load(f)
-    except Exception:
+        return json.loads(out)
+    except Exception as e:
+        print(f"[tproxy] mappings_get returned unusable JSON: {e}", flush=True)
         return {}
 
 def tproxy_write_tg_mappings(mappings):
-    with open(TPROXY_TG_MAPPINGS_PATH, "w") as f:
-        json.dump(mappings, f, indent=2)
+    payload = json.dumps(mappings, indent=2)
+    if _tproxy_orchestrator("mappings_set", payload) is None:
+        raise OSError("could not write tproxy mappings")
 
 def tproxy_restart():
     # systemctl is on the sudoers allowlist; calling it directly would fail for
@@ -888,71 +927,22 @@ def tproxy_find_next_port():
     return None
 
 def tproxy_create_mtproxy(name, secret, port):
-    """Create an mtproxy instance: env, script, service, start, firewall."""
-    env_path = f"/etc/mtproxy/mtproxy-{name}.env"
-    script_path = f"/usr/local/bin/mtproxy-{name}.sh"
-    service_path = f"/etc/systemd/system/mtproxy-{name}.service"
-    proxy_port = port + 1000
+    """Create the MTProxy instance for a profile, as root via the orchestrator.
 
-    with open(env_path, "w") as f:
-        f.write(f"MTPROXY_SECRET={secret}\nMTPROXY_WORKERS=1\nMTPROXY_MAX_CONNECTIONS=4096\n")
-
-    with open(script_path, "w") as f:
-        f.write(f"""#!/bin/bash
-set -a
-source {env_path}
-set +a
-exec /opt/MTProxy/objs/bin/mtproto-proxy -u mtproxy -p {proxy_port} -H {port} -S $MTPROXY_SECRET --aes-pwd /etc/mtproxy/proxy-secret /etc/mtproxy/proxy-multi.conf -M $MTPROXY_WORKERS -C $MTPROXY_MAX_CONNECTIONS
-""")
-    os.chmod(script_path, 0o755)
-
-    with open(service_path, "w") as f:
-        f.write(f"""[Unit]
-Description=MTProxy backend (profile {name})
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-User=mtproxy
-Group=mtproxy
-WorkingDirectory=/opt/MTProxy
-ExecStart={script_path}
-Restart=on-failure
-RestartSec=3s
-LimitNOFILE=1048576
-NoNewPrivileges=true
-PrivateDevices=true
-PrivateTmp=true
-ProtectHome=true
-ProtectProc=invisible
-ProtectSystem=strict
-
-[Install]
-WantedBy=multi-user.target
-""")
-
-    subprocess.run(["sudo", "-n", "/usr/bin/systemctl", "daemon-reload"], capture_output=True, timeout=10)
-    subprocess.run(["sudo", "-n", "/usr/bin/systemctl", "enable", f"mtproxy-{name}"], capture_output=True, timeout=10)
-    subprocess.run(["sudo", "-n", "/usr/bin/systemctl", "start", f"mtproxy-{name}"], capture_output=True, timeout=10)
-    tproxy_update_firewall()
-
+    Writing the env file, the launcher and the systemd unit needs root: /etc/mtproxy
+    is root:mtproxy 0750 and the other two are root-owned, so the unprivileged panel
+    cannot do it. Doing it here is what the sudoers allowlist is for — the same
+    reason the AWG counters and the Xray config are read through this script.
+    """
+    out = _tproxy_orchestrator("mtproxy_create",
+                               json.dumps({"name": name, "secret": secret,
+                                           "port": port}) + "\n")
+    return out is not None
 def tproxy_delete_mtproxy(name):
-    """Stop and remove an mtproxy instance."""
-    subprocess.run(["sudo", "-n", "/usr/bin/systemctl", "stop", f"mtproxy-{name}"], capture_output=True, timeout=10)
-    subprocess.run(["sudo", "-n", "/usr/bin/systemctl", "disable", f"mtproxy-{name}"], capture_output=True, timeout=10)
-    subprocess.run(["sudo", "-n", "/usr/bin/systemctl", "daemon-reload"], capture_output=True, timeout=10)
-    for path in [
-        f"/etc/mtproxy/mtproxy-{name}.env",
-        f"/usr/local/bin/mtproxy-{name}.sh",
-        f"/etc/systemd/system/mtproxy-{name}.service",
-    ]:
-        try:
-            os.remove(path)
-        except Exception:
-            pass
-    tproxy_update_firewall()
-
+    """Remove the MTProxy instance's three files, as root via the orchestrator."""
+    out = _tproxy_orchestrator("mtproxy_delete",
+                               json.dumps({"name": name}) + "\n")
+    return out is not None
 def tproxy_update_firewall():
     """Update nftables to block all mtproxy backend ports from external access."""
     used = tproxy_get_used_ports()
@@ -1409,6 +1399,236 @@ def cron_expire():
 def secrets_compare(a, b):
     import hmac
     return hmac.compare_digest(a.encode(), b.encode())
+
+
+# ============================================================ traffic view ===
+# Every figure below is anchored to real calendar days rather than to "the last
+# day that happens to have a row", so a counter that stopped three weeks ago
+# cannot pass for a user who simply stopped generating traffic. traffic_report
+# builds the grid and traffic_report.collector_health is what tells "no traffic"
+# apart from "no data".
+
+@app.template_filter("filesize")
+def _filesize(n):
+    """Human-readable byte count. Traffic tables are unreadable in raw bytes."""
+    try:
+        n = float(n or 0)
+    except (TypeError, ValueError):
+        return "0 Б"
+    for unit in ("Б", "КБ", "МБ", "ГБ", "ТБ"):
+        if abs(n) < 1024 or unit == "ТБ":
+            return f"{n:.1f} {unit}" if unit != "Б" else f"{int(n)} Б"
+        n /= 1024
+    return "0 Б"
+
+
+@app.template_filter("pct")
+def _pct(value, peak):
+    """Bar height as a percentage, with a floor so a non-zero day stays visible."""
+    try:
+        value, peak = float(value or 0), float(peak or 0)
+    except (TypeError, ValueError):
+        return 2
+    if value <= 0:
+        return 2
+    if peak <= 0:
+        return 100
+    return max(3, round(value / peak * 100))
+
+
+@app.route("/self/admin/traffic")
+def self_admin_traffic():
+    """Admin overview of traffic, per user and per protocol.
+
+    Read-only: no daemon is touched, so it is safe to load at any time.
+    """
+    if not is_logged_in():
+        return redirect(url_for("self_login"))
+    if not is_admin():
+        return redirect(url_for("self_dashboard")), 403
+    days = request.args.get("days", 30, type=int)
+    if days not in (7, 14, 30, 90):
+        days = 30
+    import traffic_report as TR
+    db = get_db()
+    try:
+        report = TR.build(db, days=days)
+    finally:
+        db.close()
+
+    # Scale every bar against one common peak, otherwise each user's sparkline
+    # would fill its own row regardless of whether they moved 1 KB or 40 GB.
+    peak = max((d["value"] for d in report["daily_total"]), default=0)
+    for d in report["daily_total"]:
+        d["height"] = _pct(d["value"], peak)
+    for u in report["users"]:
+        for p in u["protocols"].values():
+            pk = max((s["value"] for s in p["series"]), default=0)
+            for s in p["series"]:
+                s["height"] = _pct(s["value"], pk)
+
+    # Say per protocol, inside the table, whether that source is counting at all.
+    counting = {b["protocol"] for b in report["broken"]}
+    for u in report["users"]:
+        u["has_any"] = any(p["has_data"] for p in u["protocols"].values())
+        for key, p in u["protocols"].items():
+            p["counting"] = key not in counting
+
+    report["health_rows"] = [
+        {
+            "name": name,
+            "level": "ok",
+            "label": "считает",
+            "detail": (f"{report['health'].get(key, {}).get('peers', 0)} "
+                       f"источников, последняя проверка "
+                       f"{str(report['health'].get(key, {}).get('checked_at') or '—')[:19]}"),
+        }
+        for key, name in TR.PROTOCOLS if key not in counting
+    ] + [
+        {
+            "name": b["name"],
+            "level": b["level"],
+            "label": b["label"],
+            "detail": b["detail"],
+        }
+        for b in report["broken"]
+    ]
+
+    return render_template(
+        "traffic.html",
+        report=report,
+        proto_order=TR.PROTOCOLS,
+        version=PANEL_VERSION,
+    )
+
+
+@app.route("/self/admin/traffic.csv")
+def self_admin_traffic_csv():
+    """Export the same numbers the dashboard shows, one row per user+protocol."""
+    if not is_logged_in():
+        return redirect(url_for("self_login"))
+    if not is_admin():
+        return jsonify({"error": "forbidden"}), 403
+    days = request.args.get("days", 30, type=int)
+    if days not in (7, 14, 30, 90):
+        days = 30
+    import csv as _csv
+    import io
+    import traffic_report as TR
+    db = get_db()
+    try:
+        report = TR.build(db, days=days)
+    finally:
+        db.close()
+    buf = io.StringIO()
+    w = _csv.writer(buf)
+    for row in TR.csv_rows(report):
+        w.writerow(row)
+    # Keep the broken-source column in the file: a CSV that shows zeros without
+    # saying why would carry the same lie the dashboard was built to fix.
+    w.writerow([])
+    w.writerow(["# sources not counting"])
+    for b in report["broken"]:
+        w.writerow([b["name"], b["status"], b["detail"]])
+    return app.response_class(
+        buf.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition":
+                 f'attachment; filename="traffic-{report["today"]}.csv"'},
+    )
+
+
+
+# ------------------------------------------------------- personal traffic ---
+# Added because the personal dashboard's chart called the admin-guarded stats
+# route and got 403, so users never saw their own graph.
+#
+# Deliberately parameterless: the username comes from the session, so there is no
+# name to change in the request and no way to ask for someone else's figures. The
+# admin routes above keep `@require_admin` — the C1 leak is exactly what that guard
+# was added for, and widening it back would reopen that.
+#
+# WHY NOT /self/api/... :
+# Caddy puts `basic_auth` on /self/api/* to close the C1 leak. That guard also
+# intercepts the panel's own fetch(), so the browser popped its own login dialog
+# over the dashboard and the chart never loaded. This path sits under /self*,
+# which has no basic_auth, and relies on the session check above instead — the
+# same exposure as /self/ itself, which is already publicly reachable and prompts
+# for the panel login. Nothing that returns credentials lives here.
+
+@app.route("/self/me/traffic")
+def self_api_traffic_me():
+    """The signed-in user's own traffic, on a calendar grid.
+
+    The old endpoint returned raw rows, so a day with no row simply did not exist
+    in the response and the chart's line broke without saying why. This fills every
+    calendar day so a gap reads as a gap.
+    """
+    name = session.get("self_user")
+    if not name:
+        return jsonify({"error": "unauthorized"}), 401
+    days = request.args.get("days", 30, type=int)
+    if days not in (7, 14, 30, 90):
+        days = 30
+    import traffic_report as TR
+    db = get_db()
+    try:
+        report = TR.build_user(db, name, days=days)
+    finally:
+        db.close()
+    # jsonify() takes either a positional object or kwargs, never both, so
+    # `default=str` here was read as a second keyword and raised a TypeError.
+    return app.response_class(
+        json.dumps(report, default=str),
+        mimetype="application/json",
+    )
+
+
+
+# ---------------------------------------------- admin traffic (JSON) ---
+# The admin dashboard fetches `/self/api/traffic`, and Caddy answers that path
+# with `basic_auth` (it was added for C1). The browser therefore intercepted the
+# panel's own XHR with its own sign-in prompt, which appeared over the admin page
+# and left the chart blank when dismissed. The panel already guards these routes
+# with `@require_admin`, so the Caddy guard bought nothing here and cost a broken
+# page.
+#
+# This route sits outside /self/api/* so Caddy's guard does not touch it, and it
+# keeps the admin check. Reading traffic figures is not what C1 was about: that was
+# /self/api/v1/sub/<name> returning ready-to-use credentials and /self/api/v1/users
+# enumerating accounts. Both stay behind basic_auth, unchanged.
+
+@app.route("/self/admin/traffic.json")
+@app.route("/self/admin/traffic.json/<name>")
+def admin_traffic_json(name=None):
+    """Admin read-only traffic figures, on the same calendar grid as the page."""
+    if not is_logged_in():
+        return jsonify({"error": "unauthorized"}), 401
+    if not is_admin():
+        return jsonify({"error": "forbidden"}), 403
+    days = request.args.get("days", 30, type=int)
+    if days not in (0, 7, 14, 30, 60, 90):
+        days = 30
+    db = get_db()
+    try:
+        if name:
+            # Reuse the per-user builder so the JSON and the dashboard agree.
+            import traffic_report as TR
+            payload = TR.build_user(db, name, days=days or 90)
+        else:
+            rows = db.execute(
+                "SELECT username, date, protocol, bytes_up, bytes_down "
+                "FROM daily_traffic WHERE date >= date('now', ?) "
+                "ORDER BY date, username", (f"-{days or 3650} days",)
+            ).fetchall()
+            payload = [dict(r) for r in rows]
+    finally:
+        db.close()
+    return app.response_class(
+        json.dumps(payload, default=str),
+        mimetype="application/json",
+    )
+
 
 
 if __name__ == "__main__":
