@@ -1591,6 +1591,168 @@ show_menu() {
     read -p "$prompt" choice
 }
 
+# ------------------------------------------------------- tproxy profiles ---
+# tproxy-server refuses to run unless profiles_file is 0600 owned by its own
+# user, because the file holds every MTProxy secret. The panel therefore cannot
+# read or write it as `nyxpanel`, whatever group it is in: the daemon's requirement
+# and any group grant are mutually exclusive.
+#
+# That is not a problem to loosen — it is why these go through the orchestrator,
+# which is already on the sudoers allowlist for exactly this. Same route the AWG
+# counters and the Xray config take.
+
+TPROXY_PROFILES="/etc/tproxy-server/profiles.json"
+TPROXY_MAPPINGS="/etc/tproxy-server/tg_mappings.json"
+
+tproxy_profiles_get() {
+    # Refuse to print anything if the file is not private; a daemon that would
+    # reject it should not have its secrets echoed to a terminal either.
+    local mode
+    mode=$(stat -c '%a' "$TPROXY_PROFILES" 2>/dev/null || echo "")
+    if [ -z "$mode" ]; then
+        echo "ERROR: no profiles file at $TPROXY_PROFILES" >&2
+        return 1
+    fi
+    cat "$TPROXY_PROFILES"
+}
+
+tproxy_profiles_set() {
+    # Write via a temp file in the same directory, then move it into place: a
+    # partial write would leave tproxy-server unable to start, which is exactly
+    # the failure that has to be impossible here.
+    local tmp
+    tmp=$(mktemp /etc/tproxy-server/.profiles.XXXXXX) || return 1
+    cat > "$tmp" || { rm -f "$tmp"; return 1; }
+    # The daemon demands 0600 and its own ownership.
+    chown tproxy:tproxy "$tmp" 2>/dev/null || { rm -f "$tmp"; return 1; }
+    chmod 0600 "$tmp" || { rm -f "$tmp"; return 1; }
+    if ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$tmp" 2>/dev/null; then
+        echo "ERROR: refusing to install malformed JSON" >&2
+        rm -f "$tmp"
+        return 1
+    fi
+    mv -f "$tmp" "$TPROXY_PROFILES" || { rm -f "$tmp"; return 1; }
+    return 0
+}
+
+tproxy_mappings_get() {
+    cat "$TPROXY_MAPPINGS" 2>/dev/null || echo "{}"
+}
+
+tproxy_mappings_set() {
+    local tmp
+    tmp=$(mktemp /etc/tproxy-server/.mappings.XXXXXX) || return 1
+    cat > "$tmp" || { rm -f "$tmp"; return 1; }
+    if ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$tmp" 2>/dev/null; then
+        echo "ERROR: refusing to install malformed JSON" >&2
+        rm -f "$tmp"
+        return 1
+    fi
+    # Mappings hold no secrets, so they keep root ownership and stay group-readable.
+    chown root:tproxy "$tmp" 2>/dev/null
+    chmod 0660 "$tmp" 2>/dev/null
+    mv -f "$tmp" "$TPROXY_MAPPINGS" || { rm -f "$tmp"; return 1; }
+    return 0
+}
+
+
+# ---------------------------------------------------- mtproxy instances ---
+# Creating or removing an MTProxy instance means writing an env file under
+# /etc/mtproxy (root:mtproxy, mode 0750), a launcher in /usr/local/bin and a
+# systemd unit. The panel used to run as root and did this itself; unprivileged it
+# cannot, and group membership would not help because these are root-owned files.
+# So it happens here, where the sudoers allowlist already reaches.
+
+TPROXY_MTPROXY_DIR="/etc/mtproxy"
+TPROXY_MTPROXY_BIN="/opt/MTProxy/objs/bin/mtproto-proxy"
+TPROXY_MTPROXY_CONF="${TPROXY_MTPROXY_DIR}/proxy-multi.conf"
+
+tproxy_mtproxy_create() {
+    # One JSON object on stdin: {"name":..., "secret":..., "port":...}
+    # Read as a unit rather than three argv words, so a name or secret containing
+    # spaces cannot shift the arguments.
+    local payload
+    payload=$(cat)
+    local name secret port
+    name=$(python3 -c "import json,sys; print(json.loads(sys.argv[1]).get('name',''))" "$payload")
+    secret=$(python3 -c "import json,sys; print(json.loads(sys.argv[1]).get('secret',''))" "$payload")
+    port=$(python3 -c "import json,sys; print(json.loads(sys.argv[1]).get('port',''))" "$payload")
+    local proxy_port=$((port + 1000))
+    local env_path="${TPROXY_MTPROXY_DIR}/mtproxy-${name}.env"
+    local script_path="/usr/local/bin/mtproxy-${name}.sh"
+    local service_path="/etc/systemd/system/mtproxy-${name}.service"
+
+    if [ ! -z "$name" ] && echo "$name" | grep -qE '^[a-zA-Z0-9_-]+$'; then :; else
+        echo "ERROR: bad profile name" >&2
+        return 1
+    fi
+    if [ ! -x "$TPROXY_MTPROXY_BIN" ]; then
+        echo "ERROR: mtproto binary missing at $TPROXY_MTPROXY_BIN" >&2
+        return 1
+    fi
+
+    umask 077
+    {
+        echo "MTPROXY_SECRET=${secret}"
+        echo "MTPROXY_WORKERS=1"
+        echo "MTPROXY_MAX_CONNECTIONS=4096"
+    } > "$env_path" || return 1
+
+    cat > "$script_path" <<EOF || { rm -f "$env_path"; return 1; }
+#!/bin/bash
+set -a
+source ${env_path}
+set +a
+exec ${TPROXY_MTPROXY_BIN} -u mtproxy -p ${proxy_port} -H ${port} -S \$MTPROXY_SECRET --aes-pwd ${TPROXY_MTPROXY_DIR}/proxy-secret ${TPROXY_MTPROXY_CONF} -M \$MTPROXY_WORKERS -C \$MTPROXY_MAX_CONNECTIONS
+EOF
+    chmod 0755 "$script_path" || { rm -f "$env_path"; return 1; }
+
+    cat > "$service_path" <<EOF || { rm -f "$env_path" "$script_path"; return 1; }
+[Unit]
+Description=MTProxy backend (profile ${name})
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mtproxy
+Group=mtproxy
+WorkingDirectory=/opt/MTProxy
+ExecStart=${script_path}
+Restart=on-failure
+RestartSec=3s
+LimitNOFILE=1048576
+NoNewPrivileges=true
+PrivateDevices=true
+PrivateTmp=true
+ProtectHome=true
+ProtectProc=invisible
+ProtectSystem=strict
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    echo "created ${name} on :${port} (backend :${proxy_port})"
+    return 0
+}
+
+tproxy_mtproxy_delete() {
+    # One JSON object on stdin: {"name":...}
+    local payload
+    payload=$(cat)
+    local name
+    name=$(python3 -c "import json,sys; print(json.loads(sys.argv[1]).get('name',''))" "$payload")
+    systemctl stop "mtproxy-${name}.service"  >/dev/null 2>&1
+    systemctl disable "mtproxy-${name}.service" >/dev/null 2>&1
+    rm -f "/etc/systemd/system/mtproxy-${name}.service" \
+          "/usr/local/bin/mtproxy-${name}.sh" \
+          "/etc/mtproxy/mtproxy-${name}.env"
+    systemctl daemon-reload >/dev/null 2>&1
+    echo "removed ${name}"
+    return 0
+}
+
+
 main_loop() {
     while true; do
         show_menu
@@ -1618,6 +1780,12 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     init
     if [ $# -gt 0 ]; then
         case "$1" in
+        tproxy_mtproxy_create) tproxy_mtproxy_create ;;
+        tproxy_mtproxy_delete) tproxy_mtproxy_delete ;;
+        tproxy_profiles_get) tproxy_profiles_get ;;
+        tproxy_profiles_set) tproxy_profiles_set ;;
+        tproxy_mappings_get) tproxy_mappings_get ;;
+        tproxy_mappings_set) tproxy_mappings_set ;;
             add_user|del_user|add_hy2_user|add_awg_user|add_naive_user|add_mieru_user|add_olcrtc_user|add_vless_user|add_trojan_user)
                 "$1" "$2"
                 # Root wrote these; the panel has to own them.

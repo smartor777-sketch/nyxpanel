@@ -186,6 +186,92 @@ def build(db, days=30, today=None):
     }
 
 
+def build_user(db, username, days=30, today=None):
+    """The same calendar-anchored series for a single user.
+
+    This is what the personal dashboard charts. It returns a dense grid: one entry
+    per calendar day, per protocol, with `state` telling data apart from zero
+    apart from missing. The old endpoint returned raw rows, so days with no row
+    never appeared and the line broke without explanation.
+    """
+    today = today or datetime.date.today()
+    start = (today - datetime.timedelta(days=days - 1)).isoformat()
+
+    cells = {}
+    for proto, d, up, down in db.execute(
+        "SELECT protocol, date, SUM(bytes_up), SUM(bytes_down) FROM daily_traffic "
+        "WHERE username = ? AND date >= ? GROUP BY protocol, date",
+        (username, start),
+    ):
+        cells.setdefault(proto, {})[d] = (up or 0) + (down or 0)
+
+    calendar = date_range(days, today)
+    protocols = []
+    total_up = 0
+    total_down = 0
+
+    for key, name in PROTOCOLS:
+        byday = cells.get(key, {})
+        series = []
+        for d in calendar:
+            ds = d.isoformat()
+            if ds in byday:
+                state = "data" if byday[ds] > 0 else "zero"
+                value = byday[ds]
+            else:
+                state = "missing"
+                value = 0
+            series.append({"date": ds, "value": value, "state": state})
+        protocols.append({
+            "key": key,
+            "name": name,
+            "series": series,
+            "total": sum(s["value"] for s in series),
+            "has_data": any(s["value"] > 0 for s in series),
+        })
+
+    # Upload/download separately, since the dashboard charts the two directions.
+    directions = {"up": {}, "down": {}}
+    for proto, d, up, down in db.execute(
+        "SELECT protocol, date, SUM(bytes_up), SUM(bytes_down) FROM daily_traffic "
+        "WHERE username = ? AND date >= ? GROUP BY protocol, date",
+        (username, start),
+    ):
+        directions["up"].setdefault(d, 0)
+        directions["up"][d] += up or 0
+        directions["down"].setdefault(d, 0)
+        directions["down"][d] += down or 0
+
+    def series_for(bucket):
+        out = []
+        for d in calendar:
+            ds = d.isoformat()
+            out.append(bucket.get(ds, 0))
+        return out
+
+    # Lifetime totals, for the headline figure — independent of the window.
+    row = db.execute(
+        "SELECT COALESCE(SUM(bytes_up), 0), COALESCE(SUM(bytes_down), 0) "
+        "FROM daily_traffic WHERE username = ?", (username,)
+    ).fetchone()
+    total_up, total_down = row[0], row[1]
+
+    return {
+        "username": username,
+        "today": today.isoformat(),
+        "days": days,
+        "calendar": [d.isoformat() for d in calendar],
+        "protocols": protocols,
+        "up": series_for(directions["up"]),
+        "down": series_for(directions["down"]),
+        "total_up": total_up,
+        "total_down": total_down,
+        "total": total_up + total_down,
+        "d7": sum(p["total"] for p in protocols) and sum(
+            sum(s["value"] for s in p["series"][-7:]) for p in protocols),
+    }
+
+
 def csv_rows(report):
     """Flatten the report for export. One row per user per protocol."""
     out = [["username", "protocol", "today", "last_7_days", "last_30_days", "window_total"]]

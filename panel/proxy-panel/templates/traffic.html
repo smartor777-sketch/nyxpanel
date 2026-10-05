@@ -20,6 +20,10 @@
     .header-actions { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
     a.btn, button { padding:.4rem 1rem; border-radius:6px; border:1px solid var(--border); background:var(--chip); color:var(--fg); font-size:.85rem; cursor:pointer; text-decoration:none; font-weight:600; }
     a.btn:hover, button:hover { filter:brightness(.95); }
+    /* The theme toggle matches the user pages and the guides: same key in
+       localStorage, same button, so the choice follows you between pages. */
+    .theme-btn { padding:.3rem .6rem; border-radius:6px; border:1px solid var(--border); background:var(--chip); color:var(--fg); font-size:1rem; cursor:pointer; line-height:1.2; }
+    .theme-btn:hover { filter:brightness(.95); }
     .tabs { display:flex; gap:.4rem; flex-wrap:wrap; }
     .tabs a { padding:.35rem .8rem; border-radius:6px; border:1px solid var(--border); color:var(--muted); text-decoration:none; font-size:.82rem; font-weight:600; }
     .tabs a.on { background:var(--heading); color:var(--bg); border-color:var(--heading); }
@@ -87,13 +91,14 @@
       </div>
     </div>
     <div class="header-actions">
+      <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="Тема">\u{1F319}</button>
       <div class="tabs">
         {% for d in [7, 14, 30, 90] %}
           <a class="{{ 'on' if report.days == d else '' }}" href="?days={{ d }}">{{ d }} дн</a>
         {% endfor %}
       </div>
       <a class="btn" href="/self/admin/traffic.csv?days={{ report.days }}">Экспорт CSV</a>
-      <a class="btn" href="/self/admin">К админке</a>
+      <a class="btn" href="/self/">К админке</a>
     </div>
   </div>
 
@@ -251,7 +256,28 @@
     <div class="legend">Нажмите на строку, чтобы развернуть трафик по протоколам. На узком экране таблица прокручивается вбок.</div>
   </div>
 
-  <div class="foot">NYX Panel</div>
+  <div class="foot">
+  &copy; 2026 Merlin.<br>
+  <em>Crafting Dreams &amp; Magic</em>
 </div>
+</div>
+
+<script>
+// Theme toggle, same key and button as the user pages and the guides so the
+// choice follows you across pages instead of resetting per page.
+const themeKey = 'nyx_theme';
+function getTheme() { return localStorage.getItem(themeKey) || 'dark'; }
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem(themeKey, t);
+  const btn = document.getElementById('themeBtn');
+  if (btn) btn.textContent = t === 'dark' ? '\u{1F319}' : '\u{2600}\u{FE0F}';
+}
+function toggleTheme() { setTheme(getTheme() === 'dark' ? 'light' : 'dark'); }
+
+// Applied before first paint of the content, so the page never flashes dark on
+// a light-theme reload.
+setTheme(getTheme());
+</script>
 </body>
 </html>
