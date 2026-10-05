@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#0c1a2d">
+<title>NYX Panel - Трафик</title>
+<style>
+    :root { --bg:#0c1a2d; --fg:#d4e5f7; --card:#132640; --border:#1e3a5f; --heading:#7dd3fc; --muted:#93c5fd; --danger:#f87171; --danger-bg:#450a0a; --danger-border:#dc2626; --ok:#34d399; --ok-bg:#064e3b; --ok-border:#059669; --warn:#fbbf24; --warn-bg:#451a03; --warn-border:#d97706; --spark:#38bdf8; --miss:#334155; --chip:#1e3a5f; }
+    [data-theme="light"] { --bg:#eaf2fb; --fg:#1e3a5f; --card:#ffffff; --border:#c5ddf0; --heading:#0358a8; --muted:#5a7fa0; --danger:#dc2626; --danger-bg:#fef2f2; --danger-border:#dc2626; --ok:#059669; --ok-bg:#ecfdf5; --ok-border:#6ee7b7; --warn:#b45309; --warn-bg:#fffbeb; --warn-border:#fcd34d; --spark:#0284c7; --miss:#cbd5e1; --chip:#e0e7ff; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:-apple-system, system-ui, sans-serif; background:var(--bg); color:var(--fg); padding:2rem; }
+    .container { max-width:1600px; margin:0 auto; }
+    h1 { color:var(--heading); }
+    h2 { color:var(--muted); font-size:1.1rem; margin-bottom:.8rem; }
+    .subtitle { color:var(--muted); margin-bottom:1.5rem; font-size:.9rem; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:1.5rem; margin-bottom:1.5rem; }
+    .header-bar { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; }
+    .header-actions { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+    a.btn, button { padding:.4rem 1rem; border-radius:6px; border:1px solid var(--border); background:var(--chip); color:var(--fg); font-size:.85rem; cursor:pointer; text-decoration:none; font-weight:600; }
+    a.btn:hover, button:hover { filter:brightness(.95); }
+    .tabs { display:flex; gap:.4rem; flex-wrap:wrap; }
+    .tabs a { padding:.35rem .8rem; border-radius:6px; border:1px solid var(--border); color:var(--muted); text-decoration:none; font-size:.82rem; font-weight:600; }
+    .tabs a.on { background:var(--heading); color:var(--bg); border-color:var(--heading); }
+    /* Health: the honest part. A source that is not counting says so. */
+    .health { display:flex; flex-direction:column; gap:.5rem; }
+    .health-row { display:flex; align-items:flex-start; gap:.6rem; padding:.55rem .7rem; border-radius:6px; font-size:.82rem; border:1px solid; }
+    .health-row.bad { background:var(--danger-bg); border-color:var(--danger-border); color:var(--danger); }
+    .health-row.ok { background:var(--ok-bg); border-color:var(--ok-border); color:var(--ok); }
+    .health-row .p { font-weight:700; min-width:88px; }
+    .health-row .d { color:var(--muted); font-weight:400; }
+    .health-row.ok .d { color:var(--fg); }
+    .banner { padding:.8rem 1rem; border-radius:6px; margin-bottom:1rem; font-size:.87rem; border:1px solid; }
+    .banner.bad { background:var(--danger-bg); border-color:var(--danger-border); color:var(--danger); }
+    .banner.ok { background:var(--ok-bg); border-color:var(--ok-border); color:var(--ok); }
+    table { width:100%; border-collapse:collapse; font-size:.85rem; }
+    th, td { text-align:left; padding:.45rem .35rem; border-bottom:1px solid var(--border); white-space:nowrap; }
+    th { color:var(--muted); font-weight:600; }
+    th.num, td.num { text-align:right; font-variant-numeric:tabular-nums; }
+    /* The summary table gets a fixed layout: a 90-day sparkline is 90 bars wide,
+       and without this the column pushes the chart outside the card. */
+    /* Seven columns of figures do not fit a phone. Letting the table shrink instead
+       truncates numbers — and a truncated "400.2 МБ" reads as a different figure.
+       So the table keeps a real minimum width and the card scrolls sideways. */
+    .scroll-x { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .summary { table-layout:fixed; min-width:900px; }
+    .summary col.c-user { width:150px; }
+    .summary col.c-num { width:100px; }
+    .summary col.c-src { width:290px; }
+    .summary col.c-spark { width:auto; }
+    .summary td, .summary th { overflow:hidden; text-overflow:ellipsis; }
+    .summary .user-name { overflow:hidden; text-overflow:ellipsis; }
+    /* The daily chart needs a floor too, or 90 bars become 90 hairlines. */
+    .chart-scroll { overflow-x:auto; }
+    .chart-scroll .spark { min-width:280px; }
+    .user-name { font-weight:600; color:var(--heading); }
+    .tr { cursor:pointer; user-select:none; }
+    .tr td:first-child::before { content:"▸"; display:inline-block; width:1em; color:var(--muted); transition:transform .1s; }
+    .tr.open td:first-child::before { content:"▾"; }
+    .detail td { background:transparent; padding-top:0; border-bottom:2px solid var(--border); }
+    .detail table { table-layout:fixed; }
+    .detail col.d-spark { width:auto; }
+    .hidden { display:none; }
+    /* Sparkline. Bars are traffic; a dashed baseline is a day with no data. */
+    .spark { display:flex; align-items:flex-end; gap:1px; height:34px; width:100%; }
+    .spark i { display:block; flex:1 1 0; min-width:1px; background:var(--spark); border-radius:1px 1px 0 0; min-height:1px; }
+    .spark i.miss { background:var(--miss); border-radius:0; }
+    .spark i.zero { background:var(--miss); height:2px !important; border-radius:0; }
+    .proto-name { font-weight:600; }
+    .chip { display:inline-block; padding:.05rem .4rem; border-radius:4px; font-size:.7rem; background:var(--chip); color:var(--muted); }
+    .chip.on { background:var(--ok-bg); color:var(--ok); }
+    .chip.off { background:var(--danger-bg); color:var(--danger); }
+    .muted { color:var(--muted); }
+    .foot { text-align:center; color:var(--muted); font-size:.8rem; padding:1.5rem 0 .5rem; border-top:1px solid var(--border); margin-top:2rem; }
+    .legend { font-size:.78rem; color:var(--muted); margin-top:.6rem; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header-bar">
+    <div>
+      <h1>Трафик</h1>
+      <div class="subtitle">
+        Все числа привязаны к календарным дням: сегодня — {{ report.today }},
+        показано последних {{ report.days }} дн.
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="tabs">
+        {% for d in [7, 14, 30, 90] %}
+          <a class="{{ 'on' if report.days == d else '' }}" href="?days={{ d }}">{{ d }} дн</a>
+        {% endfor %}
+      </div>
+      <a class="btn" href="/self/admin/traffic.csv?days={{ report.days }}">Экспорт CSV</a>
+      <a class="btn" href="/self/admin">К админке</a>
+    </div>
+  </div>
+
+  {% if report.broken %}
+  <div class="banner bad">
+    <strong>{{ report.broken|length }} источник(а) не считает трафик.</strong>
+    Нули в таблице для этих протоколов означают «счётчик молчит», а не «пользователь не тратит».
+  </div>
+  {% else %}
+  <div class="banner ok">Все источники трафика считают.</div>
+  {% endif %}
+
+  <div class="card">
+    <h2>Состояние источников</h2>
+    <div class="health">
+      {% for b in report.health_rows %}
+        <div class="health-row {{ b.level }}">
+          <span class="p">{{ b.name }}</span>
+          <span>{{ b.label }}
+            {% if b.detail %}<br><span class="d">{{ b.detail }}</span>{% endif %}
+          </span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Трафик всех пользователей по дням</h2>
+    <div class="chart-scroll">
+      <div class="spark">
+      {% for d in report.daily_total %}
+        <i class="{{ 'miss' if d.state == 'missing' else ('zero' if d.value == 0 else '') }}"
+           style="height: {{ d.height }}%"
+           title="{{ d.date }} — {{ d.value }} байт"></i>
+      {% endfor %}
+      </div>
+    </div>
+    <div class="legend">
+      Высота столбца — трафик за день. Тонкая серая полоска — день, когда трафика не было.
+      Отсутствие столбца — дня нет в базе.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Сводка</h2>
+    <div class="scroll-x">
+    <table class="summary">
+      <colgroup>
+        <col class="c-user"><col class="c-num"><col class="c-num"><col class="c-num">
+        <col class="c-num"><col class="c-src"><col class="c-spark">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Пользователь</th>
+          <th class="num">Сегодня</th>
+          <th class="num">7 дн</th>
+          <th class="num">30 дн</th>
+          <th class="num">Всего</th>
+          <th>Источники</th>
+          <th>Динамика {{ report.days }} дн</th>
+        </tr>
+      </thead>
+      <tbody>
+      {#- Every user is listed, including those with no traffic at all. Hiding
+          them would make "this person moved nothing" indistinguishable from
+          "this person does not exist", which is the exact confusion this page
+          exists to remove. -#}
+      {% for u in report.users %}
+        <tr class="tr" data-target="d-{{ loop.index0 }}"
+            onclick="var r=document.getElementById('d-{{ loop.index0 }}');r.classList.toggle('hidden');this.classList.toggle('open');">
+          <td class="user-name">{{ u.username }}
+            {% if u.orphan %}
+              <span class="chip off" title="Есть трафик в истории, но учётной записи с таким именем больше нет — переименование или удаление. Не текущий пользователь.">не в учётной записи</span>
+            {% endif %}
+          </td>
+          <td class="num">{{ u.today|filesize }}</td>
+          <td class="num">{{ u.d7|filesize }}</td>
+          <td class="num">{{ u.d30|filesize }}</td>
+          <td class="num">{{ u.total|filesize }}</td>
+          <td>
+            {#- Three distinct states, not two. A red chip means the source is not
+                counting, so the zero is meaningless. A grey chip means the source
+                is counting and this user moved nothing — a real, reportable fact.
+                Painting both red would make a quiet user look like a broken counter. -#}
+            {% for key, _ in proto_order %}
+              {%- set p = u.protocols[key] -%}
+              {%- if p.counting -%}
+                <span class="chip {{ 'on' if p.d7 > 0 }}"
+                      title="{{ p.name }}: {{ p.d7|filesize }} за 7 дней — источник считает">
+                  {{ key }}
+                </span>
+              {%- else -%}
+                <span class="chip off"
+                      title="{{ p.name }}: источник не считает, значения недостоверны">
+                  {{ key }} ✕
+                </span>
+              {%- endif -%}
+            {% endfor %}
+          </td>
+          <td>
+            <div class="spark">
+              {% for s in u.protocols.awg.series %}
+                <i class="{{ 'miss' if s.state == 'missing' else ('zero' if s.value == 0 else '') }}"
+                   style="height: {{ s.height }}%" title="{{ s.date }} — {{ s.value|filesize }}"></i>
+              {% endfor %}
+            </div>
+          </td>
+        </tr>
+        <tr class="detail hidden" id="d-{{ loop.index0 }}">
+          <td colspan="7">
+            <table>
+              <colgroup>
+                <col style="width:18%"><col class="c-num"><col class="c-num">
+                <col class="c-num"><col class="c-num"><col class="d-spark">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Протокол</th><th class="num">Сегодня</th><th class="num">7 дней</th>
+                  <th class="num">30 дней</th><th class="num">Всего</th><th>Динамика 30 дн</th>
+                </tr>
+              </thead>
+              <tbody>
+              {% for key, _ in proto_order %}
+                {% set p = u.protocols[key] %}
+                <tr>
+                  <td class="proto-name">{{ p.name }}
+                    {% if p.counting is defined and p.counting %}
+                      <span class="chip on">считает</span>
+                    {% elif p.counting is defined %}
+                      <span class="chip off">молчит</span>
+                    {% endif %}
+                  </td>
+                  <td class="num">{{ p.today|filesize }}</td>
+                  <td class="num">{{ p.d7|filesize }}</td>
+                  <td class="num">{{ p.d30|filesize }}</td>
+                  <td class="num">{{ p.total|filesize }}</td>
+                  <td>
+                    <div class="spark">
+                      {% for s in p.series %}
+                        <i class="{{ 'miss' if s.state == 'missing' else ('zero' if s.value == 0 else '') }}"
+                           style="height: {{ s.height }}%" title="{{ s.date }} — {{ s.value|filesize }}"></i>
+                      {% endfor %}
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <div class="legend">Нажмите на строку, чтобы развернуть трафик по протоколам. На узком экране таблица прокручивается вбок.</div>
+  </div>
+
+  <div class="foot">NYX Panel</div>
+</div>
+</body>
+</html>
