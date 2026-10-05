@@ -30,9 +30,13 @@ PROTOCOLS = [
 ]
 
 # Health status -> what the operator should be told.
+#
+# "idle" is deliberately grouped with "ok": a counter that is up, reachable and
+# reporting zero means the protocol is unused, which is not a fault. Painting it
+# red trained everyone to ignore the red.
 STATUS_LABEL = {
     "ok": ("ok", "считает"),
-    "idle": ("ok", "считает, никто не подключался"),
+    "idle": ("ok", "считает, трафика не было"),
     "unavailable": ("bad", "источник недоступен"),
     "not_configured": ("bad", "счётчики не включены"),
     "unsupported": ("bad", "счётчики недоступны"),

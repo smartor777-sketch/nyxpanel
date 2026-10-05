@@ -19,6 +19,7 @@ version:
    counter is broken", which is how a broken parser hid for days.
 """
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -50,10 +51,16 @@ def which(cmd):
     return shutil.which(cmd)
 
 
-def run(cmd, timeout=10):
+def run(cmd, timeout=10, cwd=None):
     try:
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return subprocess.run(cmd, capture_output=True, text=True,
+                              timeout=timeout, cwd=cwd)
     except subprocess.TimeoutExpired:
+        return None
+    except OSError as e:
+        # A missing binary is a fact about this host, not a crash: the caller
+        # reports it through collector_health instead of dying.
+        print(f"[collector] cannot run {cmd[0]}: {e}", flush=True)
         return None
 
 
@@ -418,22 +425,35 @@ def collect_hy2(db):
     proto = "hy2"
     try:
         import urllib.request
+        # NOTE: deliberately no `?clear=1`.
+        #
+        # `clear=1` makes Hysteria2 zero the counters after reporting them, so a
+        # missed cycle destroys that interval's traffic permanently. Without it the
+        # counter only grows and the delta logic below works exactly as it does for
+        # AmneziaWG — and a skipped run costs nothing.
         with urllib.request.urlopen(
-            f"http://{HY2_API}/traffic?clear=1", timeout=10
+            f"http://{HY2_API}/traffic", timeout=10
         ) as resp:
             data = json.loads(resp.read())
     except Exception as e:
         log(f"hy2 api unavailable ({e}), skipping")
         mark_health(db, proto, "unavailable", f"API unreachable: {e}")
         return
-    if not isinstance(data, dict) or not data:
-        # An empty object is what Hysteria2 answers when `trafficStats` is absent
-        # from its config: the listener is up, but nothing is being counted.
-        # Saying so is more useful than a generic "nothing usable".
-        log("hy2 api returned nothing usable")
-        mark_health(db, proto, "not_configured",
-                    "trafficStats is missing from the Hysteria2 config, so the "
-                    "API answers {} and no traffic is counted")
+    if not isinstance(data, dict):
+        log("hy2 api returned an unexpected shape")
+        mark_health(db, proto, "unavailable", "API answered with unexpected shape")
+        return
+    if not data:
+        # An empty object means the counter is working and nobody has used the
+        # tunnel. That is a different fact from "the counter is broken", and it is
+        # the exact confusion this table exists to remove: the previous code
+        # reported this state as "trafficStats missing from the config", which was
+        # simply false. The section was present, counting, and reporting nothing
+        # because the protocol is unused.
+        log("Hysteria2: counter is up, no traffic has passed through it")
+        mark_health(db, proto, "idle",
+                    "counter is up and reporting; no traffic has passed through "
+                    "this tunnel", ok=True, peers=0)
         return
 
     last = load_last(proto)
@@ -451,19 +471,116 @@ def collect_hy2(db):
 # --------------------------------------------------------------- Trojan ----
 
 def collect_trojan(db):
-    """Trojan-go speaks gRPC on its API port, not HTTP.
+    """Read trojan-go's counters through its own CLI.
 
-    The port answers and then resets the connection on every HTTP request, which
-    is what `Connection reset by peer` in the log was all along. Until there is a
-    gRPC client, record the source as unavailable instead of retrying every five
-    minutes and logging the same failure 288 times a day.
+    The API port speaks gRPC, which is why the previous HTTP scrape saw
+    `Connection reset by peer` 288 times a day. trojan-go ships a client for that
+    same API (`trojan-go -api list`), so no gRPC library is needed — and pulling in
+    a dependency to read two integers would be the wrong trade.
+
+    The API identifies a user by `sha224(password)`, while `daily_traffic` keys on
+    the panel username. The trojan config holds bare passwords with no names
+    attached, so the mapping is resolved the only way it can be: by matching each
+    reported hash against the password the panel issued to each user, which lives
+    in `<user>/<user>_troyan.json`.
+
+    Counters come back cumulative, so they are differenced like AmneziaWG's.
     """
     proto = "troy"
-    detail = ("trojan-go exposes a gRPC API on this port; HTTP /metrics resets "
-              "the connection, so no Prometheus counters are reachable")
-    log(f"trojan metrics unavailable ({detail}), skipping")
-    mark_health(db, proto, "unsupported", detail)
-    return
+    cfg = Path(os.environ.get("NYX_TROJAN_CONFIG", "/etc/trojan-go/config.json"))
+    if not cfg.exists():
+        msg = f"no trojan config at {cfg}"
+        log(f"trojan: {msg}")
+        mark_health(db, proto, "unavailable", msg)
+        return
+
+    trojan = which("trojan-go")
+    if not trojan:
+        msg = "trojan-go binary not found"
+        log(f"trojan: {msg}")
+        mark_health(db, proto, "unavailable", msg)
+        return
+
+    # -api list reads the server config from the working directory, so run it there.
+    r = run([trojan, "-api", "list", f"-api-addr={TROJAN_API}"],
+            timeout=15, cwd=str(cfg.parent))
+    if not r or r.returncode != 0:
+        rc = getattr(r, "returncode", "timeout")
+        msg = f"`trojan-go -api list` failed (rc={rc})"
+        log(f"trojan: {msg}")
+        mark_health(db, proto, "unavailable", msg)
+        return
+
+    try:
+        payload = json.loads(r.stdout)
+    except ValueError as e:
+        log(f"trojan: unparseable API output: {e}")
+        mark_health(db, proto, "unavailable", "API output is not JSON")
+        return
+    if not isinstance(payload, list):
+        log("trojan: API returned an unexpected shape")
+        mark_health(db, proto, "unavailable", "API returned an unexpected shape")
+        return
+
+    # Reported hash -> status.
+    reported = {}
+    for entry in payload:
+        st = (entry or {}).get("status") or {}
+        h = (st.get("user") or {}).get("hash")
+        if h:
+            reported[h] = st
+    if not reported:
+        log("Trojan: API knows no users")
+        mark_health(db, proto, "idle", "API reports no users configured")
+        return
+
+    pw_dir = Path(os.environ.get(
+        "NYX_TROJAN_PW_DIR",
+        os.environ.get("NYX_BASE_DIR", "/root/proxy_users")))
+    name_by_hash = {}
+    for user_json in pw_dir.glob("*/*_troyan.json"):
+        try:
+            outbounds = json.loads(user_json.read_text()).get("outbounds") or []
+            password = outbounds[0].get("password")
+        except Exception:
+            continue
+        if password:
+            name_by_hash[hashlib.sha224(password.encode()).hexdigest()] = \
+                user_json.parent.name
+
+    last = load_last(proto)
+    current = {}
+    total = 0
+    unmapped = 0
+    for h, st in reported.items():
+        traffic = st.get("traffic_total") or {}
+        # protobuf omits zero-valued fields, so an absent key is a real zero —
+        # the same reason the Xray parser had to default to 0.
+        up = int(traffic.get("uplink", 0) or 0)
+        down = int(traffic.get("downlink", 0) or 0)
+        uname = name_by_hash.get(h)
+        if not uname:
+            unmapped += 1
+            continue
+        current[uname] = {"up": up, "down": down}
+        total += apply_delta(db, proto, uname, up, down, last, current)
+
+    detail = ""
+    if unmapped:
+        detail = (f"{unmapped} of {len(reported)} trojan passwords match no panel "
+                  f"user, their traffic is unattributed")
+        log(f"trojan: {detail}")
+    commit_state(db, proto, current, last)
+    if not current:
+        # Counters reachable, every one of them zero: the protocol is simply
+        # unused. Reporting that as a fault would cry wolf on every run.
+        mark_health(db, proto, "idle",
+                    "counter is up and reporting; no traffic has passed through "
+                    "this tunnel", ok=True, peers=0)
+        log("Trojan: counter is up, no traffic has passed through it")
+    else:
+        mark_health(db, proto, "ok", detail, peers=len(current), ok=True)
+        log(f"Trojan: {len(current)} users, {total} bytes new")
 
 
 # ---------------------------------------------------------------- expiry ---
