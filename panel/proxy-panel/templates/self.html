@@ -368,12 +368,17 @@ function utRender() {
   const up = d.up || [];
   const down = d.down || [];
 
-  // Headline figures come from the window-independent totals, not from the
-  // selected slice — "30 days" must not change when the chart is on 7 days.
+  // Headline figures come from the window-independent totals the server sends,
+  // not from the selected slice — "30 days" must not change when the chart is
+  // on 7 days. Summing the slice cannot deliver that: it holds only `days`
+  // points, so "the last 30" on a 7-day chart was the last 7. d7 and d30 are
+  // queried over their own fixed spans now, so read them rather than re-adding.
   const sumOf = (arr, n) => arr.slice(Math.max(0, arr.length - n)).reduce((a, b) => a + (b || 0), 0);
+  // Today's figure is the last point of the grid, and the grid always ends on
+  // today whatever the window is, so summing the tail is correct here.
   document.getElementById('utToday').textContent = utFmt(sumOf(up, 1) + sumOf(down, 1));
   document.getElementById('utWeek').textContent  = utFmt(d.d7 || 0);
-  document.getElementById('utMonth').textContent = utFmt(sumOf(up, 30) + sumOf(down, 30));
+  document.getElementById('utMonth').textContent = utFmt(d.d30 || 0);
   document.getElementById('utTotal').textContent = utFmt(d.total || 0);
 
   const canvas = document.getElementById('trafficChart');

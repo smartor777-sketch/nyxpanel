@@ -256,6 +256,24 @@ def build_user(db, username, days=30, today=None):
     ).fetchone()
     total_up, total_down = row[0], row[1]
 
+    # "Last 7" and "last 30" are headline figures, so they must not move when the
+    # chart's window changes. Summing the returned series cannot do that: it only
+    # holds `days` points, so on a 7-day chart the browser summing "the last 30"
+    # summed 7. Measured on the live host, a 30-day total read 0.40 GiB on a
+    # 7-day window and 28.63 GiB on a 30-day one — the same figure, two answers.
+    #
+    # So they come from their own query over a fixed span, exactly like the
+    # lifetime total above. Costs one extra read per request, on an indexed
+    # (username, date) pair.
+    def total_over(last_days):
+        since = (today - datetime.timedelta(days=last_days - 1)).isoformat()
+        r = db.execute(
+            "SELECT COALESCE(SUM(bytes_up + bytes_down), 0) "
+            "FROM daily_traffic WHERE username = ? AND date >= ?",
+            (username, since),
+        ).fetchone()
+        return r[0] or 0
+
     return {
         "username": username,
         "today": today.isoformat(),
@@ -267,8 +285,8 @@ def build_user(db, username, days=30, today=None):
         "total_up": total_up,
         "total_down": total_down,
         "total": total_up + total_down,
-        "d7": sum(p["total"] for p in protocols) and sum(
-            sum(s["value"] for s in p["series"][-7:]) for p in protocols),
+        "d7": total_over(7),
+        "d30": total_over(30),
     }
 
 
