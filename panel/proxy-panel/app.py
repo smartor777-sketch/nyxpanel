@@ -1,12 +1,27 @@
 #!/usr/bin/env python3
 """NYX Panel — Flask + SQLite"""
-import subprocess, os, json, re, sqlite3, datetime, secrets as pysecrets, hashlib, sys
+import subprocess, os, json, re, sqlite3, datetime, secrets as pysecrets, hashlib, sys, time
 from pathlib import Path
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, send_file, flash, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 app = Flask(__name__)
+
+# Caddy fronts the panel on 127.0.0.1 and appends the real client address to
+# X-Forwarded-For. Without this every request appears to come from 127.0.0.1,
+# and a per-IP counter would count the whole internet as one caller. x_for=1
+# reads the rightmost entry — the one Caddy appended — so a header supplied by
+# the client sits to its left and is ignored rather than believed.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
+
+# Consecutive failures from one address before the door is shut. A success
+# clears the counter, so this throttles guessing rather than punishing anyone
+# who fat-fingers a password twice.
+LOGIN_MAX_FAILS = int(os.environ.get("NYX_LOGIN_MAX_FAILS", 10))
+LOGIN_LOCK_SECONDS = int(os.environ.get("NYX_LOGIN_LOCK_SECONDS", 600))
+LOGIN_THROTTLE_TTL = int(os.environ.get("NYX_LOGIN_THROTTLE_TTL", 86400))
 
 
 def _load_env(path="/etc/nyxpanel/panel.env"):
@@ -49,7 +64,7 @@ PANEL_SECRET = _require_env(
     "It signs session cookies. Generate one with: python3 -c \"import secrets;print(secrets.token_hex(32))\"",
 )
 app.secret_key = PANEL_SECRET
-PANEL_VERSION = "1.13"
+PANEL_VERSION = "1.14"
 
 BASE_DIR = Path(os.environ.get("NYX_BASE_DIR", "/root/proxy_users"))
 REGISTRY = BASE_DIR / ".registry"
@@ -259,6 +274,12 @@ def init_db():
             bytes_down INTEGER DEFAULT 0,
             recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+        CREATE TABLE IF NOT EXISTS login_throttle (
+            ip TEXT PRIMARY KEY,
+            fails INTEGER NOT NULL DEFAULT 0,
+            locked_until REAL,
+            last_seen REAL NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS daily_traffic (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL,
@@ -288,6 +309,10 @@ def init_db():
         )
         print(f"[schema] applied migration {version}: {desc}")
     db.commit()
+    # Throttle rows are only worth keeping while recent; drop the rest so the
+    # table cannot grow without bound on a panel that sees many source addresses.
+    db.execute("DELETE FROM login_throttle WHERE last_seen < ?",
+               (time.time() - LOGIN_THROTTLE_TTL,))
     migrate_from_registry(db)
     db.close()
 
@@ -304,6 +329,67 @@ def audit(action, target="", detail="", actor=None):
         db.close()
     except Exception:
         pass
+
+def _client_ip():
+    """Real caller address. Meaningless without ProxyFix above — 127.0.0.1 otherwise."""
+    return request.remote_addr or "unknown"
+
+
+def login_lock_left(ip):
+    """Seconds left on an active lock, or 0 when the caller is free to try."""
+    db = get_db()
+    try:
+        row = db.execute(
+            "SELECT locked_until FROM login_throttle WHERE ip = ?", (ip,)
+        ).fetchone()
+    finally:
+        db.close()
+    if not row or not row["locked_until"]:
+        return 0
+    return max(0, int(row["locked_until"] - time.time()))
+
+
+def login_note_failure(ip):
+    """Record one failure; returns (fails_left, seconds_locked)."""
+    db = get_db()
+    try:
+        now = time.time()
+        db.execute(
+            "INSERT INTO login_throttle (ip, fails, locked_until, last_seen) "
+            "VALUES (?, 1, NULL, ?) "
+            "ON CONFLICT(ip) DO UPDATE SET fails = fails + 1, last_seen = ?",
+            (ip, now, now),
+        )
+        row = db.execute(
+            "SELECT fails FROM login_throttle WHERE ip = ?", (ip,)
+        ).fetchone()
+        fails = row["fails"] if row else 1
+        locked = 0
+        if fails >= LOGIN_MAX_FAILS:
+            # Zero the counter while the lock stands, so the caller gets a full
+            # budget of attempts once it expires instead of being re-locked by
+            # the tenth attempt that already happened.
+            db.execute(
+                "UPDATE login_throttle SET locked_until = ?, fails = 0 WHERE ip = ?",
+                (now + LOGIN_LOCK_SECONDS, ip),
+            )
+            locked = LOGIN_LOCK_SECONDS
+            fails = 0
+        db.commit()
+    finally:
+        db.close()
+    return fails, locked
+
+
+def login_note_success(ip):
+    """A correct password clears the counter — the point is to stop guessing."""
+    db = get_db()
+    try:
+        db.execute("DELETE FROM login_throttle WHERE ip = ?", (ip,))
+        db.commit()
+    finally:
+        db.close()
+
 
 def migrate_from_registry(db):
     """Migrate existing file-based users to SQLite."""
@@ -687,16 +773,28 @@ def set_password(name):
 @app.route("/self/login", methods=["GET", "POST"])
 def self_login():
     if request.method == "POST":
+        ip = _client_ip()
+        locked_left = login_lock_left(ip)
+        if locked_left:
+            # Not checked against the password at all, so a lock also blunts a
+            # timing oracle on the hash comparison.
+            flash(f"Too many failed attempts. Try again in {locked_left // 60 + 1} min.", "error")
+            return redirect(url_for("self_login"))
         name = request.form.get("username", "").strip()
         pwd = request.form.get("password", "")
         db = get_db()
         row = db.execute("SELECT username, password_hash, active, role FROM users WHERE username = ?", (name,)).fetchone()
         db.close()
         if row and row["active"] and row["password_hash"] and check_password_hash(row["password_hash"], pwd):
+            login_note_success(ip)
             session["self_user"] = row["username"]
             session["self_role"] = row["role"]
             return redirect(url_for("self_dashboard"))
-        flash("Invalid credentials or user inactive", "error")
+        fails_left, locked = login_note_failure(ip)
+        if locked:
+            flash(f"Too many failed attempts. Locked for {locked // 60 + 1} min.", "error")
+        else:
+            flash(f"Invalid credentials or user inactive ({LOGIN_MAX_FAILS - fails_left} attempts left)", "error")
         return redirect(url_for("self_login"))
     return render_template("self_login.html", version=PANEL_VERSION)
 

@@ -71,6 +71,7 @@
       <div class="subtitle"><span data-i18n="admin">Admin</span>: {{ admin_name }}</div>
     </div>
     <div class="header-actions">
+        <a class="btn-logout" href="/self/admin/traffic">Трафик</a>
       <a href="https://wdtt.example.com/auto-login/" target="_blank" class="btn-logout">WDTT VPN</a>
       <a href="/self/tproxy" class="btn-logout">Telegram Proxy</a>
       <a href="/self/manual" class="btn-logout" data-i18n="guide">Guide</a>
@@ -155,47 +156,10 @@
     {% endif %}
   </div>
 
-  <div class="card">
-    <h2 data-i18n="traffic">Traffic</h2>
-        <p style="font-size:0.78rem;color:var(--muted);margin-bottom:0.8rem" data-i18n="trafficNote">Считается трафик: VLESS (XHTTP+REALITY), Hysteria 2, AmneziaWG, Trojan.</p>
-    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center">
-      <select id="userSelect" style="padding:0.4rem 0.8rem;border-radius:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--fg)">
-        <option value="" data-i18n="allUsers">All Users</option>
-        {% for u in users %}
-        <option value="{{ u.name }}">{{ u.name }}</option>
-        {% endfor %}
-      </select>
-      <div class="btn-group" style="display:flex;gap:2px">
-        <button class="small period-btn active" data-days="2" data-i18n="today">Today</button>
-        <button class="small period-btn" data-days="14" data-i18n="week">Week</button>
-        <button class="small period-btn" data-days="60" data-i18n="month">Month</button>
-        <button class="small period-btn" data-days="0" data-i18n="all">All</button>
-      </div>
-      <div class="btn-group" id="protoFilters">
-        {% for key, pname, _, _ in protocols %}
-        <button class="small proto-filter active" data-proto="{{ key }}" title="{{ pname }}">{{ pname.split('+')[0] }}</button>
-        {% endfor %}
-      </div>
-    </div>
-    <div class="chart-container">
-      <canvas id="trafficChart"></canvas>
-      <div id="noTrafficMsg" style="display:none;text-align:center;padding:2rem;color:var(--muted);font-size:0.9rem" data-i18n="noTraffic">Нет данных о трафике</div>
-    </div>
-  </div>
 </div>
 
 <style>
   .btn-group { display: flex; gap: 2px; flex-wrap: wrap; }
-  .btn-group .period-btn { border-radius: 0; border-right: 1px solid var(--btn-period-border); background: var(--btn-period-bg); color: var(--btn-period-fg); }
-  .btn-group .period-btn:first-child { border-radius: 6px 0 0 6px; }
-  .btn-group .period-btn:last-child { border-radius: 0 6px 6px 0; border-right: none; }
-  .btn-group .period-btn.active { background: var(--btn-period-active-bg); border-color: var(--btn-period-active-bg); color: #fff; }
-  .btn-group .period-btn:hover { filter: brightness(0.95); }
-  #protoFilters { gap: 4px; flex-wrap: wrap; }
-  .btn-group .proto-filter { border-radius: 6px; background: var(--btn-period-bg); color: var(--btn-period-fg); font-size: 0.75rem; padding: 0.25rem 0.55rem; border: 1px solid var(--btn-period-border); white-space: nowrap; }
-  .btn-group .proto-filter.active { background: var(--btn-period-active-bg); border-color: var(--btn-period-active-bg); color: #fff; }
-  .btn-group .proto-filter.inactive { opacity: 0.5; }
-  .btn-group .proto-filter:hover { filter: brightness(0.95); }
   .proto-legend { display:flex;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.6rem;padding:0.4rem 0.6rem;background:var(--bg);border-radius:6px;font-size:0.78rem; }
   .legend-item { display:inline-flex;align-items:center;gap:0.3rem;color:var(--muted); }
   .legend-dot { width:10px;height:10px;border-radius:2px;display:inline-block; }
@@ -239,9 +203,6 @@
   form { flex-direction: column; align-items: stretch; }
   form input, form select { width: 100%; }
   .btn-group { flex-wrap: wrap; display: flex; gap: 4px; }
-  .btn-group .period-btn { flex: none; min-width: 0; font-size: 0.75rem; padding: 0.35rem 0.7rem; border-radius: 0; border-right: 1px solid var(--btn-period-border); white-space: nowrap; }
-  .btn-group .period-btn:first-child { border-radius: 6px 0 0 6px; }
-  .btn-group .period-btn:last-child { border-radius: 0 6px 6px 0; border-right: none; }
   .chart-container { height: 220px; }
   .pagination { flex-wrap: wrap; }
   .table-wrap { display: none; }
@@ -534,116 +495,6 @@ function copySub(name) {
   });
 }
 
-const getSelectedProtos = () => {
-  const btns = document.querySelectorAll('#protoFilters .proto-filter');
-  const sel = new Set();
-  btns.forEach(b => { if (b.classList.contains('active')) sel.add(b.dataset.proto); });
-  return sel;
-};
-
-async function loadTraffic() {
-  const user = document.getElementById('userSelect').value;
-  const reqDays = document.querySelector('.period-btn.active')?.dataset.days || '14';
-  try {
-    const fetchDays = reqDays === '0' ? 0 : parseInt(reqDays) * 2;
-    const url = user
-      ? '/self/api/traffic/' + encodeURIComponent(user) + '?days=' + fetchDays
-      : '/self/api/traffic?days=' + fetchDays;
-    const res = await fetch(url);
-    if (!res.ok) return;
-    let data = await res.json();
-    const selectedProtos = getSelectedProtos();
-    if (selectedProtos.size > 0 && selectedProtos.size < document.querySelectorAll('#protoFilters .proto-filter').length) {
-      data = data.filter(d => selectedProtos.has(d.protocol));
-    }
-    if (trafficChart) trafficChart.destroy();
-
-    const noMsg = document.getElementById('noTrafficMsg');
-    const canvas = document.getElementById('trafficChart');
-
-    if (!data || data.length === 0) {
-      canvas.style.display = 'none';
-      noMsg.style.display = 'block';
-      trafficChart = null;
-      return;
-    }
-    canvas.style.display = 'block';
-    noMsg.style.display = 'none';
-
-    const allDates = [...new Set(data.map(d => d.date))].sort();
-
-    if (reqDays === '0') {
-      var totalUp = data.reduce((s, d) => s + d.bytes_up, 0);
-      var totalDown = data.reduce((s, d) => s + d.bytes_down, 0);
-      var label = allDates.length > 0 ? allDates[0].slice(5) + ' \u2014 ' + allDates[allDates.length-1].slice(5) : _('total');
-      trafficChart = new Chart(document.getElementById('trafficChart'), {
-        type: 'bar',
-        data: {
-          labels: [label],
-          datasets: [
-            { label: _('upload'), data: [totalUp], backgroundColor: cssVar('--chart-up'), borderRadius: 6 },
-            { label: _('download'), data: [totalDown], backgroundColor: cssVar('--chart-down'), borderRadius: 6 }
-          ]
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { labels: { color: cssVar('--muted') } } },
-          scales: {
-            x: { ticks: { color: cssVar('--muted') }, grid: { color: cssVar('--chart-grid') } },
-            y: { ticks: { color: cssVar('--muted'), callback: function(v) { return fmtBytes(v); } }, grid: { color: cssVar('--chart-grid') } }
-          }
-        }
-      });
-    } else {
-      var needDays = parseInt(reqDays);
-      var currentDates = allDates.slice(-needDays);
-      var prevDates = allDates.slice(-needDays * 2, -needDays);
-
-      var currentUp = data.filter(d => currentDates.includes(d.date)).reduce((s, d) => s + d.bytes_up, 0);
-      var currentDown = data.filter(d => currentDates.includes(d.date)).reduce((s, d) => s + d.bytes_down, 0);
-      var prevUp = data.filter(d => prevDates.includes(d.date)).reduce((s, d) => s + d.bytes_up, 0);
-      var prevDown = data.filter(d => prevDates.includes(d.date)).reduce((s, d) => s + d.bytes_down, 0);
-
-      var labels = [_('prevPeriod'), _('currentPeriod')];
-      trafficChart = new Chart(document.getElementById('trafficChart'), {
-        type: 'bar',
-        data: {
-          labels: labels,
-          datasets: [
-            { label: _('upload'), data: [prevUp, currentUp], backgroundColor: cssVar('--chart-up'), borderRadius: 6 },
-            { label: _('download'), data: [prevDown, currentDown], backgroundColor: cssVar('--chart-down'), borderRadius: 6 }
-          ]
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { labels: { color: cssVar('--muted') } } },
-          scales: {
-            x: { ticks: { color: cssVar('--muted') }, grid: { color: cssVar('--chart-grid') } },
-            y: { ticks: { color: cssVar('--muted'), callback: function(v) { return fmtBytes(v); } }, grid: { color: cssVar('--chart-grid') } }
-          }
-        }
-      });
-    }
-  } catch(e) { console.log('Traffic chart error:', e); }
-}
-
-document.getElementById('userSelect').addEventListener('change', loadTraffic);
-document.querySelectorAll('.period-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    loadTraffic();
-  });
-});
-document.querySelectorAll('#protoFilters .proto-filter').forEach(btn => {
-  btn.addEventListener('click', () => {
-    btn.classList.toggle('active');
-    btn.classList.toggle('inactive');
-    loadTraffic();
-  });
-});
-loadTraffic();
-
 function showToast(msg, type) {
   let el = document.getElementById('toast');
   if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; document.body.appendChild(el); }
@@ -668,7 +519,7 @@ async function resetTraffic(e, name) {
 }
 </script>
 <div class="footer">
-  &copy; 2026 user02.<br>
+  &copy; 2026 Merlin.<br>
   <em>Crafting Dreams &amp; Magic</em>
 </div>
 </body>
