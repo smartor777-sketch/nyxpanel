@@ -6,6 +6,7 @@ from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, send_file, flash, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.datastructures import Headers
 
 app = Flask(__name__)
 
@@ -1727,6 +1728,84 @@ def admin_traffic_json(name=None):
         mimetype="application/json",
     )
 
+
+
+# ============================================================== qeli bridge ===
+# qeli runs its own admin UI on a loopback port with its own login, so unlike
+# tproxy there is nothing for this panel to render here — the work is forwarding
+# the request untouched and letting qeli answer. Two gates apply: this route is
+# admin-only on the panel's own session, and qeli still asks for its password.
+#
+# Off unless NYX_QELI_PANEL is set. A host without qeli therefore serves neither
+# the route nor the button, which is what keeps this inert on prod.
+QELI_PANEL = os.environ.get("NYX_QELI_PANEL", "").strip().rstrip("/")
+QELI_BASE_PATH = os.environ.get("NYX_QELI_BASE_PATH", "/self/qeli").strip().rstrip("/")
+
+# Exposed to every template so the header can show the link only where it works,
+# rather than each render_template call having to pass it.
+app.jinja_env.globals["qeli_url"] = QELI_BASE_PATH if QELI_PANEL else None
+
+if QELI_PANEL:
+    import requests
+    from urllib3.exceptions import InsecureRequestWarning
+
+    # qeli serves a self-signed certificate on loopback. Verifying it against a
+    # trust store would always fail; the connection never leaves the host, so the
+    # certificate proves nothing here that the socket itself does not.
+    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
+    # Per RFC 7230 these describe this one hop and must not be copied onward.
+    _QELI_HOP_BY_HOP = {
+        "connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
+        "te", "trailer", "transfer-encoding", "upgrade", "content-length", "host",
+    }
+
+    @app.route(QELI_BASE_PATH, defaults={"rest": ""},
+               methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+    @app.route(QELI_BASE_PATH + "/<path:rest>",
+               methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+    def qeli_panel(rest=""):
+        if not is_logged_in():
+            return redirect(url_for("self_login"))
+        if not is_admin():
+            return jsonify({"error": "forbidden"}), 403
+        # qeli only answers under its own base_path, and without the trailing
+        # slash: /self/qeli redirects to the login, /self/qeli/ is a 404.
+        url = (f"{QELI_PANEL}{QELI_BASE_PATH}/{rest}" if rest
+               else f"{QELI_PANEL}{QELI_BASE_PATH}")
+        if request.query_string:
+            url += "?" + request.query_string.decode("latin-1")
+        headers = {k: v for k, v in request.headers
+                   if k.lower() not in _QELI_HOP_BY_HOP}
+        try:
+            up = requests.request(
+                request.method, url,
+                data=request.get_data() or None,
+                headers=headers,
+                # qeli's Location already carries the base path, so following it
+                # here would only strip the prefix we mounted it under.
+                allow_redirects=False,
+                verify=False,
+                timeout=60,
+                stream=True,
+            )
+        except requests.RequestException as e:
+            app.logger.warning("qeli bridge failed for %s: %s", url, e)
+            return render_template_string(
+                "<h3 style='font-family:sans-serif'>qeli is not reachable</h3>"
+                f"<pre style='white-space:pre-wrap'>{e}</pre>", 502)
+
+        resp = app.response_class(up.raw.stream(decode_content=False),
+                                   status=up.status_code, headers=Headers())
+        if up.headers.get("Content-Type"):
+            resp.headers["Content-Type"] = up.headers["Content-Type"]
+        # Set-Cookie is added, not assigned: qeli may set more than one and
+        # assigning would keep only the last.
+        for h in ("Location", "Set-Cookie"):
+            if up.headers.get(h):
+                resp.headers.add(h, up.headers[h])
+        resp.headers["X-Content-Type-Options"] = "nosniff"
+        return resp
 
 
 if __name__ == "__main__":

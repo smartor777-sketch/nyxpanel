@@ -72,6 +72,7 @@
     </div>
     <div class="header-actions">
         <a class="btn-logout" href="/self/admin/traffic">Трафик</a>
+        {% if qeli_url %}<a class="btn-logout" href="{{ qeli_url }}">Qeli</a>{% endif %}
       <a href="https://wdtt.example.com/auto-login/" target="_blank" class="btn-logout">WDTT VPN</a>
       <a href="/self/tproxy" class="btn-logout">Telegram Proxy</a>
       <a href="/self/manual" class="btn-logout" data-i18n="guide">Guide</a>
