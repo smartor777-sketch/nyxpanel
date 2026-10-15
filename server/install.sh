@@ -699,29 +699,69 @@ INSTALL_DIR="/opt/proxy-panel"
 mkdir -p "$INSTALL_DIR/templates" "$INSTALL_DIR/static" "$INSTALL_DIR/samples"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PANEL_DIR="${SCRIPT_DIR}/../panel/proxy-panel"
-REPO_URL="https://raw.githubusercontent.com/smartor777-sketch/nyxpanel/master"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Копируем из локального репозитория или скачиваем с GitHub
-if [ -d "$PANEL_DIR" ]; then
-    cp "$PANEL_DIR/app.py" "$INSTALL_DIR/app.py"
-    cp "$PANEL_DIR/collector.py" "$INSTALL_DIR/collector.py" 2>/dev/null || true
-    cp "$PANEL_DIR/templates/"* "$INSTALL_DIR/templates/" 2>/dev/null || true
-    cp "$PANEL_DIR/static/"* "$INSTALL_DIR/static/" 2>/dev/null || true
-    info "Панель скопирована из репозитория"
+# ВНИМАНИЕ, устаревшая раскладка.
+#
+# Этот скрипт ставит панель в /opt/proxy-panel, а служба на серверах запускает
+# /opt/nyxpanel/panel/app.py — её разворачивает panel/proxy-panel/setup.sh
+# (INSTALL_DIR=/opt/nyxpanel). То есть /opt/proxy-panel после установки отсюда
+# остаётся мёртвым каталогом, и на серверах он действительно остался: там лежит
+# app.py версии 1.10-1.12, тогда как работающая панель — 1.14 из /opt/nyxpanel.
+#
+# Новая раскладка — panel/proxy-panel/setup.sh. Стоит довести этот скрипт до
+# неё или отказаться от него; пока он полезен только как справка по прежней
+# установке. Проверьте, прежде чем использовать на новом сервере.
+
+# Источник панели и оркестратора — приватный репозиторий, ветка main.
+#
+# Раньше файлы тянулись curl-ом с raw.githubusercontent.com публичного
+# репозитория, ветка master. Это давало две проблемы: master разошёлся с main,
+# и анонимный curl отдавал бы 404 на любой файл приватного репозитория —
+# установщик молча положил бы в /opt/proxy-panel страницу «404: Not Found»
+# вместо app.py. Поэтому берём git-клон по SSH-ключу с правом чтения.
+REPO_SSH="${REPO_SSH:-git@github.com:smartor777-sketch/nyxpanel-private.git}"
+REPO_REF="${REPO_REF:-main}"
+CLEANUP_SRC=""
+
+# Обе строки нужны, иначе можно поставить панель без оркестратора или наоборот.
+has_source() {
+    [ -f "$1/panel/proxy-panel/app.py" ] && [ -f "$1/bin/proxy_manager.sh" ]
+}
+
+if has_source "$REPO_ROOT"; then
+    SRC="$REPO_ROOT"
+    info "Исходники берём из локального каталога $SRC"
 else
-    info "Скачиваем панель с GitHub..."
-    curl -sL "${REPO_URL}/panel/proxy-panel/app.py" -o "$INSTALL_DIR/app.py"
-    curl -sL "${REPO_URL}/panel/proxy-panel/collector.py" -o "$INSTALL_DIR/collector.py"
-    # Скачиваем шаблоны и статику
-    for f in $(curl -sL "https://api.github.com/repos/smartor777-sketch/nyxpanel/contents/panel/proxy-panel/templates" | python3 -c "import sys,json; [print(x['name']) for x in json.load(sys.stdin) if x['type']=='file']" 2>/dev/null); do
-        curl -sL "${REPO_URL}/panel/proxy-panel/templates/$f" -o "$INSTALL_DIR/templates/$f"
-    done
-    for f in $(curl -sL "https://api.github.com/repos/smartor777-sketch/nyxpanel/contents/panel/proxy-panel/static" | python3 -c "import sys,json; [print(x['name']) for x in json.load(sys.stdin) if x['type']=='file']" 2>/dev/null); do
-        curl -sL "${REPO_URL}/panel/proxy-panel/static/$f" -o "$INSTALL_DIR/static/$f"
-    done
-    info "Панель скачана с GitHub"
+    command -v git >/dev/null 2>&1 \
+        || error "Нужен git: файлы берутся из приватного репозитория клонированием"
+
+    if ! ls /root/.ssh/id_ed25519 /root/.ssh/id_rsa >/dev/null 2>&1; then
+        error "В /root/.ssh нет SSH-ключа. Создайте его и добавьте в GitHub как deploy key
+       с правом Read для репозитория smartor777-sketch/nyxpanel-private:
+         ssh-keygen -t ed25519 -N '' -f /root/.ssh/id_ed25519
+       Затем: github.com → Settings → Deploy keys → Add deploy key → галочка Allow write access НЕ нужна"
+    fi
+
+    SRC=$(mktemp -d /tmp/nyx-install-src-XXXXXX)
+    CLEANUP_SRC="$SRC"
+    info "Клонируем приватный репозиторий (ветка $REPO_REF)..."
+    if ! GIT_SSH_COMMAND="ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new" \
+         git clone --depth 1 --branch "$REPO_REF" "$REPO_SSH" "$SRC" 2>&1 | sed 's/^/    /'; then
+        error "Не удалось склонировать $REPO_SSH (ветка $REPO_REF).
+       Проверьте, что ключ из /root/.ssh добавлен в GitHub как deploy key с правом Read"
+    fi
+    has_source "$SRC" \
+        || error "В клоне нет panel/proxy-panel/app.py или bin/proxy_manager.sh — проверьте содержимое ветки $REPO_REF"
+    info "Получен коммит $(git -C "$SRC" rev-parse --short HEAD) ветки $(git -C "$SRC" rev-parse --abbrev-ref HEAD)"
 fi
+
+cp "$SRC/panel/proxy-panel/app.py" "$INSTALL_DIR/app.py"
+[ -f "$SRC/panel/proxy-panel/collector.py" ] \
+    && cp "$SRC/panel/proxy-panel/collector.py" "$INSTALL_DIR/collector.py"
+cp "$SRC/panel/proxy-panel/templates/"* "$INSTALL_DIR/templates/" 2>/dev/null || true
+cp "$SRC/panel/proxy-panel/static/"* "$INSTALL_DIR/static/" 2>/dev/null || true
+info "Панель установлена в $INSTALL_DIR"
 
 # proxy_manager.sh
 # Источник — bin/proxy_manager.sh. Это единственная копия, которую ставит
@@ -730,16 +770,21 @@ fi
 # ops/archived-generators-2026-10-15/ — они несли неисправное правило вырезания
 # пира AmneziaWG, из-за которого оставался голый [Peer] и awg-quick ронял
 # интерфейс. Ставить их на сервер нельзя.
-if [ -f "$SCRIPT_DIR/../bin/proxy_manager.sh" ]; then
-    cp "$SCRIPT_DIR/../bin/proxy_manager.sh" /root/proxy_manager.sh
-    chmod +x /root/proxy_manager.sh
-    info "proxy_manager.sh скопирован из репозитория"
-else
-    info "Скачиваем proxy_manager.sh с GitHub..."
-    curl -sL "${REPO_URL}/bin/proxy_manager.sh" -o /root/proxy_manager.sh
-    chmod +x /root/proxy_manager.sh
-    info "proxy_manager.sh скачан с GitHub"
-fi
+cp "$SRC/bin/proxy_manager.sh" /root/proxy_manager.sh
+chmod +x /root/proxy_manager.sh
+info "proxy_manager.sh установлен из bin/"
+
+# Проверка, что скачалось содержимое, а не страница ошибки.
+for f in "$INSTALL_DIR/app.py" /root/proxy_manager.sh; do
+    if [ ! -s "$f" ]; then
+        error "Файл $f пуст после копирования"
+    fi
+    if grep -q "404: Not Found" "$f" 2>/dev/null; then
+        error "В $f попала страница ошибки GitHub, а не исходник"
+    fi
+done
+
+[ -n "$CLEANUP_SRC" ] && rm -rf "$CLEANUP_SRC"
 
 # Патчим proxy_manager.sh под этот сервер
 SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || curl -s icanhazip.com 2>/dev/null || hostname -I | awk '{print $1}')
