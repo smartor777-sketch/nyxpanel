@@ -1746,6 +1746,7 @@ QELI_BASE_PATH = os.environ.get("NYX_QELI_BASE_PATH", "/self/qeli").strip().rstr
 app.jinja_env.globals["qeli_url"] = QELI_BASE_PATH if QELI_PANEL else None
 
 if QELI_PANEL:
+    import threading
     import requests
     from urllib3.exceptions import InsecureRequestWarning
 
@@ -1755,10 +1756,67 @@ if QELI_PANEL:
     requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
     # Per RFC 7230 these describe this one hop and must not be copied onward.
+    # Content-Encoding and Content-Length are excluded as well: the body is
+    # forwarded as received, so relaying the encoding header would let the
+    # browser decode a body it has already been given.
     _QELI_HOP_BY_HOP = {
         "connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
         "te", "trailer", "transfer-encoding", "upgrade", "content-length", "host",
     }
+    # Copied from qeli to the browser, minus the hop-by-hop set. qeli's own
+    # security headers are part of its response, not of this hop, so they are
+    # forwarded verbatim rather than re-invented: dropping them once stripped
+    # its CSP, X-Frame-Options and Referrer-Policy and left the page framable.
+    # Date и Server описывают не этот ответ, а соединение: их и так проставит
+    # внешний сервер, а от qeli они приходят вторым значением и дублируются.
+    _QELI_SKIP_RESPONSE = _QELI_HOP_BY_HOP | {"content-encoding", "date", "server"}
+
+    QELI_WEB_USER = os.environ.get("NYX_QELI_WEB_USER", "admin")
+    QELI_WEB_PASSWORD = os.environ.get("NYX_QELI_WEB_PASSWORD", "")
+    QELI_COOKIE = "qeli_session"
+    # Re-authenticate well before qeli's own 24h session expires.
+    _QELI_SESSION_TTL = 12 * 3600
+    _qeli_lock = threading.Lock()
+    _qeli_auth = {"cookie": None, "at": 0.0}
+
+    def _qeli_login(force=False):
+        """Sign in to qeli once and remember the cookie. Returns it, or None.
+
+        The credential stays here: the browser never receives it, and never
+        holds a qeli session of its own. A panel admin session is therefore the
+        only thing standing between the outside world and this panel.
+
+        force=True ignores the cached cookie and re-authenticates — used when
+        qeli rejects the session we are holding, e.g. after it restarted.
+        """
+        with _qeli_lock:
+            if (not force and _qeli_auth["cookie"]
+                    and time.time() - _qeli_auth["at"] < _QELI_SESSION_TTL):
+                return _qeli_auth["cookie"]
+            if not QELI_WEB_PASSWORD:
+                app.logger.error("qeli: NYX_QELI_WEB_PASSWORD is not set")
+                return None
+            try:
+                r = requests.post(
+                    f"{QELI_PANEL}{QELI_BASE_PATH}/api/login",
+                    json={"username": QELI_WEB_USER,
+                          "password": QELI_WEB_PASSWORD},
+                    verify=False, timeout=30)
+            except requests.RequestException as e:
+                app.logger.warning("qeli login failed: %s", e)
+                return None
+            cookie = None
+            for part in r.headers.get("Set-Cookie", "").split(","):
+                if part.strip().startswith(QELI_COOKIE + "="):
+                    cookie = part.split(";", 1)[0].strip()
+                    break
+            if not cookie:
+                app.logger.warning("qeli login returned no %s cookie (status %s)",
+                                   QELI_COOKIE, r.status_code)
+                return None
+            _qeli_auth["cookie"] = cookie
+            _qeli_auth["at"] = time.time()
+            return cookie
 
     @app.route(QELI_BASE_PATH, defaults={"rest": ""},
                methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
@@ -1775,8 +1833,15 @@ if QELI_PANEL:
                else f"{QELI_PANEL}{QELI_BASE_PATH}")
         if request.query_string:
             url += "?" + request.query_string.decode("latin-1")
+
+        # Наш собственный Cookie панели к qeli отношения не имеет — отбрасываем
+        # его, чтобы сессия NYX не утекала в сторонний сервис.
         headers = {k: v for k, v in request.headers
-                   if k.lower() not in _QELI_HOP_BY_HOP}
+                   if k.lower() not in _QELI_HOP_BY_HOP and k.lower() != "cookie"}
+        cookie = _qeli_login()
+        if cookie:
+            headers["Cookie"] = cookie
+
         try:
             up = requests.request(
                 request.method, url,
@@ -1795,16 +1860,48 @@ if QELI_PANEL:
                 "<h3 style='font-family:sans-serif'>qeli is not reachable</h3>"
                 f"<pre style='white-space:pre-wrap'>{e}</pre>", 502)
 
+        # qeli мог отвергнуть нашу сессию (перезапуск, истечение). Перевходим
+        # один раз и повторяем, иначе админ увидит страницу логина qeli, хотя
+        # в панель уже вошёл.
+        if up.status_code in (401, 403) and cookie:
+            fresh = _qeli_login(force=True)
+            if fresh and fresh != cookie:
+                headers["Cookie"] = fresh
+                up.close()
+                try:
+                    up = requests.request(
+                        request.method, url,
+                        data=request.get_data() or None,
+                        headers=headers,
+                        allow_redirects=False,
+                        verify=False,
+                        timeout=60,
+                        stream=True)
+                except requests.RequestException as e:
+                    app.logger.warning("qeli bridge retry failed for %s: %s", url, e)
+                    return render_template_string(
+                        "<h3 style='font-family:sans-serif'>qeli is not reachable</h3>"
+                        f"<pre style='white-space:pre-wrap'>{e}</pre>", 502)
+
         resp = app.response_class(up.raw.stream(decode_content=False),
                                    status=up.status_code, headers=Headers())
-        if up.headers.get("Content-Type"):
-            resp.headers["Content-Type"] = up.headers["Content-Type"]
-        # Set-Cookie is added, not assigned: qeli may set more than one and
-        # assigning would keep only the last.
-        for h in ("Location", "Set-Cookie"):
-            if up.headers.get(h):
-                resp.headers.add(h, up.headers[h])
-        resp.headers["X-Content-Type-Options"] = "nosniff"
+        for k, v in up.headers.items():
+            low = k.lower()
+            if low in _QELI_SKIP_RESPONSE:
+                continue
+            if low == "set-cookie":
+                # Сессия qeli остаётся на сервере моста. Отдавать её браузеру
+                # незачем: это ровно то, что требовалось убрать. Куки qeli с
+                # другой Path и без qeli_session — обычные, их пропускаем.
+                if any(c.strip().startswith(QELI_COOKIE + "=")
+                       for c in v.split(",")):
+                    continue
+                resp.headers.add(k, v)
+                continue
+            # Присваиваем, а не добавляем: иначе Content-Type и Date
+            # оказываются продублированы — часть заголовков Werkzeug подставляет
+            # сам при сборке ответа.
+            resp.headers[k] = v
         return resp
 
 
