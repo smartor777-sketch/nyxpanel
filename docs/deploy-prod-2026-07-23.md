@@ -1,5 +1,14 @@
 # Депл olcRTC + Panel на_prod
 
+
+> **Пути устарели.** Этот документ написан под прежнюю раскладку, где панель
+> лежала в `/opt/proxy-panel`, а состояние — в `/opt/proxy-panel/panel.db` и
+> `/root/proxy_users`. С 2026-10-15 действует другая: панель в
+> `/opt/nyxpanel/panel`, база и пользователи — в `/var/lib/nyxpanel`,
+> оркестратор — в `/opt/nyxpanel/bin/proxy_manager.sh`. Пути ниже оставлены как
+> есть, чтобы не переписывать историю; для действий сверяйтесь с `INSTALL.md`
+> и `ops/ENVIRONMENT.md`.
+
 **Дата:** 2026-07-23
 **Сервер:** `203.0.113.30` (prod.example.com) / `prod-legacy.example.com`
 
