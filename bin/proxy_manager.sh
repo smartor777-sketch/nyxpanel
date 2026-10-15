@@ -52,6 +52,17 @@ AWG_INTERFACE="${AWG_INTERFACE:-awg0}"
 # Параметры сервера
 SERVER_DOMAIN="${SERVER_DOMAIN:-vpn.example.com}"
 AWG_SUBNET="${AWG_SUBNET:-10.9.9}"
+
+# MTU клиентского интерфейса AmneziaWG. Без этой строки клиент подбирает
+# значение сам (наблюдалось 1376), и пакеты с обфускацией перестают проходить:
+# мелкие запросы доходят, большие страницы висят. Это PMTU-чёрная дыра —
+# пересылка зависает молча, без ошибки и без записи в журнале.
+#
+# 1280, а не 1420 из MTU серверного awg0: поверх MTU идут заголовки WireGuard
+# (~60 Б) и служебные байты обфускации (ContentPaddingAddition до 20 Б, плюс
+# Jc/Jmin/Jmax отдельными junk-пакетами). Ниже 1280 начинают страдать TLS и QUIC.
+AWG_MTU="${AWG_MTU:-1280}"
+
 NAIVE_PORT="${NAIVE_PORT:-8443}" 
 # H4: infrastructure addresses and secrets come from /etc/nyxpanel/proxy.env,
 # never from the body of this file. See ops/nyxpanel.env.example.
@@ -661,21 +672,33 @@ del_user() {
     # 2. Удаляем из AmneziaWG (если есть)
     if [ -f "$target_dir/.awg_pubkey" ] && [ -f "$AWG_CONFIG" ]; then
     # Drop the block belonging to this user: the "# Peer: <name>" comment and every
-    # line up to the blank line that ends the block.
+    # line of the block after it.
     #
-    # The previous rule cleared `skip` on the first "[Peer]" line and then printed it,
-    # because that line matched the skip branch (which has no `next`) and fell through
-    # to the print branch. Net effect: only the comment went away and the
-    # PublicKey/PresharedKey/AllowedIPs lines stayed. The reconcile then found the
-    # peer still in the file and removed nothing, so the user could not be deleted at
-    # all, and the orphaned header left a bare "[Peer]" behind.
+    # Three defects have bitten this rule, and each is now covered by a case in
+    # tests/test_awg_strip.sh.
     #
-    # Blocks are separated by a blank line, and that is the safe boundary to stop on:
-    # stopping on a section header instead eats either this peer's header or the next
-    # peer's, depending on where the `next` goes.
+    # 1. Clearing `skip` on the first "[Peer]" line and then printing it. That line
+    #    matched the skip branch (which has no `next`) and fell through to the print
+    #    branch, so only the comment went away while PublicKey/PresharedKey/AllowedIPs
+    #    stayed. The reconcile then still found the peer and removed nothing, so the
+    #    user could not be deleted at all, and the orphaned header left a bare "[Peer]"
+    #    behind — which is what took AmneziaWG down on prod: awg-quick rejects the
+    #    file and removes the interface, taking every peer offline.
+    # 2. Building the match as a regular expression out of the label. A label holding
+    #    a metacharacter ("beta+x") then matches nothing, and the peer cannot be
+    #    deleted. Comparing whole lines with `==` treats the label literally.
+    # 3. Using index() to find "# Peer: " user at the start of a line. Deleting "gamma"
+    #    also matched "# Peer: gamma2" and removed a different peer as well. `==`
+    #    compares the line in full, so only the exact label matches.
+    #
+    # The boundary ends the block at the next peer's label or at the blank line that
+    # separates blocks. Stopping on a section header instead eats either this peer's
+    # header or the next peer's, depending on where the `next` goes. Accepting the
+    # blank line as well keeps anything after the last peer, such as a trailing
+    # comment, from being swallowed when that peer is the one removed.
     awk -v user="$username" '
-        $0 ~ "^# Peer: " user "$" { skip=1; next }
-        skip && /^[[:space:]]*$/ { skip=0; next }
+        $0 == "# Peer: " user { skip=1; next }
+        skip && (/^# Peer: / || /^[[:space:]]*$/) { skip=0; print; next }
         skip { next }
         { print }
     ' "$AWG_CONFIG" > /tmp/awg_tmp.conf && mv /tmp/awg_tmp.conf "$AWG_CONFIG"
@@ -861,11 +884,12 @@ remove_protocol() {
             ;;
         awg)
             if [ -f "$BASE_DIR/$username/.awg_pubkey" ] && [ -f "$AWG_CONFIG" ]; then
-                # Same rule as del_user above — see the note there for why stopping on a
-                # blank line rather than on "[Peer]" is what makes it correct.
+                # Same rule as del_user above — see the note there for why the label is
+                # compared literally and why the block ends at the next label or the
+                # blank line rather than at "[Peer]".
                 awk -v user="$username" '
-                    $0 ~ "^# Peer: " user "$" { skip=1; next }
-                    skip && /^[[:space:]]*$/ { skip=0; next }
+                    $0 == "# Peer: " user { skip=1; next }
+                    skip && (/^# Peer: / || /^[[:space:]]*$/) { skip=0; print; next }
                     skip { next }
                     { print }
                 ' "$AWG_CONFIG" > /tmp/awg_tmp.conf && mv /tmp/awg_tmp.conf "$AWG_CONFIG"
@@ -1078,6 +1102,7 @@ EOF
 PrivateKey = $client_priv
 Address = $client_ip
 $dns_line
+MTU = $AWG_MTU
 $awg_params
 
 [Peer]

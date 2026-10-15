@@ -724,13 +724,19 @@ else
 fi
 
 # proxy_manager.sh
-if [ -f "$SCRIPT_DIR/proxy_manager.sh" ]; then
-    cp "$SCRIPT_DIR/proxy_manager.sh" /root/proxy_manager.sh
+# Источник — bin/proxy_manager.sh. Это единственная копия, которую ставит
+# панель (panel/proxy-panel/setup.sh) и на которую ссылаются tests/. Копии в
+# server/ и в корне репозитория отставлены 2026-10-15 в
+# ops/archived-generators-2026-10-15/ — они несли неисправное правило вырезания
+# пира AmneziaWG, из-за которого оставался голый [Peer] и awg-quick ронял
+# интерфейс. Ставить их на сервер нельзя.
+if [ -f "$SCRIPT_DIR/../bin/proxy_manager.sh" ]; then
+    cp "$SCRIPT_DIR/../bin/proxy_manager.sh" /root/proxy_manager.sh
     chmod +x /root/proxy_manager.sh
     info "proxy_manager.sh скопирован из репозитория"
 else
     info "Скачиваем proxy_manager.sh с GitHub..."
-    curl -sL "${REPO_URL}/server/proxy_manager.sh" -o /root/proxy_manager.sh
+    curl -sL "${REPO_URL}/bin/proxy_manager.sh" -o /root/proxy_manager.sh
     chmod +x /root/proxy_manager.sh
     info "proxy_manager.sh скачан с GitHub"
 fi

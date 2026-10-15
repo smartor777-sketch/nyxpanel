@@ -125,7 +125,82 @@ else
     bad "the [Interface] stanza was damaged"
 fi
 
-rm -f "$CONF"
+# --- labels that break the naive ways of matching them -------------------------
+# The rule must treat the label literally and must match it in full.
+#
+# A regex built from the label misses "beta+x" (the "+" is a quantifier), so the
+# peer could not be deleted at all. A substring search finds "# Peer: gamma"
+# inside "# Peer: gamma2", so deleting one user silently deleted another. The
+# labels below exist to pin both down; the config also ends with a trailing note
+# to catch a rule that swallows whatever followed the last peer.
+CONF2=$(mktemp)
+cat > "$CONF2" <<'EOF'
+[Interface]
+PrivateKey = srvkey
+Address = 10.9.9.1/24
+ListenPort = 51820
+
+# Peer: beta+x
+[Peer]
+PublicKey = METACHAR=
+PresharedKey = m=
+AllowedIPs = 10.9.9.2/32
+
+# Peer: gamma
+[Peer]
+PublicKey = GAMMA=
+PresharedKey = g=
+AllowedIPs = 10.9.9.3/32
+
+# Peer: gamma2
+[Peer]
+PublicKey = GAMMA2=
+PresharedKey = g2=
+AllowedIPs = 10.9.9.4/32
+
+# Peer: zeta
+[Peer]
+PublicKey = ZETA=
+PresharedKey = z=
+AllowedIPs = 10.9.9.5/32
+
+# конец файла
+EOF
+
+strip2() { awk -v user="$1" "$RULE" "$CONF2"; }
+
+# The label holds a metacharacter, so a rule that builds a regex from it fails.
+if strip2 'beta+x' | grep -q 'METACHAR='; then
+    bad "a label containing '+' could not be matched, so the peer survived"
+else
+    ok "a label containing '+' is matched literally and removed"
+fi
+check_keys2() {
+    local user=$1 want=$2 got
+    got=$(strip2 "$user" | keys)
+    if [ "$got" = "$want" ]; then
+        ok "remove '$user' leaves: $got"
+    else
+        bad "remove '$user' left: [$got]  expected: [$want]"
+    fi
+}
+check_keys2 'gamma' "METACHAR GAMMA2 ZETA "
+# "gamma2" starts with "gamma", so a substring match removes both peers.
+if strip2 'gamma' | grep -q 'GAMMA2='; then
+    ok "removing 'gamma' leaves the distinct peer 'gamma2' alone"
+else
+    bad "removing 'gamma' also removed 'gamma2'"
+fi
+check_keys2 'zeta' "METACHAR GAMMA GAMMA2 "   # the last peer
+# The last peer is the one being removed here, so the rule must stop at the
+# blank line rather than running to the end of the file.
+if strip2 'zeta' | grep -q '# конец файла'; then
+    ok "text after the last removed peer survives"
+else
+    bad "the rule swallowed everything after the last removed peer"
+fi
+
+rm -f "$CONF" "$CONF2"
 echo
 if [ "$fails" -eq 0 ]; then echo "ALL CHECKS PASSED"; else echo "$fails CHECK(S) FAILED"; fi
 exit "$fails"

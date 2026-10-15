@@ -37,8 +37,8 @@ XRAY_SERVICE="xray"
 VLESS_HOST="${SERVER_DOMAIN}"
 VLESS_PORT="443"
 VLESS_SNI="www.roblox.com"
-VLESS_PUBLIC_KEY="iqmUrTnhYDcm-hhuGJaze6dTGNIcvyMOyYIN7LB4kU4"
-VLESS_SHORT_ID="2e30b986cabb4bca"
+VLESS_PUBLIC_KEY=""
+VLESS_SHORT_ID=""
 VLESS_PATH="%2Fvless"
 
 # Цвета
@@ -227,10 +227,14 @@ del_user() {
 
     # 2. Удаляем из AmneziaWG (если есть)
     if [ -f "$target_dir/.awg_pubkey" ] && [ -f "$AWG_CONFIG" ]; then
+        # Same rule as bin/proxy_manager.sh: the label is compared literally,
+        # and the block ends at the next label or at the blank line — never at
+        # "[Peer]", which is this block own header.
         awk -v user="$username" '
-            $0 ~ "^# Peer: " user { skip=1; next }
-            skip && /^\[Peer\]/ { skip=0 }
-            !skip { print }
+            $0 == "# Peer: " user { skip=1; next }
+            skip && (/^# Peer: / || /^[[:space:]]*$/) { skip=0; print; next }
+            skip { next }
+            { print }
         ' "$AWG_CONFIG" > /tmp/awg_tmp.conf && mv /tmp/awg_tmp.conf "$AWG_CONFIG"
         
         awg-quick down "$AWG_INTERFACE" 2>/dev/null || true
@@ -392,10 +396,14 @@ remove_protocol() {
             ;;
         awg)
             if [ -f "$BASE_DIR/$username/.awg_pubkey" ] && [ -f "$AWG_CONFIG" ]; then
+                # Same rule as bin/proxy_manager.sh: the label is compared literally,
+                # and the block ends at the next label or at the blank line — never at
+                # "[Peer]", which is this block own header.
                 awk -v user="$username" '
-                    $0 ~ "^# Peer: " user { skip=1; next }
-                    skip && /^\[Peer\]/ { skip=0 }
-                    !skip { print }
+                    $0 == "# Peer: " user { skip=1; next }
+                    skip && (/^# Peer: / || /^[[:space:]]*$/) { skip=0; print; next }
+                    skip { next }
+                    { print }
                 ' "$AWG_CONFIG" > /tmp/awg_tmp.conf && mv /tmp/awg_tmp.conf "$AWG_CONFIG"
                 
                 awg-quick down "$AWG_INTERFACE" 2>/dev/null || true

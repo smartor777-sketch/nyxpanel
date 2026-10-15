@@ -37,8 +37,8 @@ XRAY_SERVICE="xray"
 VLESS_HOST="vpn.example.com"
 VLESS_PORT="443"
 VLESS_SNI="1.1.1.1"
-VLESS_PUBLIC_KEY="D1P25Vpg6ATLGHswPBJEelp4bO3bb0W2nkchNDiU9V4="
-VLESS_SHORT_ID="e508aadcfd50611a"
+VLESS_PUBLIC_KEY=""
+VLESS_SHORT_ID=""
 
 GREEN='\033[1;92m'
 RED='\033[1;91m'
@@ -113,7 +113,15 @@ del_user() {
         grep -v -x -F "$username" "$REGISTRY_FILE" > "${REGISTRY_FILE}.tmp" && mv "${REGISTRY_FILE}.tmp" "$REGISTRY_FILE"
     fi
     if [ -f "$target_dir/.awg_pubkey" ] && [ -f "$AWG_CONFIG" ]; then
-        awk -v user="$username" '$0 ~ "^# Peer: " user { skip=1; next } skip && /^\[Peer\]/ { skip=0 } !skip { print }' "$AWG_CONFIG" > /tmp/awg_tmp.conf && mv /tmp/awg_tmp.conf "$AWG_CONFIG"
+        # Same rule as bin/proxy_manager.sh: the label is compared literally,
+        # and the block ends at the next label or at the blank line — never at
+        # "[Peer]", which is this block own header.
+        awk -v user="$username" '
+            $0 == "# Peer: " user { skip=1; next }
+            skip && (/^# Peer: / || /^[[:space:]]*$/) { skip=0; print; next }
+            skip { next }
+            { print }
+        ' "$AWG_CONFIG" > /tmp/awg_tmp.conf && mv /tmp/awg_tmp.conf "$AWG_CONFIG"
         awg-quick down "$AWG_INTERFACE" 2>/dev/null || true
         awg-quick up "$AWG_INTERFACE" 2>/dev/null || true
     fi
@@ -167,7 +175,15 @@ remove_protocol() {
             fi ;;
         awg)
             if [ -f "$user_dir/${username}_awg.conf" ] && [ -f "$AWG_CONFIG" ]; then
-                awk -v user="$username" '$0 ~ "^# Peer: " user { skip=1; next } skip && /^\[Peer\]/ { skip=0 } !skip { print }' "$AWG_CONFIG" > /tmp/awg_tmp.conf && mv /tmp/awg_tmp.conf "$AWG_CONFIG"
+                # Same rule as bin/proxy_manager.sh: the label is compared literally,
+                # and the block ends at the next label or at the blank line — never at
+                # "[Peer]", which is this block own header.
+                awk -v user="$username" '
+                    $0 == "# Peer: " user { skip=1; next }
+                    skip && (/^# Peer: / || /^[[:space:]]*$/) { skip=0; print; next }
+                    skip { next }
+                    { print }
+                ' "$AWG_CONFIG" > /tmp/awg_tmp.conf && mv /tmp/awg_tmp.conf "$AWG_CONFIG"
                 awg-quick down "$AWG_INTERFACE" 2>/dev/null || true
                 awg-quick up "$AWG_INTERFACE" 2>/dev/null || true
                 rm -f "$user_dir/${username}_awg.conf" "$user_dir/${username}_awg.png" "$user_dir/.awg_pubkey"
