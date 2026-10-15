@@ -95,19 +95,26 @@
 - **Панель под systemd**: на проде запуск через `panel.service` (`/etc/systemd/system/panel.service`,
   `Restart=always`), перезапуск — `systemctl restart panel`.
 
-## install.sh_status
+## Установщик: setup.sh
 
-Файл `server/install.sh` — не соответствует текущей архитектуре:
+`server/install.sh` удалён 2026-10-15. Он ставил панель в `/opt/proxy-panel`,
+а служба на обоих хостах работает из `/opt/nyxpanel/panel`, развёрнутого
+`panel/proxy-panel/setup.sh`. Из-за этого на серверах остался мёртвый каталог
+с app.py 1.10–1.12 рядом с работающей панелью 1.14.
 
-| Что в install.sh | Что надо |
-|-----------------|----------|
+Расхождения, которые делали install.sh непригодным, закрыты в setup.sh:
+
+| Что было в install.sh | Что в setup.sh |
+|----------------------|----------------|
 | Caddy из apt (без forwardproxy) | Caddy из xcaddy с `github.com/caddyserver/forwardproxy` |
-| Caddyfile: только панельные маршруты | Caddyfile: `route { handle /panel*, forward_proxy, reverse_proxy fallback }` |
-| No sing-box LE cert sync | sing-box использует `/etc/letsencrypt/live/$DOMAIN/*` — те же certs, что Caddy |
+| Caddyfile: только панельные маршруты | `route { handle /panel*, forward_proxy, reverse_proxy fallback }` |
+| Нет синхронизации сертификатов sing-box | sing-box берёт `/etc/letsencrypt/live/$DOMAIN/*` — те же certs, что Caddy |
 | Caddy :8080 (лишний блок) | Не нужен — всё на :443 |
-| Caddy :8443 не упомянут | Уже не нужен (Naive на sing-box) |
+| Панель в `/opt/proxy-panel` | `/opt/nyxpanel/panel`, состояние в `/var/lib/nyxpanel` |
+| Скачивал с публичного `master` через curl | Клон приватного репозитория по SSH, ветка `main` |
 
-**Нужно обновить**: Caddy сборку через xcaddy, Caddyfile с forward_proxy, fallback, sync certs для sing-box.
+`migrate/apply_new.sh` по-прежнему ссылается на install.sh — это сценарий
+переезда на новый сервер, а не установка с нуля. Он требует отдельной правки.
 
 ### Hopper (тест на стенде, только dev — НЕ в панели)
 
@@ -282,7 +289,7 @@ iptables nat POSTROUTING: MASQUERADE только «-s <overlay> -o <ens3>» (и
 | **olcRTC** | GitHub Releases (`smartor777-sketch/olcrtc-users`) | **Нет** |
 | **AWG** | apt (`amneziawg`) | **Нет** (DKMS модуль) |
 
-⚠️ `install.sh` (в `server/`) не описывает текущую архитектуру — требует обновления (см. install.sh_status).
+✅ Установщик — `panel/proxy-panel/setup.sh`, он соответствует текущей архитектуре (см. «Установщик: setup.sh»).
 
 ## Архитектура Caddy + forward_proxy + sing-box + NaiveProxy
 

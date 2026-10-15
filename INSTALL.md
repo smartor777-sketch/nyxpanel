@@ -10,12 +10,18 @@
 ## Быстрая установка
 
 ```bash
-# Скачать скрипт
-curl -sL https://raw.githubusercontent.com/smartor777-sketch/nyxpanel/master/server/install.sh -o install.sh
+# Склонировать приватный репозиторий (нужен SSH-ключ с правом чтения)
+git clone --depth 1 --branch main \
+  git@github.com:smartor777-sketch/nyxpanel-private.git nyxpanel
+cd nyxpanel
 
 # Запустить (домен обязателен)
-DOMAIN="panel.example.com" bash install.sh
+DOMAIN="panel.example.com" bash panel/proxy-panel/setup.sh
 ```
+
+Установщик — `panel/proxy-panel/setup.sh`. Он кладёт панель в `/opt/nyxpanel`,
+а базу и каталог пользователей — в `/var/lib/nyxpanel`, и пишет
+`/etc/nyxpanel/panel.env`, где эти пути заданы явно.
 
 Скрипт спросит домен, если не передан через `DOMAIN=`. Остальные параметры можно переопределить переменными:
 
@@ -23,7 +29,7 @@ DOMAIN="panel.example.com" bash install.sh
 DOMAIN="panel.example.com" \
 PANEL_PASS="mypassword" \
 EMAIL="admin@example.com" \
-bash install.sh
+bash panel/proxy-panel/setup.sh
 ```
 
 ## Что устанавливается
@@ -72,9 +78,9 @@ bash /root/proxy_manager.sh del_user <username>
 bash /root/proxy_manager.sh list_users
 ```
 
-Панель: `https://{DOMAIN}/self/login` (admin / пароль из вывода install.sh)
+Панель: `https://{DOMAIN}/self/login` (admin / пароль из вывода setup.sh)
 
-## Что делает install.sh по шагам
+## Что делает setup.sh по шагам
 
 1. **Базовая настройка**: apt, swap, UFW
 2. **Xray**: установка + генерация REALITY ключей
