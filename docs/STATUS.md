@@ -73,6 +73,7 @@
 | NYX Panel | [`github.com/smartor777-sketch/nyxpanel`](https://github.com/smartor777-sketch/nyxpanel) |
 | olcRTC (модифицированный) | [`github.com/smartor777-sketch/olcrtc-users`](https://github.com/smartor777-sketch/olcrtc-users) |
 | olcbox (KMP клиент) | [`github.com/smartor777-sketch/olcbox`](https://github.com/smartor777-sketch/olcbox) |
+| qeli — конфигурация и инструкции (приватный) | [`github.com/smartor777-sketch/qeli-private`](https://github.com/smartor777-sketch/qeli-private) |
 
 ### Prod (203.0.113.30, panel.example.com)
 

@@ -122,6 +122,7 @@ rm -rf /usr/local/go /root/go /root/.cache
 - **Репозиторий**: [github.com/smartor777-sketch/nyxpanel](https://github.com/smartor777-sketch/nyxpanel)
 - **Форк olcRTC**: [github.com/smartor777-sketch/olcrtc-users](https://github.com/smartor777-sketch/olcrtc-users)
 - **Оригинальный olcRTC**: [github.com/openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)
+- **Конфигурация qeli (приватный)**: [github.com/smartor777-sketch/qeli-private](https://github.com/smartor777-sketch/qeli-private) — шаблоны конфигов и рабочие инструкции по qeli-серверу и клиентам на этой инфраструктуре: порядок применения, цель REALITY, PACKET_MUX recordizer, ротация логов
 
 ### Документация Telegram MTProxy
 

@@ -122,6 +122,7 @@ This frees ~5 GB. The `xcaddy` binary at `/usr/local/bin/xcaddy` is already comp
 - **Repository**: [github.com/smartor777-sketch/nyxpanel](https://github.com/smartor777-sketch/nyxpanel)
 - **olcRTC fork**: [github.com/smartor777-sketch/olcrtc-users](https://github.com/smartor777-sketch/olcrtc-users)
 - **Original olcRTC**: [github.com/openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)
+- **qeli configuration (private)**: [github.com/smartor777-sketch/qeli-private](https://github.com/smartor777-sketch/qeli-private) — config templates and runbooks for the qeli server/client on this infrastructure: deploy order, REALITY target, PACKET_MUX recordizer, log rotation
 
 ### Telegram MTProxy Documentation
 
