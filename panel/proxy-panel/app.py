@@ -1060,7 +1060,36 @@ def tproxy_list():
     tg_mappings = tproxy_read_tg_mappings()
     return render_template("tproxy_profiles.html", profiles=profiles, hostname=hostname,
                            tg_mappings=tg_mappings,
+                           SUPPORTED_CARRIER_MODES=SUPPORTED_CARRIER_MODES,
+                           CARRIER_MODE_CLIENT_NOTES=CARRIER_MODE_CLIENT_NOTES,
                            admin_name=session.get("self_user"), version=PANEL_VERSION)
+
+# Carrier modes this deployment accepts from the panel. All four are what
+# telegramdesktop/tproxy-server itself supports (internal/config/config.go), and
+# all four were verified against a real client on 2026-10-16:
+#
+#   https-lanes  +27 MB down / +79 KB up in 15s, pending_items draining to 0
+#
+# The mode is chosen by the secret and embedded in the generated bridge page,
+# so support lives in the client, not here. Measured caveat: the Linux flatpak
+# build of Telegram Desktop 7.3 does not consume per-lane long-poll replies —
+# uplink advances while tproxy_bytes_down_total stays flat and the pending queue
+# grows — so Linux clients need "https". A Windows client handled
+# "https-lanes" cleanly. Keep this list matching upstream; the relay side has no
+# per-mode configuration beyond this.
+SUPPORTED_CARRIER_MODES = ("https", "https-lanes", "websocket", "websocket-lanes")
+
+# Modes known not to work for a given client family, kept for the UI hint only.
+# "https" is the safe default that every client honours.
+CARRIER_MODE_CLIENT_NOTES = {
+    "https": "Widest compatibility: works with every client build.",
+    "https-lanes": "Per-session HTTP long polls, needs HTTP/2. Not usable by the "
+                   "Linux flatpak build of Desktop 7.3.",
+    "websocket": "One multiplexed WebSocket. Can serialise handshakes on some "
+                 "WebKit builds.",
+    "websocket-lanes": "One WebSocket per session. Same WebKit handshake caveat, "
+                       "and the highest connection count.",
+}
 
 @app.route("/self/tproxy/add", methods=["POST"])
 def tproxy_add():
@@ -1069,7 +1098,7 @@ def tproxy_add():
     name = request.form.get("name", "").strip()
     secret = request.form.get("secret", "").strip()
     carrier = request.form.get("carrier_mode", "https").strip()
-    if carrier not in ("https", "https-lanes", "websocket", "websocket-lanes"):
+    if carrier not in SUPPORTED_CARRIER_MODES:
         carrier = "https"
     if not name or not re.match(r'^[a-zA-Z0-9_-]+$', name):
         flash("Invalid profile name", "error")
@@ -1118,7 +1147,7 @@ def tproxy_set_mode(name):
     if not is_admin():
         return redirect("/self/login")
     carrier = request.form.get("carrier_mode", "https").strip()
-    if carrier not in ("https", "https-lanes", "websocket", "websocket-lanes"):
+    if carrier not in SUPPORTED_CARRIER_MODES:
         flash("Invalid carrier mode", "error")
         return redirect("/self/tproxy")
     profiles = tproxy_read_profiles()
@@ -1151,7 +1180,7 @@ def tproxy_edit(name):
         return redirect("/self/login")
     secret = request.form.get("secret", "").strip()
     carrier = request.form.get("carrier_mode", "https").strip()
-    if carrier not in ("https", "https-lanes", "websocket", "websocket-lanes"):
+    if carrier not in SUPPORTED_CARRIER_MODES:
         carrier = "https"
     profiles = tproxy_read_profiles()
     for p in profiles:
@@ -1730,6 +1759,8 @@ def admin_traffic_json(name=None):
 
 
 
+from urllib.parse import urlparse
+
 # ============================================================== qeli bridge ===
 # qeli runs its own admin UI on a loopback port with its own login, so unlike
 # tproxy there is nothing for this panel to render here — the work is forwarding
@@ -1827,6 +1858,12 @@ if QELI_PANEL:
             return redirect(url_for("self_login"))
         if not is_admin():
             return jsonify({"error": "forbidden"}), 403
+        # 2026-10-30: страницу логина qeli через мост не показываем. Мост сам
+        # логинится (NYX_QELI_WEB_PASSWORD), а ссылка qeli на свой логин означает,
+        # что сессия моста отозвана (кнопка «Log out» в qeli, рестарт qeli).
+        # Возвращаем администратора в NYX-панель - поведение кнопки «Выйти».
+        if rest == "login":
+            return redirect(url_for("self_dashboard"))
         # qeli only answers under its own base_path, and without the trailing
         # slash: /self/qeli redirects to the login, /self/qeli/ is a 404.
         url = (f"{QELI_PANEL}{QELI_BASE_PATH}/{rest}" if rest
@@ -1859,6 +1896,29 @@ if QELI_PANEL:
             return render_template_string(
                 "<h3 style='font-family:sans-serif'>qeli is not reachable</h3>"
                 f"<pre style='white-space:pre-wrap'>{e}</pre>", 502)
+        # 2026-10-30: редирект qeli на собственный login — тот же сигнал, что и
+        # 401/403: сессия моста отозвана, нужен авто-вход и повтор.
+        _loc = up.headers.get("Location", "")
+        if (up.status_code in (301, 302, 303, 307, 308)
+                and urlparse(_loc).path.rstrip("/") == QELI_BASE_PATH + "/login"):
+            fresh = _qeli_login(force=True)
+            if fresh and fresh != cookie:
+                headers["Cookie"] = fresh
+                up.close()
+                try:
+                    up = requests.request(
+                        request.method, url,
+                        data=request.get_data() or None,
+                        headers=headers,
+                        allow_redirects=False,
+                        verify=False,
+                        timeout=60,
+                        stream=True)
+                except requests.RequestException as e:
+                    app.logger.warning("qeli bridge retry failed for %s: %s", url, e)
+                    return render_template_string(
+                        "<h3 style=font-family:sans-serif>qeli is not reachable</h3>"
+                        f"<pre style=white-space:pre-wrap>{e}</pre>", 502)
 
         # qeli мог отвергнуть нашу сессию (перезапуск, истечение). Перевходим
         # один раз и повторяем, иначе админ увидит страницу логина qeli, хотя
@@ -1883,6 +1943,45 @@ if QELI_PANEL:
                         "<h3 style='font-family:sans-serif'>qeli is not reachable</h3>"
                         f"<pre style='white-space:pre-wrap'>{e}</pre>", 502)
 
+        # 2026-10-30: Location qeli бывает абсолютным с хостом моста
+        # (https://127.0.0.1:18080/...): браузер послал бы на свой localhost.
+        # Переписываем на относительный путь внутри /self/qeli.
+        if up.status_code in (301, 302, 303, 307, 308):
+            loc_raw = up.headers.get("Location", "")
+            if loc_raw:
+                _p = urlparse(loc_raw)
+                if _p.scheme and _p.netloc and _p.path.startswith(QELI_BASE_PATH):
+                    up.headers["Location"] = _p.path + (("?" + _p.query) if _p.query else "")
+        # 2026-10-30 («Выйти» из qeli -> назад в NYX-панель): кнопка Log out в
+        # qeli делает fetch POST api/logout и потом window.location = login,
+        # что падает на форму логина NYX. Вместо правки самой qeli перехватываем
+        # fetch к api/logout на главной странице админки и сразу отправляем
+        # браузер в /self/ (админка NYX). Сессия моста к qeli сохраняется.
+        if (request.method == "GET" and rest == ""
+                and "text/html" in (up.headers.get("Content-Type") or "")):
+            _html = up.content
+            if _html and b"</body>" in _html:
+                _hook = (
+                    b"<script>"
+                    b"(function(){var o=window.fetch;"
+                    b"window.fetch=function(u){"
+                    b"var s=(typeof u===\string\)?u:((u&&u.url)||\);"
+                    b"var m=(arguments[1]&&arguments[1].method||\GET\).toUpperCase();"
+                    b"if(m===\POST\&&(s===pi/logout\||s.startsWith(\/\)===false&&s.endsWith(\/api/logout\))){"
+                    b"location.href=\/self/\;return new Promise(function(){});}"
+                    b"return o.apply(this,arguments);};})();"
+                    b"</script></body>")
+                _html = _html.replace(b"</body>", _hook, 1)
+                resp = app.response_class(_html, status=up.status_code,
+                                          headers=Headers())
+                for k, v in up.headers.items():
+                    low = k.lower()
+                    if (low in _QELI_SKIP_RESPONSE
+                            or low in ("set-cookie", "content-length")):
+                        continue
+                    resp.headers[k] = v
+                up.close()
+                return resp
         resp = app.response_class(up.raw.stream(decode_content=False),
                                    status=up.status_code, headers=Headers())
         for k, v in up.headers.items():
