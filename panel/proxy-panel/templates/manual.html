@@ -5,14 +5,14 @@
 <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('nyx_theme')||'dark');}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="/static/manifest.json">
-<meta name="theme-color" content="#0f1115">
+<meta name="theme-color" content="#0c1a2d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="/static/icon-192.png">
 <title>NYX Panel — Guide</title>
 <style>
-  :root { --bg: #0f1115; --fg: #d6dae1; --card: #161a21; --border: #2a3039; --input-bg: #1b2028; --heading: #e8ebf0; --muted: #9aa3b0; --accent: #5b9dff; --accent-hover: #4a8af0; --danger: #f87171; --proto-yes: #4ade80; --proto-no: #6b7280; --status-active-bg: #10301f; --status-active-fg: #6ee7a0; --btn-active: #3b82f6; --link: #7db4ff; --link-hover: #a5c8ff; --code-bg: #12161c; --code-fg: #d6dae1; --highlight: #c084fc; --h2-border: #2a3039; --btn-logout-bg: #1b2028; --btn-logout-fg: #b9c2ce; --btn-logout-border: #333a44; --btn-theme-bg: #1b2028; --btn-theme-fg: #b9c2ce; --btn-theme-border: #333a44; --btn-lang-bg: #1b2028; --btn-lang-fg: #b9c2ce; --btn-lang-border: #333a44; }
-  [data-theme="light"] { --bg: #f4f5f7; --fg: #1f2430; --card: #ffffff; --border: #e1e4e9; --input-bg: #f2f3f5; --heading: #111827; --muted: #6b7280; --accent: #2563eb; --accent-hover: #1d4ed8; --danger: #dc2626; --proto-yes: #15803d; --proto-no: #9ca3af; --status-active-bg: #e9f7ef; --status-active-fg: #15803d; --btn-active: #2563eb; --link: #1d4ed8; --link-hover: #1e3a8a; --code-bg: #eef0f3; --code-fg: #1f2430; --highlight: #7c3aed; --h2-border: #e1e4e9; --btn-logout-bg: #eef0f3; --btn-logout-fg: #4b5563; --btn-logout-border: #d6d9df; --btn-theme-bg: #eef0f3; --btn-theme-fg: #4b5563; --btn-theme-border: #d6d9df; --btn-lang-bg: #eef0f3; --btn-lang-fg: #4b5563; --btn-lang-border: #d6d9df; }
+  :root { --bg: #0c1a2d; --fg: #d4e5f7; --card: #132640; --border: #1e3a5f; --input-bg: #132640; --heading: #7dd3fc; --muted: #93c5fd; --accent: #38bdf8; --accent-hover: #0ea599; --danger: #f87171; --proto-yes: #34d399; --proto-no: #64748b; --status-active-bg: #064e3b; --status-active-fg: #34d399; --btn-active: #0ea599; --link: #7dd3fc; --link-hover: #93c5fd; --code-bg: #0c1a2d; --code-fg: #d4e5f7; --highlight: #c084fc; --h2-border: #1e3a5f; --btn-logout-bg: #1e293b; --btn-logout-fg: #94a3b8; --btn-logout-border: #334155; --btn-theme-bg: #1e293b; --btn-theme-fg: #94a3b8; --btn-theme-border: #334155; --btn-lang-bg: #1e293b; --btn-lang-fg: #94a3b8; --btn-lang-border: #334155; }
+  [data-theme="light"] { --bg: #eaf2fb; --fg: #1e3a5f; --card: #ffffff; --border: #c5ddf0; --input-bg: #dceaf7; --heading: #0358a8; --muted: #5a7fa0; --accent: #0284c7; --accent-hover: #0369a1; --danger: #dc2626; --proto-yes: #059669; --proto-no: #94a3b8; --status-active-bg: #ecfdf5; --status-active-fg: #059669; --btn-active: #0284c7; --link: #0358a8; --link-hover: #1e3a8a; --code-bg: #eaf2fb; --code-fg: #1e3a5f; --highlight: #7c3aed; --h2-border: #c5ddf0; --btn-logout-bg: #f1f5f9; --btn-logout-fg: #475569; --btn-logout-border: #cbd5e1; --btn-theme-bg: #f1f5f9; --btn-theme-fg: #475569; --btn-theme-border: #cbd5e1; --btn-lang-bg: #f1f5f9; --btn-lang-fg: #475569; --btn-lang-border: #cbd5e1; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--fg); padding: 2rem; }
   .container { max-width: 800px; margin: 0 auto; }
@@ -42,12 +42,12 @@
   .protocol-card .name { font-weight: 600; color: var(--heading); margin-bottom: 0.3rem; }
   .protocol-card .desc { font-size: 0.85rem; color: var(--muted); }
   .tag { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.75rem; margin-right: 0.3rem; }
-  .tag-proxy { background: #10301f; color: #6ee7a0; }
-  .tag-vpn { background: #12304a; color: #93c5fd; }
-  .tag-important { background: #351718; color: #fca5a5; }
-  [data-theme="light"] .tag-proxy { background: #e9f7ef; color: #15803d; }
-  [data-theme="light"] .tag-vpn { background: #e8efff; color: #1d4ed8; }
-  [data-theme="light"] .tag-important { background: #fdecec; color: #b91c1c; }
+  .tag-proxy { background: #064e3b; color: #34d399; }
+  .tag-vpn { background: #0c4a6e; color: #7dd3fc; }
+  .tag-important { background: #450a0a; color: #f87171; }
+  [data-theme="light"] .tag-proxy { background: #ecfdf5; color: #059669; }
+  [data-theme="light"] .tag-vpn { background: #e0f2fe; color: #0369a1; }
+  [data-theme="light"] .tag-important { background: #fef2f2; color: #dc2626; }
   hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
   .note { background: var(--status-active-bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem 1rem; margin: 1rem 0; font-size: 0.9rem; }
   .note strong { color: var(--status-active-fg); }
@@ -213,7 +213,7 @@ function getTheme() { return localStorage.getItem(themeKey) || 'dark'; }
 function setTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
   var _m = document.querySelector('meta[name="theme-color"]');
-  if (_m) _m.content = t === 'dark' ? '#0f1115' : '#f4f5f7';
+  if (_m) _m.content = t === 'dark' ? '#0c1a2d' : '#eaf2fb';
   localStorage.setItem(themeKey, t);
   document.getElementById('themeBtn').textContent = t === 'dark' ? '\u{1F319}' : '\u{2600}\u{FE0F}';
 }

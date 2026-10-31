@@ -3,8 +3,8 @@
   "short_name": "NYX Panel",
   "start_url": "/self/",
   "display": "standalone",
-  "background_color": "#0f1115",
-  "theme_color": "#0f1115",
+  "background_color": "#0c1a2d",
+  "theme_color": "#0c1a2d",
   "orientation": "any",
   "icons": [
     {

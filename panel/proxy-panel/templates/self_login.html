@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="/static/manifest.json">
-<meta name="theme-color" content="#0f1115">
+<meta name="theme-color" content="#0c1a2d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="/static/icon-192.png">
@@ -35,22 +35,20 @@
 </style>
 <style id="theme-vars">
   :root {
-    --bg: #0f1115; --fg: #d6dae1; --card: #161a21; --border: #2a3039;
-    --input-bg: #1b2028; --heading: #e8ebf0; --muted: #9aa3b0;
-    --accent: #5b9dff; --accent-hover: #4a8af0;
-    --flash-err-bg: #351718; --flash-err-border: #7f2a2a; --flash-err-fg: #fca5a5;
-    --btn-logout-bg: #1b2028; --btn-logout-fg: #b9c2ce; --btn-logout-border: #333a44;
-    --btn-theme-bg: #1b2028; --btn-theme-fg: #b9c2ce; --btn-theme-border: #333a44;
-    --btn-lang-bg: #1b2028; --btn-lang-fg: #b9c2ce; --btn-lang-border: #333a44;
+    --bg: #0c1a2d; --fg: #d4e5f7; --card: #132640; --border: #1e3a5f;
+    --input-bg: #132640; --heading: #7dd3fc; --muted: #93c5fd; --accent: #38bdf8;
+    --accent-hover: #0ea599; --flash-err-bg: #450a0a; --flash-err-border: #dc2626; --flash-err-fg: #f87171;
+    --btn-logout-bg: #1e293b; --btn-logout-fg: #94a3b8; --btn-logout-border: #334155; --btn-theme-bg: #1e293b;
+    --btn-theme-fg: #94a3b8; --btn-theme-border: #334155; --btn-lang-bg: #1e293b; --btn-lang-fg: #94a3b8;
+    --btn-lang-border: #334155;
   }
   :root[data-theme="light"] {
-    --bg: #f4f5f7; --fg: #1f2430; --card: #ffffff; --border: #e1e4e9;
-    --input-bg: #f2f3f5; --heading: #111827; --muted: #6b7280;
-    --accent: #2563eb; --accent-hover: #1d4ed8;
-    --flash-err-bg: #fdecec; --flash-err-border: #f3b8b8; --flash-err-fg: #b91c1c;
-    --btn-logout-bg: #eef0f3; --btn-logout-fg: #4b5563; --btn-logout-border: #d6d9df;
-    --btn-theme-bg: #eef0f3; --btn-theme-fg: #4b5563; --btn-theme-border: #d6d9df;
-    --btn-lang-bg: #eef0f3; --btn-lang-fg: #4b5563; --btn-lang-border: #d6d9df;
+    --bg: #eaf2fb; --fg: #1e3a5f; --card: #ffffff; --border: #c5ddf0;
+    --input-bg: #dceaf7; --heading: #0358a8; --muted: #5a7fa0; --accent: #0284c7;
+    --accent-hover: #0369a1; --flash-err-bg: #fef2f2; --flash-err-border: #fca5a5; --flash-err-fg: #dc2626;
+    --btn-logout-bg: #f1f5f9; --btn-logout-fg: #475569; --btn-logout-border: #cbd5e1; --btn-theme-bg: #f1f5f9;
+    --btn-theme-fg: #475569; --btn-theme-border: #cbd5e1; --btn-lang-bg: #f1f5f9; --btn-lang-fg: #475569;
+    --btn-lang-border: #cbd5e1;
   }
 </style>
 <script>
@@ -89,7 +87,7 @@ function setTheme(t) {
   localStorage.setItem(themeKey, t);
   document.documentElement.setAttribute('data-theme', t);
   var _m = document.querySelector('meta[name="theme-color"]');
-  if (_m) _m.content = t === 'dark' ? '#0f1115' : '#f4f5f7';
+  if (_m) _m.content = t === 'dark' ? '#0c1a2d' : '#eaf2fb';
   document.getElementById('themeBtn').textContent = t === 'dark' ? '\u{1F319}' : '\u{2600}\u{FE0F}';
 }
 function toggleTheme() { setTheme(getTheme() === 'dark' ? 'light' : 'dark'); }

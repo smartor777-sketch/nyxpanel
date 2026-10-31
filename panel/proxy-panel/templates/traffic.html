@@ -5,11 +5,11 @@
 <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('nyx_theme')||'dark');}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="/static/manifest.json">
-<meta name="theme-color" content="#0f1115">
+<meta name="theme-color" content="#0c1a2d">
 <title>NYX Panel - Трафик</title>
 <style>
-    :root { --bg: #0f1115; --fg: #d6dae1; --card: #161a21; --border: #2a3039; --heading: #e8ebf0; --muted: #9aa3b0; --danger: #f87171; --danger-bg: #351718; --danger-border: #7f2a2a; --ok: #4ade80; --ok-bg: #10301f; --ok-border: #1f6b45; --warn: #fbbf24; --warn-bg: #33240a; --warn-border: #7a5410; --spark: #60a5fa; --miss: #3a414b; --chip: #1f252e; }
-    [data-theme="light"] { --bg: #f4f5f7; --fg: #1f2430; --card: #ffffff; --border: #e1e4e9; --heading: #111827; --muted: #6b7280; --danger: #dc2626; --danger-bg: #fdecec; --danger-border: #f3b8b8; --ok: #15803d; --ok-bg: #e9f7ef; --ok-border: #b7e4c7; --warn: #b45309; --warn-bg: #fff8e6; --warn-border: #f0d48a; --spark: #2563eb; --miss: #cbd5e1; --chip: #e8eaee; }
+    :root { --bg: #0c1a2d; --fg: #d4e5f7; --card: #132640; --border: #1e3a5f; --heading: #7dd3fc; --muted: #93c5fd; --danger: #f87171; --danger-bg: #450a0a; --danger-border: #dc2626; --ok: #34d399; --ok-bg: #064e3b; --ok-border: #059669; --warn: #fbbf24; --warn-bg: #451a03; --warn-border: #d97706; --spark: #38bdf8; --miss: #334155; --chip: #1e3a5f; }
+    [data-theme="light"] { --bg: #eaf2fb; --fg: #1e3a5f; --card: #ffffff; --border: #c5ddf0; --heading: #0358a8; --muted: #5a7fa0; --danger: #dc2626; --danger-bg: #fef2f2; --danger-border: #dc2626; --ok: #059669; --ok-bg: #ecfdf5; --ok-border: #6ee7b7; --warn: #b45309; --warn-bg: #fffbeb; --warn-border: #fcd34d; --spark: #0284c7; --miss: #cbd5e1; --chip: #e0e7ff; }
     * { box-sizing:border-box; margin:0; padding:0; }
     body { font-family:-apple-system, system-ui, sans-serif; background:var(--bg); color:var(--fg); padding:2rem; }
     .container { max-width:1600px; margin:0 auto; }
@@ -271,7 +271,7 @@ function getTheme() { return localStorage.getItem(themeKey) || 'dark'; }
 function setTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
   var _m = document.querySelector('meta[name="theme-color"]');
-  if (_m) _m.content = t === 'dark' ? '#0f1115' : '#f4f5f7';
+  if (_m) _m.content = t === 'dark' ? '#0c1a2d' : '#eaf2fb';
   localStorage.setItem(themeKey, t);
   const btn = document.getElementById('themeBtn');
   if (btn) btn.textContent = t === 'dark' ? '\u{1F319}' : '\u{2600}\u{FE0F}';
