@@ -164,6 +164,10 @@ if [ ! -f "$CONF_DIR/proxy.env" ]; then
     else
         cat > "$CONF_DIR/proxy.env" <<'EOF'
 # Per-host settings for proxy_manager.sh. Fill in before adding users.
+# The orchestrator reads this file before its defaults; without BASE_DIR it
+# writes to /root/proxy_users, which panel.service mounts read-only.
+BASE_DIR=$STATE_DIR/users
+REGISTRY_FILE=$STATE_DIR/users/.registry
 HY2_CONFIG=/etc/hysteria/config.json
 AWG_CONFIG=/etc/amnezia/amneziawg/awg0.conf
 NAIVE_CONFIG=/etc/sing-box/config.json
@@ -176,7 +180,7 @@ XRAY_API=127.0.0.1:10085
 AWG_INTERFACE=awg0
 AWG_CLIENT_DNS=
 AWG_ALLOWED_IPS=0.0.0.0/0, ::/0
-SYNC_LOG=/var/log/nyxproxy/sync.log
+SYNC_LOG=$LOG_DIR/sync.log
 EOF
         chmod 640 "$CONF_DIR/proxy.env"
         chown root:"$RUN_USER" "$CONF_DIR/proxy.env"

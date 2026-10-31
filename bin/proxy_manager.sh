@@ -178,7 +178,9 @@ init() {
     if ! command -v jq &> /dev/null; then echo -e "${RED}Ошибка: установите jq (apt install jq -y)${NC}"; exit 1; fi
     if ! command -v yq &> /dev/null; then echo -e "${RED}Ошибка: установите yq (apt install yq -y)${NC}"; exit 1; fi
     if ! command -v qrencode &> /dev/null; then echo -e "${RED}Ошибка: установите qrencode (apt install qrencode -y)${NC}"; exit 1; fi
-    if ! command -v awg &> /dev/null; then echo -e "${RED}Ошибка: утилита awg не найдена. Установлен ли AmneziaWG?${NC}"; exit 1; fi
+    # A minimal stand may not run AmneziaWG at all. Require the tool only when
+    # an AWG config is actually present; tproxy/qeli operations must still work.
+    if [ -f "$AWG_CONFIG" ] && ! command -v awg &> /dev/null; then echo -e "${RED}Ошибка: утилита awg не найдена. Установлен ли AmneziaWG?${NC}"; exit 1; fi
     # The env file was already read above, before the defaults; only the log
     # directory is left to set up.
     SYNC_LOG="${SYNC_LOG:-/var/log/nyxpanel/sync.log}"
@@ -192,12 +194,19 @@ init() {
 # produces a malformed link — which is exactly how a VLESS URI came out blank.
 require_config() {
     local missing=()
-    [ -z "$SERVER_DOMAIN" ] && missing+=("SERVER_DOMAIN")
-    [ -z "$VLESS_SNI" ] && missing+=("VLESS_SNI")
-    [ -z "$VLESS_PUBLIC_KEY" ] && missing+=("VLESS_PUBLIC_KEY")
-    [ -z "$VLESS_SHORT_ID" ] && missing+=("VLESS_SHORT_ID")
-    [ -z "$AWG_CONFIG" ] && missing+=("AWG_CONFIG")
-    [ -z "$AWG_INTERFACE" ] && missing+=("AWG_INTERFACE")
+    # Only demand the settings of protocols this host actually has. A stand
+    # that runs qeli + tproxy has neither Xray nor AmneziaWG; requiring their
+    # keys made every orchestrator call, including tproxy_profiles_get, fail.
+    if [ -f "$XRAY_CONFIG" ]; then
+        [ -z "$SERVER_DOMAIN" ] && missing+=("SERVER_DOMAIN")
+        [ -z "$VLESS_SNI" ] && missing+=("VLESS_SNI")
+        [ -z "$VLESS_PUBLIC_KEY" ] && missing+=("VLESS_PUBLIC_KEY")
+        [ -z "$VLESS_SHORT_ID" ] && missing+=("VLESS_SHORT_ID")
+    fi
+    if [ -f "$AWG_CONFIG" ]; then
+        [ -z "$SERVER_DOMAIN" ] && missing+=("SERVER_DOMAIN")
+        [ -z "$AWG_INTERFACE" ] && missing+=("AWG_INTERFACE")
+    fi
     if [ ${#missing[@]} -gt 0 ]; then
         echo -e "${RED}Ошибка: не заданы переменные: ${missing[*]}${NC}" >&2
         echo -e "${RED}Задайте их в ${NYX_ENV:-/etc/nyxpanel/proxy.env}${NC}" >&2
