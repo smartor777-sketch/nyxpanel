@@ -303,6 +303,14 @@ else
         warn "Caddyfile already mentions $DOMAIN, leaving it alone"
     else
         HASH=$(caddy hash-password --plaintext "$PANEL_PASSWORD")
+        # Public stub at the root; the panel lives under /self behind edge auth.
+        # /sub/* stays token-authenticated by the panel itself.
+        install -d -m 755 /srv/nyx-stub
+        if [ -f "$SOURCE_DIR/ops/stub/index.html" ]; then
+            install -m 644 "$SOURCE_DIR/ops/stub/index.html" /srv/nyx-stub/index.html
+        else
+            warn "missing ops/stub/index.html — the root will return 404"
+        fi
         # H9: the password is known before Caddy is reloaded, never CHANGEME.
         cat >> "$CADDYFILE" <<EOF
 
@@ -312,14 +320,23 @@ $DOMAIN:443 {
         root * $INSTALL_DIR/panel
         file_server
     }
-    handle {
+    handle /sub* {
         reverse_proxy 127.0.0.1:5000
+    }
+    # Basic auth goes in front of the panel only: /self/* is proxied and the
+    # panel's own session check is not a substitute for edge auth.
+    handle /self* {
+        basicauth {
+            admin $HASH
+        }
+        reverse_proxy 127.0.0.1:5000
+    }
+    handle {
+        root * /srv/nyx-stub
+        file_server
     }
 }
 EOF
-        # Basic auth goes in front of the panel, because /self/* is proxied and
-        # the panel's own session check is not a substitute for edge auth.
-        sed -i "/^$DOMAIN:443 {/a\\    basicauth {\\n        admin $HASH\\n    }" "$CADDYFILE"
         caddy validate --config "$CADDYFILE" \
             || die "generated Caddyfile is invalid — not reloading"
         systemctl reload caddy
