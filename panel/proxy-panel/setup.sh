@@ -18,8 +18,8 @@ CONF_DIR=/etc/nyxpanel
 LOG_DIR=/var/log/nyxpanel
 RUN_USER=nyxpanel
 # This script lives at <root>/panel/proxy-panel/setup.sh, so the repository
-# root is three levels up.
-SOURCE_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
+# root is two levels up (proxy-panel -> panel -> root).
+SOURCE_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 
 RED=$'\033[1;31m'; GREEN=$'\033[1;32m'; YELLOW=$'\033[1;33m'; NC=$'\033[0m'
 
@@ -89,7 +89,8 @@ say "layout"
 install -d -m 755 "$INSTALL_DIR"
 install -d -m 755 "$INSTALL_DIR/panel" "$INSTALL_DIR/panel/templates" \
                   "$INSTALL_DIR/panel/static" "$INSTALL_DIR/panel/tests" \
-                  "$INSTALL_DIR/bin" "$INSTALL_DIR/bin/lib" "$INSTALL_DIR/docs"
+                  "$INSTALL_DIR/bin" "$INSTALL_DIR/bin/lib" "$INSTALL_DIR/docs" \
+                  "$INSTALL_DIR/ops"
 install -d -m 750 -o "$RUN_USER" -g "$RUN_USER" "$STATE_DIR"
 install -d -m 750 -o "$RUN_USER" -g "$RUN_USER" "$STATE_DIR/users"
 install -d -m 750 -o "$RUN_USER" -g "$RUN_USER" "$STATE_DIR/tproxy"

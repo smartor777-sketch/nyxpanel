@@ -52,18 +52,18 @@ MemoryDenyWriteExecute=true
 # adding its config directory here, or that protocol fails silently.
 ReadWritePaths=/var/lib/nyxpanel
 ReadWritePaths=/var/log/nyxpanel
-ReadWritePaths=/etc/amnezia/amneziawg
-ReadWritePaths=/etc/xray
-ReadWritePaths=/etc/hysteria
-ReadWritePaths=/etc/sing-box
-ReadWritePaths=/etc/mita
-ReadWritePaths=/etc/olcrtc
-ReadWritePaths=/usr/local/etc/xray
+ReadWritePaths=-/etc/amnezia/amneziawg
+ReadWritePaths=-/etc/xray
+ReadWritePaths=-/etc/hysteria
+ReadWritePaths=-/etc/sing-box
+ReadWritePaths=-/etc/mita
+ReadWritePaths=-/etc/olcrtc
+ReadWritePaths=-/usr/local/etc/xray
 ReadWritePaths=/var/lib/caddy
 # olcRTC keeps its server config under root's home, so /root has to be reachable.
 # read-only rather than true: true hides it entirely. This single directory is
 # the only writable part of /root.
-ReadWritePaths=/root/.config/olcrtc
+ReadWritePaths=-/root/.config/olcrtc
 
 ProtectSystem=strict
 ProtectHome=read-only

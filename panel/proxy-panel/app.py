@@ -1730,6 +1730,8 @@ def admin_traffic_json(name=None):
 
 
 
+from urllib.parse import urlparse
+
 # ============================================================== qeli bridge ===
 # qeli runs its own admin UI on a loopback port with its own login, so unlike
 # tproxy there is nothing for this panel to render here — the work is forwarding
@@ -1820,6 +1822,11 @@ if QELI_PANEL:
 
     @app.route(QELI_BASE_PATH, defaults={"rest": ""},
                methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+    # Qeli's page sets <base href="/self/qeli/">, so a bare trailing slash is
+    # reachable from links/bookmarks. Qeli itself answers /self/qeli and 404s on
+    # /self/qeli/, so map the slash form onto the same no-slash upstream URL.
+    @app.route(QELI_BASE_PATH + "/", defaults={"rest": ""},
+               methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
     @app.route(QELI_BASE_PATH + "/<path:rest>",
                methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
     def qeli_panel(rest=""):
@@ -1827,6 +1834,12 @@ if QELI_PANEL:
             return redirect(url_for("self_login"))
         if not is_admin():
             return jsonify({"error": "forbidden"}), 403
+        # Страницу логина qeli через мост не показываем: мост сам логинится
+        # (NYX_QELI_WEB_PASSWORD), а ссылка на логин означает, что сессия моста
+        # отозвана кнопкой «Выйти» в qeli или рестартом qeli. Возвращаем
+        # администратора в NYX-панель — это и есть выход из qeli.
+        if rest == "login":
+            return redirect(url_for("self_dashboard"))
         # qeli only answers under its own base_path, and without the trailing
         # slash: /self/qeli redirects to the login, /self/qeli/ is a 404.
         url = (f"{QELI_PANEL}{QELI_BASE_PATH}/{rest}" if rest
@@ -1860,6 +1873,30 @@ if QELI_PANEL:
                 "<h3 style='font-family:sans-serif'>qeli is not reachable</h3>"
                 f"<pre style='white-space:pre-wrap'>{e}</pre>", 502)
 
+        # Редирект qeli на собственный login — тот же сигнал, что и 401/403:
+        # сессия моста отозвана, нужен авто-вход и повтор.
+        _loc = up.headers.get("Location", "")
+        if (up.status_code in (301, 302, 303, 307, 308)
+                and urlparse(_loc).path.rstrip("/") == QELI_BASE_PATH + "/login"):
+            fresh = _qeli_login(force=True)
+            if fresh and fresh != cookie:
+                headers["Cookie"] = fresh
+                up.close()
+                try:
+                    up = requests.request(
+                        request.method, url,
+                        data=request.get_data() or None,
+                        headers=headers,
+                        allow_redirects=False,
+                        verify=False,
+                        timeout=60,
+                        stream=True)
+                except requests.RequestException as e:
+                    app.logger.warning("qeli bridge retry failed for %s: %s", url, e)
+                    return render_template_string(
+                        "<h3 style='font-family:sans-serif'>qeli is not reachable</h3>"
+                        f"<pre style='white-space:pre-wrap'>{e}</pre>", 502)
+
         # qeli мог отвергнуть нашу сессию (перезапуск, истечение). Перевходим
         # один раз и повторяем, иначе админ увидит страницу логина qeli, хотя
         # в панель уже вошёл.
@@ -1882,6 +1919,60 @@ if QELI_PANEL:
                     return render_template_string(
                         "<h3 style='font-family:sans-serif'>qeli is not reachable</h3>"
                         f"<pre style='white-space:pre-wrap'>{e}</pre>", 502)
+
+        # Location qeli бывает абсолютным с хостом моста
+        # (https://127.0.0.1:8080/...): браузер послал бы на свой localhost.
+        # Переписываем на относительный путь внутри /self/qeli.
+        if up.status_code in (301, 302, 303, 307, 308):
+            loc_raw = up.headers.get("Location", "")
+            if loc_raw:
+                _p = urlparse(loc_raw)
+                if _p.scheme and _p.netloc and _p.path.startswith(QELI_BASE_PATH):
+                    up.headers["Location"] = _p.path + (("?" + _p.query) if _p.query else "")
+
+        # «Выйти» из qeli -> назад в NYX-панель. Кнопка Log out делает
+        # fetch POST api/logout, а затем уводит браузер на свою форму логина.
+        # Дожидаемся logout (сессия qeli действительно отзывается) и уводим
+        # администратора в /self/; промис не резолвим, чтобы qeli не успела
+        # поставить свой location. Сессия моста переустановится при следующем
+        # открытии qeli.
+        if (request.method == "GET" and rest == ""
+                and "text/html" in (up.headers.get("Content-Type") or "")):
+            _html = up.content
+            if _html and b"</body>" in _html:
+                _hook = b"""<script>
+(function () {
+  var orig = window.fetch;
+  window.fetch = function (input, init) {
+    var url = (typeof input === "string") ? input : ((input && input.url) || "");
+    var method = ((init && init.method) || "GET").toUpperCase();
+    var path = url.split("?")[0];
+    while (path.length > 1 && path.charAt(path.length - 1) === "/") {
+      path = path.slice(0, -1);
+    }
+    var p = orig.apply(this, arguments);
+    if (method === "POST" && path.endsWith("/api/logout")) {
+      var go = function () {
+        window.location.href = "/self/";
+        return new Promise(function () {});
+      };
+      return p.then(go, go);
+    }
+    return p;
+  };
+})();
+</script></body>"""
+                _html = _html.replace(b"</body>", _hook, 1)
+                resp = app.response_class(_html, status=up.status_code,
+                                          headers=Headers())
+                for k, v in up.headers.items():
+                    low = k.lower()
+                    if (low in _QELI_SKIP_RESPONSE
+                            or low in ("set-cookie", "content-length")):
+                        continue
+                    resp.headers[k] = v
+                up.close()
+                return resp
 
         resp = app.response_class(up.raw.stream(decode_content=False),
                                    status=up.status_code, headers=Headers())

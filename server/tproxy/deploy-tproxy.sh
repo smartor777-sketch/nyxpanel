@@ -24,7 +24,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 info "=== Шаг 1: Установка зависимостей ==="
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq ca-certificates curl nftables build-essential libssl-dev zlib1g-dev iproute2 > /dev/null 2>&1
+apt-get install -y -qq ca-certificates curl git nftables build-essential libssl-dev zlib1g-dev iproute2 > /dev/null 2>&1
 
 # --- 2. Go (проверка/установка) ---
 info "=== Шаг 2: Проверка Go ==="
@@ -73,8 +73,14 @@ else
     rm -rf tproxy-server-build
     git clone --depth 1 https://github.com/telegramdesktop/tproxy-server.git tproxy-server-build
     cd tproxy-server-build
-    "$GO_BINARY" test ./...
-    "$GO_BINARY" build -trimpath -ldflags='-s -w' -o /usr/local/bin/tproxy-server ./cmd/tproxy-server
+    # `go test ./...` компилирует весь stdlib и на 2 vCPU / 3.8 ГБ загружает
+    # машину так, что sshd перестаёт успевать отдавать баннер. Тесты — по
+    # желанию: TPROXY_RUN_TESTS=1. Для dev-стенда достаточно сборки.
+    if [ "${TPROXY_RUN_TESTS:-0}" = "1" ]; then
+        GOMAXPROCS=2 "$GO_BINARY" test ./...
+    fi
+    GOMAXPROCS=2 "$GO_BINARY" build -p 2 -trimpath -ldflags='-s -w' \
+        -o /usr/local/bin/tproxy-server ./cmd/tproxy-server
     chown root:root /usr/local/bin/tproxy-server
     chmod 0755 /usr/local/bin/tproxy-server
     rm -rf /tmp/tproxy-server-build
@@ -256,11 +262,12 @@ systemctl enable --now refresh-mtproxy-config.timer
 # --- 11. Обновление Caddyfile ---
 info "=== Шаг 11: Обновление Caddyfile ==="
 CADDYFILE="/etc/caddy/Caddyfile"
-if ! grep -q "bot.example.com" "$CADDYFILE" 2>/dev/null; then
+if ! grep -qF "$TPROXY_HOSTNAME {" "$CADDYFILE" 2>/dev/null; then
     cp "$CADDYFILE" "${CADDYFILE}.before-tproxy.$(date +%Y%m%d%H%M%S)"
-    cat >> "$CADDYFILE" << 'CADDYEOF'
+    CADDY_BLOCK=$(mktemp)
+    cat > "$CADDY_BLOCK" << 'CADDYEOF'
 
-bot.example.com {
+__TPROXY_HOST__ {
     encode zstd gzip
     header {
         -Via
@@ -280,9 +287,12 @@ bot.example.com {
     }
 }
 CADDYEOF
-    info "Caddyfile обновлён (добавлен блок bot.example.com)"
+    sed -i "s/__TPROXY_HOST__/${TPROXY_HOSTNAME}/" "$CADDY_BLOCK"
+    cat "$CADDY_BLOCK" >> "$CADDYFILE"
+    rm -f "$CADDY_BLOCK"
+    info "Caddyfile обновлён (добавлен блок $TPROXY_HOSTNAME)"
 else
-    info "Caddyfile уже содержит блок bot.example.com"
+    info "Caddyfile уже содержит блок $TPROXY_HOSTNAME"
 fi
 
 # Перезапуск Caddy
