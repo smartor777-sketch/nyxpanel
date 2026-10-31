@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nyx-panel-v1';
+const CACHE_NAME = 'nyx-panel-v2';
 const STATIC_ASSETS = [
   '/self/',
   '/self/login',
