@@ -101,3 +101,86 @@ iptables -I DOCKER-USER 3 -i <PUBLIC_IFACE> -s 195.88.54.10/32 -p tcp \
 - **`DEFAULT_FORWARD_POLICY` в UFW.** Ужесточение до `DROP` может задеть VPN-маршрутизацию, поэтому без отдельного окна и тестов не трогается. Docker-трафик уже закрыт предохранителем.
 - **Нативный nftables backend Docker 29+.** Помечен как experimental; legacy-iptables + `DOCKER-USER` работает и проверен.
 - **Внешний фаервол хостера.** Если панель провайдера даёт Cloud Firewall / Security Groups, его стоит включить как первый рубеж — пакеты будут отсекаться ещё до сетевого стека виртуалки.
+
+## 6. FreeBSD: pf, ipfw, ipfilter
+
+> Раздел справочный: прод NYX Panel работает на Debian. Материал — на случай FreeBSD-хостов, jails и смешанной инфраструктуры.
+
+### 6.1 Почему сценарий «Docker + UFW» не воспроизводится
+
+- **Docker Engine нативно на FreeBSD не работает.** `dockerd`, `containerd` и `runc` завязаны на Linux namespaces, cgroups и netfilter. «Docker на FreeBSD» — это либо Linux VM (bhyve), либо Linux-эмуляция, либо podman/ocijail поверх jails.
+- **Нет демона, который вставляет свои цепочки выше фаервола.** В Linux `dockerd` сам добавляет `DOCKER-USER`/`DOCKER-FORWARD` в `FORWARD` и DNAT в `nat/PREROUTING` — отсюда обход UFW. На FreeBSD нет ни iptables, ни UFW, ни такого демона.
+- **`pf`, `ipfw`, `ipfilter` — единый упорядоченный набор правил в ядре.** Нет «обёртки», которая владеет только частью пути пакета, пока второй демон владеет другой.
+
+### 6.2 Где аналоги всё же есть
+
+**Podman/ocijail + CNI — ближайший аналог.** На FreeBSD 14.3/15 podman (experimental) для `-p 8080:80` использует pf и CNI-плагин `portmap`, который создаёт в pf anchor `cni-rdr/*` правила вида:
+
+```text
+rdr pass inet proto tcp from any to <host> port 8080 -> 10.88.0.11 port 80
+```
+
+`rdr pass` — это redirect **и** pass одновременно. Если `rdr-anchor "cni-rdr/*"` стоит в `/etc/pf.conf` выше `block`, опубликованный порт может пройти мимо основного ruleset. Официальный sample `pf.conf` эти anchors содержит, но в своём конфиге их легко не заметить.
+
+```bash
+pfctl -a 'cni-rdr/*' -sn
+```
+
+**vnet-jails.** У vnet-jail свой сетевой стек и свой экземпляр pf; правила хоста внутри не действуют. Сервис в vnet-jail может быть открыт, хотя на хосте «всё закрыто».
+
+**bhyve / VM за bridge(4).** Хостовый фаервол покрывает не всё. Проверять:
+
+```bash
+sysctl net.link.bridge.pfil_bridge net.link.bridge.pfil_member
+```
+
+По умолчанию мост как отдельный интерфейс не фильтруется (`pfil_bridge=0`), фильтрация идёт по member-интерфейсам (`pfil_member=1`).
+
+**Классические ошибки.** `set skip on <iface>` в pf, `rdr pass` без отдельного фильтра, широкий `pass`, первый match в ipfw, `natd`/divert — тот же эффект «дырка есть, а конфиг выглядит красиво».
+
+### 6.3 Три фаерволла
+
+| Фаервол | Модель | Где ловушка |
+| --- | --- | --- |
+| **pf** | трансляция (`nat`/`rdr`) до фильтрации; фильтр видит уже транслированные адреса | `rdr pass` в anchor выше `block`; `set skip on`; `block` после anchor |
+| **ipfw** | нумерованные правила, first match | порядок до/после `nat`; ранний `allow all` перед `65535 deny`; `natd`/divert и `net.inet.ip.fw.one_pass` |
+| **ipfilter** | отдельные списки NAT и filter, NAT обрабатывается раньше | широкий `pass`; порядок `map`/`rdr`/`bimap` |
+
+Нюанс pf: фильтр видит **translated** адрес, поэтому `pass in on egress to port 80` может сработать не так, как ожидается, если `rdr` уже переписал адрес и порт.
+
+### 6.4 Что не зависит от ОС
+
+- **Сканеры.** Диапазоны облаков чешут независимо от ОС; открытый Redis/Postgres на FreeBSD найдут так же быстро.
+- **Постэксплуатация.** Слабые пароли, `COPY ... FROM PROGRAM`, Redis `CONFIG SET`/`REPLICAOF`, запись в cron. В FreeBSD другие пути (`/var/cron/tabs`), принцип тот же.
+- **Принцип.** Не публиковать БД/кэш наружу: bind на loopback, SSH-туннель, отдельная внутренняя сеть.
+
+### 6.5 Чек-лист аудита FreeBSD
+
+```bash
+# слушающие сокеты (аналог ss)
+sockstat -4 -6 -l
+
+# pf: фильтр, NAT и ВСЕ anchors
+pfctl -sr
+pfctl -sn
+pfctl -a '*' -sr          # показывает то, чего не видно в pfctl -sr
+
+# ipfw
+ipfw list
+ipfw nat show config
+
+# ipfilter
+ipfstat -io
+ipfstat -sn
+
+# jails и bridge
+jls
+sysctl net.link.bridge.pfil_bridge net.link.bridge.pfil_member
+
+# снаружи
+nmap -Pn -T4 --open -p 1-65535 <IP>
+```
+
+### 6.6 Итог
+
+FreeBSD не «иммунна» — она устроена иначе. Точной иллюзии «UFW говорит deny, а Docker открыл» там нет, зато есть podman/CNI с `rdr pass` в pf-anchor, vnet-jails и bridge-VM, где хостовый фаервол может не покрывать трафик, и классические ошибки порядка/ширины правил в pf/ipfw/ipfilter.
