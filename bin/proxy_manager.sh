@@ -1605,12 +1605,28 @@ set_reality_profile() {
     local xray_bin
     xray_bin=$(command -v xray 2>/dev/null || true)
     if [ -n "$xray_bin" ]; then
-        if ! "$xray_bin" run -test -config "$XRAY_CONFIG" >/tmp/xray_reality_test.log 2>&1; then
-            echo -e "${RED}Проверка xray не прошла, откатываю конфиг${NC}"
-            sed -n '1,5p' /tmp/xray_reality_test.log
+        # The panel runs under systemd ProtectSystem=strict, so /var/log/xray is
+        # read-only for every child process, including sudo. `xray run -test`
+        # still initialises the access logger and fails with
+        #   open /var/log/xray/access.log: read-only file system
+        # even when the config itself is valid. Validate a copy whose log paths
+        # point at /dev/null, and never touch the live log configuration.
+        local test_cfg="/tmp/xray_reality_test_config.$$.json"
+        if ! jq '((.log // {}) | .access = "/dev/null" | .error = "/dev/null") as $l | .log = $l' \
+            "$XRAY_CONFIG" > "$test_cfg"; then
+            rm -f "$test_cfg"
+            echo -e "${RED}Не удалось подготовить конфиг к проверке, откатываю${NC}"
             cat "$backup" > "$XRAY_CONFIG"
             return 1
         fi
+        if ! "$xray_bin" run -test -config "$test_cfg" >/tmp/xray_reality_test.log 2>&1; then
+            echo -e "${RED}Проверка xray не прошла, откатываю конфиг${NC}"
+            sed -n '1,5p' /tmp/xray_reality_test.log
+            rm -f "$test_cfg"
+            cat "$backup" > "$XRAY_CONFIG"
+            return 1
+        fi
+        rm -f "$test_cfg"
     fi
 
     sync_vless_uris
