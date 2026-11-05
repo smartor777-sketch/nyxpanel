@@ -522,8 +522,9 @@ def call_script(name, username):
         return False, str(e)
 
 def get_reality_state():
-    """Текущее состояние REALITY mode (normal|whitelist) — источник истины = xray config."""
-    state = {"mode": "normal", "target": "", "sni": "", "affected": "vless"}
+    """Текущее состояние REALITY: target, SNI и serverNames из xray config."""
+    state = {"mode": "unknown", "target": "", "sni": "", "server_names": "",
+             "affected": "vless", "error": ""}
     try:
         proc = subprocess.run(
             _sudo_cmd("reality_status"),
@@ -533,21 +534,21 @@ def get_reality_state():
             if "=" in line:
                 k, _, v = line.partition("=")
                 state[k.strip()] = v.strip()
-    except Exception:
-        pass
+    except Exception as e:
+        state["error"] = str(e)
     return state
 
-@app.route("/self/reality/toggle", methods=["POST"])
-def reality_toggle():
-    if not is_admin():
-        return redirect("/self/login")
-    state = get_reality_state()
-    new_mode = "whitelist" if state.get("mode") != "whitelist" else "normal"
+REALITY_PRESETS = {
+    "cloudflare": ("1.1.1.1:443", "1.1.1.1", ""),
+    "vk": ("sun6-22.userapi.com:443", "sun6-22.userapi.com", "stats.vk-portal.net"),
+}
+
+def _run_reality(args):
     env = os.environ.copy()
     env["TERM"] = "linux"
     try:
         proc = subprocess.run(
-            _sudo_cmd("set_reality_mode", new_mode),
+            _sudo_cmd(*args),
             capture_output=True, encoding="utf-8", timeout=120, env=env
         )
         out = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', proc.stdout or "").strip()
@@ -560,6 +561,28 @@ def reality_toggle():
         flash("Timeout", "error")
     except Exception as e:
         flash(str(e), "error")
+
+@app.route("/self/reality/toggle", methods=["POST"])
+def reality_toggle():
+    if not is_admin():
+        return redirect("/self/login")
+    state = get_reality_state()
+    new_mode = "whitelist" if state.get("mode") not in ("whitelist", "vk") else "normal"
+    _run_reality(["set_reality_mode", new_mode])
+    return redirect("/self/")
+
+@app.route("/self/reality/profile", methods=["POST"])
+def reality_profile():
+    if not is_admin():
+        return redirect("/self/login")
+    preset = (request.form.get("preset") or "").strip()
+    if preset in REALITY_PRESETS:
+        target, sni, extra = REALITY_PRESETS[preset]
+        _run_reality(["set_reality_profile", target, sni, extra])
+    else:
+        target = (request.form.get("target") or "").strip()
+        sni = (request.form.get("sni") or "").strip()
+        _run_reality(["set_reality_profile", target, sni])
     return redirect("/self/")
 
 @app.route("/")

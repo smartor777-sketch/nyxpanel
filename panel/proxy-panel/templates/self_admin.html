@@ -99,19 +99,35 @@
   </div>
 
   <div class="card">
-    <h2>REALITY / Whitelist Mode</h2>
+    <h2 data-i18n="realityTitle">REALITY — профиль маскировки</h2>
     <div style="font-size:0.8rem;color:var(--muted);margin-bottom:0.4rem;line-height:1.5" data-i18n="realityAffected">
-      Affects: VLESS+XHTTP+REALITY (xray) only. NOT affected: Hysteria 2, AmneziaWG, NaiveProxy, Mieru, olcRTC, Trojan.
+      Затрагивает: VLESS+XHTTP+REALITY (xray). НЕ затрагивает: Hysteria 2, AmneziaWG, NaiveProxy, Mieru, olcRTC, Trojan.
     </div>
-    <div style="font-size:0.8rem;color:var(--muted);margin-bottom:0.6rem">
-      <span data-i18n="realityTargetLabel">target</span>: {{ reality.target or '?' }} ·
-      <span data-i18n="realitySniLabel">sni</span>: {{ reality.sni or '?' }}
+    {% if reality.error %}
+    <div class="flash error">{{ reality.error }}</div>
+    {% endif %}
+    <div style="font-size:0.8rem;color:var(--muted);margin-bottom:0.6rem;line-height:1.6">
+      <span data-i18n="realityModeLabel">mode</span>: <code>{{ reality.mode or '?' }}</code> ·
+      <span data-i18n="realityTargetLabel">target</span>: <code>{{ reality.target or '?' }}</code><br>
+      <span data-i18n="realitySniLabel">sni</span>: <code>{{ reality.sni or '?' }}</code> ·
+      <span data-i18n="realityNamesLabel">serverNames</span>: <code>{{ reality.server_names or '?' }}</code>
     </div>
-    <form method="POST" action="/self/reality/toggle" onsubmit="return confirm('REALITY mode: ' + '{{ 'whitelist' if reality.mode != 'whitelist' else 'normal' }}' + '?')">
-      <button type="submit" class="small {{ 'toggle-on' if reality.mode == 'whitelist' else 'toggle-off' }}">
-        <span data-i18n="{{ 'realityOn' if reality.mode == 'whitelist' else 'realityOff' }}"></span>
-      </button>
+    {% if not reality.error %}
+    <form method="POST" action="/self/reality/profile" style="flex-direction:column;align-items:stretch;gap:0.45rem;max-width:520px">
+      <label style="font-size:0.78rem;color:var(--muted)" for="realityTarget" data-i18n="realityTargetLabel2">target (host:port)</label>
+      <input id="realityTarget" name="target" value="{{ reality.target }}" placeholder="1.1.1.1:443" pattern="[A-Za-z0-9._:-]+" required>
+      <label style="font-size:0.78rem;color:var(--muted)" for="realitySni" data-i18n="realitySniLabel2">SNI</label>
+      <input id="realitySni" name="sni" value="{{ reality.sni }}" placeholder="1.1.1.1" pattern="[A-Za-z0-9._-]+">
+      <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.2rem">
+        <button type="submit" name="preset" value="cloudflare" class="small secondary" data-i18n="realityPresetCF">Cloudflare (1.1.1.1)</button>
+        <button type="submit" name="preset" value="vk" class="small secondary" data-i18n="realityPresetVK">VK (userapi)</button>
+        <button type="submit" class="small" data-i18n="realityApply">Применить</button>
+      </div>
+      <div style="font-size:0.72rem;color:var(--muted);line-height:1.5" data-i18n="realityHint">
+        target и SNI должны быть согласованы: target обязан отдавать валидный сертификат на выбранный SNI.
+      </div>
     </form>
+    {% endif %}
   </div>
 
   <div class="card">
@@ -259,8 +275,11 @@ const _t = {
     totalTraffic: 'Всего трафика', support: 'Поддержка', usage: 'Использование',
     currentPeriod: 'Текущий', prevPeriod: 'Прошлый', noTraffic: 'Нет данных о трафике',
     realityAffected: 'Затрагивает: VLESS+XHTTP+REALITY (xray). НЕ затрагивает: Hysteria 2, AmneziaWG, NaiveProxy, Mieru, olcRTC, Trojan.',
-    realityTargetLabel: 'target', realitySniLabel: 'sni',
-    realityOn: 'Режим белого списка: ВКЛ', realityOff: 'Режим белого списка: ВЫКЛ'
+    realityTitle: 'REALITY — профиль маскировки',
+    realityModeLabel: 'mode', realityTargetLabel: 'target', realitySniLabel: 'sni', realityNamesLabel: 'serverNames',
+    realityTargetLabel2: 'target (host:port)', realitySniLabel2: 'SNI',
+    realityPresetCF: 'Cloudflare (1.1.1.1)', realityPresetVK: 'VK (userapi)', realityApply: 'Применить',
+    realityHint: 'target и SNI должны быть согласованы: target обязан отдавать валидный сертификат на выбранный SNI.'
   },
   en: {
     guide: 'Guide', signOut: 'Sign Out', admin: 'Admin',
@@ -283,8 +302,11 @@ const _t = {
     resetCol: 'Reset', resetTraffic: 'Reset traffic', userResetToggle: 'Allow user to reset traffic', resetOn: 'Reset: on', resetOff: 'Reset: off', resetDoneMsg: 'Traffic statistics reset',
     currentPeriod: 'Current', prevPeriod: 'Previous', noTraffic: 'No traffic data',
     realityAffected: 'Affects: VLESS+XHTTP+REALITY (xray) only. NOT affected: Hysteria 2, AmneziaWG, NaiveProxy, Mieru, olcRTC, Trojan.',
-    realityTargetLabel: 'target', realitySniLabel: 'sni',
-    realityOn: 'Whitelist mode: ON', realityOff: 'Whitelist mode: OFF'
+    realityTitle: 'REALITY — masquerade profile',
+    realityModeLabel: 'mode', realityTargetLabel: 'target', realitySniLabel: 'sni', realityNamesLabel: 'serverNames',
+    realityTargetLabel2: 'target (host:port)', realitySniLabel2: 'SNI',
+    realityPresetCF: 'Cloudflare (1.1.1.1)', realityPresetVK: 'VK (userapi)', realityApply: 'Apply',
+    realityHint: 'target and SNI must match: target must present a valid certificate for the chosen SNI.'
   }
 };
 function getLang() { return localStorage.getItem(langKey) || 'ru'; }

@@ -1439,7 +1439,7 @@ add_vless_user() {
     echo -e "${GREEN}• ${username}_vless.png — QR-код${NC}"
 }
 
-# --- REALITY mode: normal (1.1.1.1) <-> whitelist (белый домен) ---
+# --- REALITY: профиль маскировки (target + SNI/serverNames) ---
 # Затрагивает только VLESS+XHTTP+REALITY (xray). Trojan/hy2/awg/naive/mieru/olcrtc — НЕ затрагиваются.
 REALITY_NORMAL_TARGET="1.1.1.1:443"
 REALITY_NORMAL_SNI="1.1.1.1"
@@ -1447,81 +1447,202 @@ REALITY_WL_TARGET="sun6-22.userapi.com:443"
 REALITY_WL_SNI="sun6-22.userapi.com"
 REALITY_WL_SERVER="stats.vk-portal.net"
 
+_reality_server_domain() {
+    load_server_settings
+    local d=""
+    d=$(grep -ohE '[A-Za-z0-9*.-]+\.example\.com' /etc/caddy/Caddyfile 2>/dev/null | head -1)
+    [ -z "$d" ] && d="$SERVER_DOMAIN"
+    echo "$d"
+}
+
+_reality_valid_host() {
+    local h=$1
+    [ -n "$h" ] || return 1
+    [ "${#h}" -le 253 ] || return 1
+    case "$h" in
+        *[!A-Za-z0-9._-]*) return 1 ;;
+    esac
+    return 0
+}
+
+_reality_is_private_literal() {
+    local ip=$1
+    case "$ip" in
+        10.*|127.*|0.*|169.254.*|192.168.*) return 0 ;;
+        172.1[6-9].*|172.2[0-9].*|172.3[01].*) return 0 ;;
+        100.*)
+            local second=${ip#100.}
+            second=${second%%.*}
+            case "$second" in ''|*[!0-9]*) return 1 ;; esac
+            if [ "$second" -ge 64 ] && [ "$second" -le 127 ]; then return 0; fi
+            return 1
+            ;;
+    esac
+    return 1
+}
+
 reality_status() {
+    local target="" names="" sni="" mode="unknown"
     if [ ! -f "$XRAY_CONFIG" ]; then
-        echo "mode=unknown"
+        echo "mode=unavailable"
         echo "target="
         echo "sni="
+        echo "server_names="
         echo "affected=vless"
         echo "error=xray config not found: $XRAY_CONFIG"
         return 1
     fi
-    local target
     target=$(jq -r '.inbounds[] | select(.protocol=="vless") | .streamSettings.realitySettings.target // empty' "$XRAY_CONFIG" 2>/dev/null | head -1)
-    local mode="unknown"
+    names=$(jq -r '(.inbounds[] | select(.protocol=="vless") | .streamSettings.realitySettings.serverNames // []) | join(",")' "$XRAY_CONFIG" 2>/dev/null | head -1)
+    sni="${target%:*}"
+    if [ -z "$sni" ] && [ -n "$names" ]; then
+        sni=$(printf '%s' "$names" | cut -d, -f1)
+    fi
     case "$target" in
-        "$REALITY_NORMAL_TARGET") mode="normal" ;;
-        "$REALITY_WL_TARGET") mode="whitelist" ;;
+        "$REALITY_NORMAL_TARGET") mode="cloudflare" ;;
+        "$REALITY_WL_TARGET") mode="vk" ;;
     esac
     echo "mode=$mode"
     echo "target=$target"
-    echo "sni=$REALITY_NORMAL_SNI"
+    echo "sni=$sni"
+    echo "server_names=$names"
     echo "affected=vless"
 }
 
-set_reality_mode() {
-    local mode=$1
-    if [ -z "$mode" ]; then
-        echo "Usage: set_reality_mode {normal|whitelist}"
+# set_reality_profile <host[:port]> [sni] [extra_server_names_csv]
+set_reality_profile() {
+    local target=$1 sni=$2 extra=$3
+    if [ -z "$target" ]; then
+        echo "Usage: set_reality_profile <host[:port]> [sni] [extra_server_names_csv]"
+        return 1
+    fi
+    case "$target" in
+        *:*) ;;
+        *) target="${target}:443" ;;
+    esac
+    local host="${target%:*}" port="${target##*:}"
+    if ! _reality_valid_host "$host"; then
+        echo -e "${RED}Некорректный target host: $host${NC}"
+        return 1
+    fi
+    case "$port" in
+        ''|*[!0-9]*) echo -e "${RED}Некорректный target port: $port${NC}"; return 1 ;;
+    esac
+    if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+        echo -e "${RED}Некорректный target port: $port${NC}"
+        return 1
+    fi
+    if _reality_is_private_literal "$host"; then
+        echo -e "${RED}target не должен указывать на внутренний/локальный адрес: $host${NC}"
+        return 1
+    fi
+    [ -z "$sni" ] && sni="$host"
+    if ! _reality_valid_host "$sni"; then
+        echo -e "${RED}Некорректный SNI: $sni${NC}"
         return 1
     fi
     if [ ! -f "$XRAY_CONFIG" ]; then
         echo -e "${RED}Xray config not found: $XRAY_CONFIG${NC}"
         return 1
     fi
-    load_server_settings
-    local server_domain
-    server_domain=$(grep -ohE '[A-Za-z0-9*.-]+\.example\.com' /etc/caddy/Caddyfile 2>/dev/null | head -1)
-    [ -z "$server_domain" ] && server_domain="$SERVER_DOMAIN"
+    if ! command -v jq >/dev/null 2>&1; then
+        echo -e "${RED}jq not found${NC}"
+        return 1
+    fi
 
-    local new_target new_sni
+    local server_domain
+    server_domain=$(_reality_server_domain)
+
+    # serverNames: выбранный SNI первым (его берут клиенты), затем target host,
+    # дополнительные имена пресета и домен сервера.
+    local -a raw=("$sni")
+    if [ "$host" != "$sni" ]; then raw+=("$host"); fi
+    if [ -n "$extra" ]; then
+        local IFS=','
+        local item
+        for item in $extra; do
+            if [ -n "$item" ]; then raw+=("$item"); fi
+        done
+        unset IFS
+    fi
+    if [ -n "$server_domain" ]; then raw+=("$server_domain"); fi
+
+    local -a names=()
+    local n u seen
+    for n in "${raw[@]}"; do
+        if [ -z "$n" ]; then continue; fi
+        seen=0
+        for u in "${names[@]}"; do
+            if [ "$u" = "$n" ]; then seen=1; break; fi
+        done
+        if [ "$seen" -eq 0 ]; then names+=("$n"); fi
+    done
+    if [ "${#names[@]}" -eq 0 ]; then
+        echo -e "${RED}Не удалось сформировать serverNames${NC}"
+        return 1
+    fi
+
+    local names_json
+    names_json=$(printf '%s\n' "${names[@]}" | jq -R . | jq -s .)
+
+    local backup="${XRAY_CONFIG}.bak.reality.$(date +%Y%m%d-%H%M%S)"
+    if ! cp -a "$XRAY_CONFIG" "$backup"; then
+        echo -e "${RED}Не удалось сделать бэкап $XRAY_CONFIG${NC}"
+        return 1
+    fi
+
+    if ! jq --arg t "$target" --argjson names "$names_json" \
+        '(.inbounds[] | select(.protocol=="vless") | .streamSettings.realitySettings.target) = $t |
+         (.inbounds[] | select(.protocol=="vless") | .streamSettings.realitySettings.serverNames) = $names' \
+        "$XRAY_CONFIG" > /tmp/xray_reality.tmp; then
+        echo -e "${RED}jq не смог обновить $XRAY_CONFIG${NC}"
+        rm -f /tmp/xray_reality.tmp
+        return 1
+    fi
+    cat /tmp/xray_reality.tmp > "$XRAY_CONFIG"
+    rm -f /tmp/xray_reality.tmp
+
+    local xray_bin
+    xray_bin=$(command -v xray 2>/dev/null || true)
+    if [ -n "$xray_bin" ]; then
+        if ! "$xray_bin" run -test -config "$XRAY_CONFIG" >/tmp/xray_reality_test.log 2>&1; then
+            echo -e "${RED}Проверка xray не прошла, откатываю конфиг${NC}"
+            sed -n '1,5p' /tmp/xray_reality_test.log
+            cat "$backup" > "$XRAY_CONFIG"
+            return 1
+        fi
+    fi
+
+    sync_vless_uris
+    if ! systemctl restart "$XRAY_SERVICE"; then
+        echo -e "${RED}Не удалось перезапустить $XRAY_SERVICE — конфиг обновлён, но сервис его не принял. Бэкап: $backup${NC}"
+        return 1
+    fi
+    echo -e "${GREEN}REALITY профиль обновлён:${NC} target=$target sni=$sni serverNames=$(printf '%s' "$names_json")"
+}
+
+set_reality_mode() {
+    local mode=$1
     case "$mode" in
-        normal)
-            new_target="$REALITY_NORMAL_TARGET"
-            new_sni="$REALITY_NORMAL_SNI"
-            jq --arg t "$new_target" --arg sn1 "" --arg sn2 "$REALITY_NORMAL_SNI" --arg sn3 "$server_domain" \
-              '(.inbounds[] | select(.protocol=="vless") | .streamSettings.realitySettings.target) = $t |
-               (.inbounds[] | select(.protocol=="vless") | .streamSettings.realitySettings.serverNames) = [$sn1, $sn2, $sn3]' \
-              "$XRAY_CONFIG" > /tmp/xray_reality.tmp && mv /tmp/xray_reality.tmp "$XRAY_CONFIG"
-            ;;
-        whitelist)
-            new_target="$REALITY_WL_TARGET"
-            new_sni="$REALITY_WL_SNI"
-            jq --arg t "$new_target" --arg sn1 "$REALITY_WL_SNI" --arg sn2 "$REALITY_WL_SERVER" --arg sn3 "$server_domain" \
-              '(.inbounds[] | select(.protocol=="vless") | .streamSettings.realitySettings.target) = $t |
-               (.inbounds[] | select(.protocol=="vless") | .streamSettings.realitySettings.serverNames) = [$sn1, $sn2, $sn3]' \
-              "$XRAY_CONFIG" > /tmp/xray_reality.tmp && mv /tmp/xray_reality.tmp "$XRAY_CONFIG"
-            ;;
+        normal|cloudflare)
+            set_reality_profile "$REALITY_NORMAL_TARGET" "$REALITY_NORMAL_SNI" "" ;;
+        whitelist|vk)
+            set_reality_profile "$REALITY_WL_TARGET" "$REALITY_WL_SNI" "$REALITY_WL_SERVER" ;;
         *)
             echo -e "${RED}Unknown mode: $mode (normal|whitelist)${NC}"
-            return 1
-            ;;
+            return 1 ;;
     esac
-
-    # Пересобираем все vless:// URI (актуальные pbk/sid/sni) + QR
-    sync_vless_uris
-
-    systemctl restart "$XRAY_SERVICE"
-    echo -e "${GREEN}REALITY mode -> '$mode' (target=$new_target, sni=$new_sni). vless URIs updated via sync_vless_uris${NC}"
 }
 
 # Пересобирает все vless:// URI под актуальный серверный конфиг:
-# pbk (из текущего privateKey), sid (shortIds[0]), sni (из target), путь, порт, host.
+# pbk (из текущего privateKey), sid (shortIds[0]), sni (первый serverNames), путь, порт, host.
 sync_vless_uris() {
     load_server_settings
-    local target sni updated=0
+    local target sni names updated=0
     target=$(jq -r '.inbounds[] | select(.protocol=="vless") | .streamSettings.realitySettings.target // empty' "$XRAY_CONFIG" 2>/dev/null | head -1)
-    sni="${target%:*}"
+    names=$(jq -r '(.inbounds[] | select(.protocol=="vless") | .streamSettings.realitySettings.serverNames // []) | join(",")' "$XRAY_CONFIG" 2>/dev/null | head -1)
+    sni=$(printf '%s' "$names" | cut -d, -f1)
+    [ -z "$sni" ] && sni="${target%:*}"
     [ -z "$sni" ] && sni="$VLESS_SNI"
     local f user uuid link
     for f in "$BASE_DIR"/*/*_vless.uri; do
@@ -1823,6 +1944,8 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
             remove_protocol)
                 remove_protocol "$3" "$2"
                 _fix_state_owner ;;
+            set_reality_profile)
+                set_reality_profile "$2" "$3" "$4" ;;
             set_reality_mode)
                 set_reality_mode "$2" ;;
             sync_vless_uris)
