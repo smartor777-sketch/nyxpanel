@@ -542,6 +542,31 @@ def get_reality_state():
 # proxy_manager.sh (set_reality_mode) и остаются единственным источником истины.
 REALITY_PRESETS = ("cloudflare", "vk", "panel", "nyx")
 
+def get_reality_presets():
+    """Каталог пресетов из proxy_manager.sh: mode|target|sni|serverNames.
+
+    Кнопки в панели только подставляют эти значения в поля формы; применяет
+    их отдельная кнопка через set_reality_mode.
+    """
+    presets = []
+    try:
+        proc = subprocess.run(
+            _sudo_cmd("reality_presets"),
+            capture_output=True, text=True, timeout=30
+        )
+        for line in (proc.stdout or "").splitlines():
+            parts = line.strip().split("|")
+            if len(parts) == 4 and parts[0]:
+                presets.append({
+                    "mode": parts[0],
+                    "target": parts[1],
+                    "sni": parts[2],
+                    "server_names": parts[3],
+                })
+    except Exception:
+        pass
+    return presets
+
 def _run_reality(args):
     env = os.environ.copy()
     env["TERM"] = "linux"
@@ -880,9 +905,12 @@ def self_dashboard():
         db_users = get_db_users()
         db.close()
         reality = get_reality_state()
+        reality_presets = get_reality_presets()
         return render_template("self_admin.html", users=db_users, protocols=PROTOCOLS,
                                admin_name=name, version=PANEL_VERSION,
-                               reality=reality, reality_affected=REALITY_AFFECTED)
+                               reality=reality, reality_affected=REALITY_AFFECTED,
+                               reality_presets=reality_presets,
+                               reality_preset_modes=REALITY_PRESETS)
     row = db.execute("SELECT username, expires_at, active, created_at, traffic_limit_bytes, can_reset_traffic FROM users WHERE username = ?", (name,)).fetchone()
     if not row or not row["active"]:
         session.pop("self_user", None)

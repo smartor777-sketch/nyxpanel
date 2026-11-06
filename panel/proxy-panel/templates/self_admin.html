@@ -113,22 +113,44 @@
       <span data-i18n="realityNamesLabel">serverNames</span>: <code>{{ reality.server_names or '?' }}</code>
     </div>
     {% if not reality.error %}
+    {% set preset_i18n = {'cloudflare': 'realityPresetCF', 'vk': 'realityPresetVK', 'panel': 'realityPresetPanel', 'nyx': 'realityPresetNYX'} %}
+    {% set current_preset = reality.mode if reality.mode in reality_preset_modes else '' %}
     <form method="POST" action="/self/reality/profile" style="flex-direction:column;align-items:stretch;gap:0.45rem;max-width:520px">
+      <input type="hidden" name="preset" id="realityPreset" value="{{ current_preset }}">
       <label style="font-size:0.78rem;color:var(--muted)" for="realityTarget" data-i18n="realityTargetLabel2">target (host:port)</label>
       <input id="realityTarget" name="target" value="{{ reality.target }}" placeholder="1.1.1.1:443" pattern="[A-Za-z0-9._:-]+" required>
       <label style="font-size:0.78rem;color:var(--muted)" for="realitySni" data-i18n="realitySniLabel2">SNI</label>
       <input id="realitySni" name="sni" value="{{ reality.sni }}" placeholder="1.1.1.1" pattern="[A-Za-z0-9._-]+">
       <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.2rem">
-        <button type="submit" name="preset" value="cloudflare" class="small secondary" data-i18n="realityPresetCF">Cloudflare (1.1.1.1)</button>
-        <button type="submit" name="preset" value="vk" class="small secondary" data-i18n="realityPresetVK">VK (userapi)</button>
-        <button type="submit" name="preset" value="panel" class="small secondary" data-i18n="realityPresetPanel">panel.example.com</button>
-        <button type="submit" name="preset" value="nyx" class="small secondary" data-i18n="realityPresetNYX">nyx.example.com</button>
+        {% for preset in reality_presets %}
+        <button type="button" class="small secondary reality-preset"
+                data-preset="{{ preset.mode }}" data-target="{{ preset.target }}" data-sni="{{ preset.sni }}"
+                {% if preset_i18n.get(preset.mode) %}data-i18n="{{ preset_i18n[preset.mode] }}"{% endif %}>{{ preset.target }}</button>
+        {% endfor %}
         <button type="submit" class="small" data-i18n="realityApply">Применить</button>
       </div>
       <div style="font-size:0.72rem;color:var(--muted);line-height:1.5" data-i18n="realityHint">
-        target и SNI должны быть согласованы: target обязан отдавать валидный сертификат на выбранный SNI.
+        Кнопки-пресеты подставляют target и SNI, применение — кнопкой «Применить». target обязан отдавать валидный сертификат на выбранный SNI.
       </div>
     </form>
+    <script>
+    (function () {
+      var preset = document.getElementById('realityPreset');
+      var target = document.getElementById('realityTarget');
+      var sni = document.getElementById('realitySni');
+      if (!preset || !target || !sni) return;
+      document.querySelectorAll('.reality-preset').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          target.value = btn.dataset.target;
+          sni.value = btn.dataset.sni;
+          preset.value = btn.dataset.preset;
+        });
+      });
+      [target, sni].forEach(function (input) {
+        input.addEventListener('input', function () { preset.value = ''; });
+      });
+    })();
+    </script>
     {% endif %}
   </div>
 
@@ -282,7 +304,7 @@ const _t = {
     realityTargetLabel2: 'target (host:port)', realitySniLabel2: 'SNI',
     realityPresetCF: 'Cloudflare (1.1.1.1)', realityPresetVK: 'VK (userapi)', realityApply: 'Применить',
     realityPresetPanel: 'panel.example.com', realityPresetNYX: 'nyx.example.com',
-    realityHint: 'target и SNI должны быть согласованы: target обязан отдавать валидный сертификат на выбранный SNI.'
+    realityHint: 'Кнопки-пресеты подставляют target и SNI, применение — кнопкой «Применить». target обязан отдавать валидный сертификат на выбранный SNI.'
   },
   en: {
     guide: 'Guide', signOut: 'Sign Out', admin: 'Admin',
@@ -310,7 +332,7 @@ const _t = {
     realityTargetLabel2: 'target (host:port)', realitySniLabel2: 'SNI',
     realityPresetCF: 'Cloudflare (1.1.1.1)', realityPresetVK: 'VK (userapi)', realityApply: 'Apply',
     realityPresetPanel: 'panel.example.com', realityPresetNYX: 'nyx.example.com',
-    realityHint: 'target and SNI must match: target must present a valid certificate for the chosen SNI.'
+    realityHint: 'Preset buttons only fill target and SNI; press Apply to switch. target must present a valid certificate for the chosen SNI.'
   }
 };
 function getLang() { return localStorage.getItem(langKey) || 'ru'; }

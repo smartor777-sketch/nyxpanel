@@ -1507,6 +1507,18 @@ reality_status() {
     echo "affected=vless"
 }
 
+# Каталог пресетов для панели: mode|target|sni|serverNames
+# Панель только подставляет эти значения в поля формы, а применяет их
+# set_reality_mode, поэтому target/SNI/serverNames остаются здесь
+# единственным источником истины.
+reality_presets() {
+    printf '%s|%s|%s|%s\n' \
+        "cloudflare" "$REALITY_NORMAL_TARGET" "$REALITY_NORMAL_SNI" "$REALITY_NORMAL_SNI" \
+        "vk" "$REALITY_WL_TARGET" "$REALITY_WL_SNI" "$REALITY_WL_SNI,$REALITY_WL_SERVER" \
+        "panel" "$REALITY_PANEL_TARGET" "$REALITY_PANEL_SNI" "$REALITY_PANEL_SNI" \
+        "nyx" "$REALITY_NYX_TARGET" "$REALITY_NYX_SNI" "$REALITY_NYX_SNI"
+}
+
 # set_reality_profile <host[:port]> [sni] [extra_server_names_csv]
 set_reality_profile() {
     local target=$1 sni=$2 extra=$3
@@ -1968,6 +1980,8 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
                 sync_vless_uris ;;
             reality_status)
                 reality_status ;;
+            reality_presets)
+                reality_presets ;;
             update_xray_config|reconcile_xray)
                 # Re-push users.json into the running xray and the config file.
                 update_xray_config ;;
