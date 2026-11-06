@@ -538,10 +538,9 @@ def get_reality_state():
         state["error"] = str(e)
     return state
 
-REALITY_PRESETS = {
-    "cloudflare": ("1.1.1.1:443", "1.1.1.1", ""),
-    "vk": ("sun6-22.userapi.com:443", "sun6-22.userapi.com", "stats.vk-portal.net"),
-}
+# Пресеты перечислены по имени: target/SNI/serverNames живут в
+# proxy_manager.sh (set_reality_mode) и остаются единственным источником истины.
+REALITY_PRESETS = ("cloudflare", "vk", "panel", "nyx")
 
 def _run_reality(args):
     env = os.environ.copy()
@@ -577,8 +576,7 @@ def reality_profile():
         return redirect("/self/login")
     preset = (request.form.get("preset") or "").strip()
     if preset in REALITY_PRESETS:
-        target, sni, extra = REALITY_PRESETS[preset]
-        _run_reality(["set_reality_profile", target, sni, extra])
+        _run_reality(["set_reality_mode", preset])
     else:
         target = (request.form.get("target") or "").strip()
         sni = (request.form.get("sni") or "").strip()

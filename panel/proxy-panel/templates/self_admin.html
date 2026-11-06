@@ -121,6 +121,8 @@
       <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.2rem">
         <button type="submit" name="preset" value="cloudflare" class="small secondary" data-i18n="realityPresetCF">Cloudflare (1.1.1.1)</button>
         <button type="submit" name="preset" value="vk" class="small secondary" data-i18n="realityPresetVK">VK (userapi)</button>
+        <button type="submit" name="preset" value="panel" class="small secondary" data-i18n="realityPresetPanel">panel.example.com</button>
+        <button type="submit" name="preset" value="nyx" class="small secondary" data-i18n="realityPresetNYX">nyx.example.com</button>
         <button type="submit" class="small" data-i18n="realityApply">Применить</button>
       </div>
       <div style="font-size:0.72rem;color:var(--muted);line-height:1.5" data-i18n="realityHint">
@@ -279,6 +281,7 @@ const _t = {
     realityModeLabel: 'mode', realityTargetLabel: 'target', realitySniLabel: 'sni', realityNamesLabel: 'serverNames',
     realityTargetLabel2: 'target (host:port)', realitySniLabel2: 'SNI',
     realityPresetCF: 'Cloudflare (1.1.1.1)', realityPresetVK: 'VK (userapi)', realityApply: 'Применить',
+    realityPresetPanel: 'panel.example.com', realityPresetNYX: 'nyx.example.com',
     realityHint: 'target и SNI должны быть согласованы: target обязан отдавать валидный сертификат на выбранный SNI.'
   },
   en: {
@@ -306,6 +309,7 @@ const _t = {
     realityModeLabel: 'mode', realityTargetLabel: 'target', realitySniLabel: 'sni', realityNamesLabel: 'serverNames',
     realityTargetLabel2: 'target (host:port)', realitySniLabel2: 'SNI',
     realityPresetCF: 'Cloudflare (1.1.1.1)', realityPresetVK: 'VK (userapi)', realityApply: 'Apply',
+    realityPresetPanel: 'panel.example.com', realityPresetNYX: 'nyx.example.com',
     realityHint: 'target and SNI must match: target must present a valid certificate for the chosen SNI.'
   }
 };

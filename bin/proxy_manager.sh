@@ -1446,14 +1446,10 @@ REALITY_NORMAL_SNI="1.1.1.1"
 REALITY_WL_TARGET="sun6-22.userapi.com:443"
 REALITY_WL_SNI="sun6-22.userapi.com"
 REALITY_WL_SERVER="stats.vk-portal.net"
-
-_reality_server_domain() {
-    load_server_settings
-    local d=""
-    d=$(grep -ohE '[A-Za-z0-9*.-]+\.example\.com' /etc/caddy/Caddyfile 2>/dev/null | head -1)
-    [ -z "$d" ] && d="$SERVER_DOMAIN"
-    echo "$d"
-}
+REALITY_PANEL_TARGET="panel.example.com:443"
+REALITY_PANEL_SNI="panel.example.com"
+REALITY_NYX_TARGET="nyx.example.com:443"
+REALITY_NYX_SNI="nyx.example.com"
 
 _reality_valid_host() {
     local h=$1
@@ -1501,6 +1497,8 @@ reality_status() {
     case "$target" in
         "$REALITY_NORMAL_TARGET") mode="cloudflare" ;;
         "$REALITY_WL_TARGET") mode="vk" ;;
+        "$REALITY_PANEL_TARGET") mode="panel" ;;
+        "$REALITY_NYX_TARGET") mode="nyx" ;;
     esac
     echo "mode=$mode"
     echo "target=$target"
@@ -1550,11 +1548,10 @@ set_reality_profile() {
         return 1
     fi
 
-    local server_domain
-    server_domain=$(_reality_server_domain)
-
-    # serverNames: выбранный SNI первым (его берут клиенты), затем target host,
-    # дополнительные имена пресета и домен сервера.
+    # serverNames: выбранный SNI первым (его берут клиенты), затем target host
+    # (если отличается) и дополнительные имена конкретного профиля.
+    # Домен панели больше не добавляется автоматически: он не входит в
+    # сертификат чужого target и ломал бы маскировку при проверке по SNI.
     local -a raw=("$sni")
     if [ "$host" != "$sni" ]; then raw+=("$host"); fi
     if [ -n "$extra" ]; then
@@ -1565,7 +1562,6 @@ set_reality_profile() {
         done
         unset IFS
     fi
-    if [ -n "$server_domain" ]; then raw+=("$server_domain"); fi
 
     local -a names=()
     local n u seen
@@ -1644,8 +1640,12 @@ set_reality_mode() {
             set_reality_profile "$REALITY_NORMAL_TARGET" "$REALITY_NORMAL_SNI" "" ;;
         whitelist|vk)
             set_reality_profile "$REALITY_WL_TARGET" "$REALITY_WL_SNI" "$REALITY_WL_SERVER" ;;
+        panel)
+            set_reality_profile "$REALITY_PANEL_TARGET" "$REALITY_PANEL_SNI" "" ;;
+        nyx)
+            set_reality_profile "$REALITY_NYX_TARGET" "$REALITY_NYX_SNI" "" ;;
         *)
-            echo -e "${RED}Unknown mode: $mode (normal|whitelist)${NC}"
+            echo -e "${RED}Unknown mode: $mode (cloudflare|vk|panel|nyx)${NC}"
             return 1 ;;
     esac
 }
