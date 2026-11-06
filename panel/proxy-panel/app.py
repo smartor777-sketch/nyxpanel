@@ -65,7 +65,7 @@ PANEL_SECRET = _require_env(
     "It signs session cookies. Generate one with: python3 -c \"import secrets;print(secrets.token_hex(32))\"",
 )
 app.secret_key = PANEL_SECRET
-PANEL_VERSION = "1.14"
+PANEL_VERSION = "1.15"
 
 BASE_DIR = Path(os.environ.get("NYX_BASE_DIR", "/root/proxy_users"))
 REGISTRY = BASE_DIR / ".registry"
