@@ -23,6 +23,8 @@
   .flash { padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; }
   .flash.ok { background: var(--flash-ok-bg); border: 1px solid var(--flash-ok-border); color: var(--flash-ok-fg); }
   .flash.error { background: var(--flash-err-bg); border: 1px solid var(--flash-err-border); color: var(--flash-err-fg); }
+  .flash.warn { background: rgba(245, 158, 11, 0.14); border: 1px solid #d97706; color: #fbbf24; }
+  [data-theme="light"] .flash.warn { background: #fffbeb; border: 1px solid #f59e0b; color: #92400e; }
   form { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
   input, select, button { padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid var(--border); background: var(--input-bg); color: var(--fg); font-size: 0.9rem; }
   input:focus { outline: none; border-color: var(--heading); }
@@ -115,6 +117,9 @@
     {% if not reality.error %}
     {% set preset_i18n = {'cloudflare': 'realityPresetCF', 'vk': 'realityPresetVK', 'panel': 'realityPresetPanel', 'nyx': 'realityPresetNYX'} %}
     {% set current_preset = reality.mode if reality.mode in reality_preset_modes else '' %}
+    <div style="font-size:0.78rem;line-height:1.5;margin-bottom:0.6rem;padding:0.5rem 0.7rem;border-left:3px solid #d97706;border-radius:6px;background:rgba(245,158,11,0.12)" data-i18n="realityReissue">
+      Смена SNI ломает уже выданные VLESS-конфиги. Подписки обновляются автоматически, а пользователям с ручными ссылками, QR-кодами или скачанными файлами нужно заново скачать конфиг VLESS REALITY и переимпортировать его.
+    </div>
     <form method="POST" action="/self/reality/profile" style="flex-direction:column;align-items:stretch;gap:0.45rem;max-width:520px">
       <input type="hidden" name="preset" id="realityPreset" value="{{ current_preset }}">
       <label style="font-size:0.78rem;color:var(--muted)" for="realityTarget" data-i18n="realityTargetLabel2">target (host:port)</label>
@@ -304,6 +309,7 @@ const _t = {
     realityTargetLabel2: 'target (host:port)', realitySniLabel2: 'SNI',
     realityPresetCF: 'Cloudflare (1.1.1.1)', realityPresetVK: 'VK (userapi)', realityApply: 'Применить',
     realityPresetPanel: 'panel.example.com', realityPresetNYX: 'nyx.example.com',
+    realityReissue: 'Смена SNI ломает уже выданные VLESS-конфиги. Подписки обновляются автоматически, а пользователям с ручными ссылками, QR-кодами или скачанными файлами нужно заново скачать конфиг VLESS REALITY и переимпортировать его.',
     realityHint: 'Кнопки-пресеты подставляют target и SNI, применение — кнопкой «Применить». target обязан отдавать валидный сертификат на выбранный SNI.'
   },
   en: {
@@ -332,6 +338,7 @@ const _t = {
     realityTargetLabel2: 'target (host:port)', realitySniLabel2: 'SNI',
     realityPresetCF: 'Cloudflare (1.1.1.1)', realityPresetVK: 'VK (userapi)', realityApply: 'Apply',
     realityPresetPanel: 'panel.example.com', realityPresetNYX: 'nyx.example.com',
+    realityReissue: 'Changing SNI breaks existing VLESS configs. Subscriptions update automatically, but users with manual links, QR codes or downloaded files must download the VLESS REALITY config again and re-import it.',
     realityHint: 'Preset buttons only fill target and SNI; press Apply to switch. target must present a valid certificate for the chosen SNI.'
   }
 };

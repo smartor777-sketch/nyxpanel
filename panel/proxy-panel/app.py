@@ -542,6 +542,12 @@ def get_reality_state():
 # proxy_manager.sh (set_reality_mode) и остаются единственным источником истины.
 REALITY_PRESETS = ("cloudflare", "vk", "panel", "nyx")
 
+VLESS_REISSUE_NOTICE = (
+    "SNI изменён: {old} → {new}. Подписки обновятся автоматически, "
+    "а пользователям с ручными ссылками, QR-кодами или скачанными файлами "
+    "нужно заново скачать конфиг VLESS REALITY и переимпортировать его."
+)
+
 def get_reality_presets():
     """Каталог пресетов из proxy_manager.sh: mode|target|sni|serverNames.
 
@@ -581,10 +587,12 @@ def _run_reality(args):
             flash(out or "OK", "ok")
         else:
             flash(err or out or "Error", "error")
+        return proc.returncode
     except subprocess.TimeoutExpired:
         flash("Timeout", "error")
     except Exception as e:
         flash(str(e), "error")
+    return 1
 
 @app.route("/self/reality/toggle", methods=["POST"])
 def reality_toggle():
@@ -599,13 +607,20 @@ def reality_toggle():
 def reality_profile():
     if not is_admin():
         return redirect("/self/login")
+    before = get_reality_state()
     preset = (request.form.get("preset") or "").strip()
     if preset in REALITY_PRESETS:
-        _run_reality(["set_reality_mode", preset])
+        rc = _run_reality(["set_reality_mode", preset])
     else:
         target = (request.form.get("target") or "").strip()
         sni = (request.form.get("sni") or "").strip()
-        _run_reality(["set_reality_profile", target, sni])
+        rc = _run_reality(["set_reality_profile", target, sni])
+    if rc == 0:
+        after = get_reality_state()
+        old_sni = before.get("sni") or "?"
+        new_sni = after.get("sni") or "?"
+        if old_sni != new_sni:
+            flash(VLESS_REISSUE_NOTICE.format(old=old_sni, new=new_sni), "warn")
     return redirect("/self/")
 
 @app.route("/")
