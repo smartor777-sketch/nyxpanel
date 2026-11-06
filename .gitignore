@@ -28,3 +28,6 @@ __pycache__/
 nyxpanel-git/
 olcrtc_tmp
 olcrtc_tmp.exe
+
+# Local values and the sanitise blacklist (never tracked)
+local/
