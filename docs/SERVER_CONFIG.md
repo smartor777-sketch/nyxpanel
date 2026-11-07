@@ -64,6 +64,13 @@ vless://UUID@<YOUR_DOMAIN>:443?security=reality&type=xhttp&path=%2Fvless&sni=1.1
 **Интерфейс:** `awg0` (UP)
 **Порт:** `39743` (UDP)
 **Сеть:** `10.9.9.0/24`
+**Версия:** AmneziaWG 3.1 (kernel module `3.1.20260906`, tools `3.1.20260812`)
+
+**3.1-параметры:** `HeaderProtectionKey`, `S1–S4`, `H1–H4`, `I1–I5`,
+`ContentPaddingAddition`, `Rekey*`, `RejectAfterTime`, `KeepaliveTimeout`,
+`MaxHandshakeAttempts`, `RandomTrailers`, `DisableCookies` — панель копирует их
+в клиентские конфиги. `S1–S4`, `H1–H4`, `HeaderProtectionKey`, `RandomTrailers`
+и `DisableCookies` должны совпадать на сервере и клиенте.
 
 **Пиры:**
 - test — `10.9.9.2`

@@ -1048,7 +1048,14 @@ add_awg_user() {
     local server_priv=$(grep -E "^\s*PrivateKey" "$AWG_CONFIG" | head -1 | awk '{print $3}')
     local server_pub=$(echo "$server_priv" | awg pubkey)
     local server_port=$(grep -E "^\s*ListenPort" "$AWG_CONFIG" | awk '{print $3}')
-    local awg_params=$(grep -E "^\s*(Jc|Jmin|Jmax|S1|S2|S3|S4|H1|H2|H3|H4|I1|I5|ContentPaddingAddition|RekeyAfterTime)" "$AWG_CONFIG" | sed 's/^\s*//')
+    # Interface-level obfuscation parameters are copied verbatim into every
+    # client config. S1-S4/H1-H4 and HeaderProtectionKey MUST match the server;
+    # RandomTrailers/DisableCookies must match too. The timing parameters
+    # (ContentPaddingAddition, Rekey*, Reject*, Keepalive*, MaxHandshakeAttempts)
+    # and I1-I5 are client-side but copying the server values keeps the profile
+    # consistent. Missing keys are simply absent from the grep output, so this
+    # stays compatible with 2.x configs.
+    local awg_params=$(grep -E "^\s*(Jc|Jmin|Jmax|S1|S2|S3|S4|H1|H2|H3|H4|I1|I2|I3|I4|I5|HeaderProtectionKey|ContentPaddingAddition|RekeyAfterTime|RekeyTimeout|RejectAfterTime|KeepaliveTimeout|MaxHandshakeAttempts|RandomTrailers|DisableCookies)" "$AWG_CONFIG" | sed 's/^\s*//')
 
     local peers_before peers_after
     peers_before=$(grep -c "^PublicKey" "$AWG_CONFIG")
