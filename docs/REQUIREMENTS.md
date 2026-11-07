@@ -62,11 +62,15 @@
 | Caddy | `apt install caddy` |
 | forward_proxy модуль | требуется сборка с `xcaddy` |
 
-**AmneziaWG:**
-| Компонент | Установка |
-|-----------|----------|
-| amneziawg-tools | `apt install amneziawg` (из репозитория проекта) |
+**AmneziaWG 3.1:**
+| Компонент | Версия / установка |
+|-----------|--------------------|
+| kernel-модуль `amneziawg` | DKMS, тег `v3.1.20260906`. Версия `3.1.20260812` не подходит для 3.1: в ней не инициализирован lock Header Protection |
+| amneziawg-tools | тег `v3.1.20260812`: `make -C src && make -C src install` |
+| сборочные зависимости | `apt install dkms build-essential linux-headers-$(uname -r)` |
 | `qrencode` | `apt install qrencode` |
+
+Профили 3.1 используют `HeaderProtectionKey`, `RandomTrailers` и `DisableCookies`; клиент должен поддерживать AmneziaWG 3.1 (AmneziaVPN ≥ 5.0.1.5).
 
 **Mieru:**
 | Компонент | Установка |

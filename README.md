@@ -23,11 +23,13 @@ Multi-protocol proxy management panel with web interface.
 | VLESS+XHTTP+REALITY | Proxy | Happ, Hiddify, v2RayTun, Exclave |
 | Hysteria 2 | Proxy | Happ, Hiddify, v2RayTun, Exclave |
 | Trojan | Proxy | Happ, Hiddify, v2RayTun, Exclave, NekoBox |
-| AmneziaWG | VPN | Amnezia VPN (≥5.0), NekoBox |
+| AmneziaWG | VPN | Amnezia VPN (≥5.0.1.5 for AWG 3.1), NekoBox |
 | Mieru | Proxy | NekoBox |
 | NaiveProxy | Proxy | Happ, Hiddify, v2RayTun, Exclave |
 | olcRTC | Proxy | OlcboxME (mobile only), uses [olcrtc-users](https://github.com/smartor777-sketch/olcrtc-users) fork |
 | **Telegram MTProxy** | Proxy | Official Telegram clients |
+
+AmneziaWG 3.1 profiles (`HeaderProtectionKey`, `RandomTrailers`, `DisableCookies`) require a client with AWG 3.1 support — AmneziaVPN 5.0.1.5 or newer.
 
 ## Telegram MTProxy
 

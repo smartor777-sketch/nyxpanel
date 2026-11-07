@@ -23,11 +23,13 @@
 | VLESS+XHTTP+REALITY | Прокси | Happ, Hiddify, v2RayTun, Exclave |
 | Hysteria 2 | Прокси | Happ, Hiddify, v2RayTun, Exclave |
 | Trojan | Прокси | Happ, Hiddify, v2RayTun, Exclave, NekoBox |
-| AmneziaWG | VPN | Amnezia VPN (≥5.0), NekoBox |
+| AmneziaWG | VPN | Amnezia VPN (≥5.0.1.5 для AWG 3.1), NekoBox |
 | Mieru | Прокси | NekoBox |
 | NaiveProxy | Прокси | Happ, Hiddify, v2RayTun, Exclave |
 | olcRTC | Прокси | OlcboxME (только мобильные), используется форк [olcrtc-users](https://github.com/smartor777-sketch/olcrtc-users) |
 | **Telegram MTProxy** | Прокси | Клиенты Telegram |
+
+Профили AmneziaWG 3.1 (`HeaderProtectionKey`, `RandomTrailers`, `DisableCookies`) требуют клиента с поддержкой AWG 3.1 — AmneziaVPN 5.0.1.5 или новее.
 
 ## Telegram MTProxy
 
