@@ -72,6 +72,9 @@ vless://UUID@<YOUR_DOMAIN>:443?security=reality&type=xhttp&path=%2Fvless&sni=1.1
 в клиентские конфиги. `S1–S4`, `H1–H4`, `HeaderProtectionKey`, `RandomTrailers`
 и `DisableCookies` должны совпадать на сервере и клиенте.
 
+Подробно по каждому параметру, включая мини-язык `I1–I5`, — в
+[`AMNEZIAWG-3.1.md`](AMNEZIAWG-3.1.md).
+
 **Пиры:**
 - test — `10.9.9.2`
 - user02 — `10.9.9.3`

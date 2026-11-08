@@ -70,7 +70,7 @@
 | сборочные зависимости | `apt install dkms build-essential linux-headers-$(uname -r)` |
 | `qrencode` | `apt install qrencode` |
 
-Профили 3.1 используют `HeaderProtectionKey`, `RandomTrailers` и `DisableCookies`; клиент должен поддерживать AmneziaWG 3.1 (AmneziaVPN ≥ 5.0.1.5).
+Профили 3.1 используют `HeaderProtectionKey`, `RandomTrailers` и `DisableCookies`; клиент должен поддерживать AmneziaWG 3.1 (AmneziaVPN ≥ 5.0.1.5). Подробно по параметрам — [`AMNEZIAWG-3.1.md`](AMNEZIAWG-3.1.md).
 
 **Mieru:**
 | Компонент | Установка |
