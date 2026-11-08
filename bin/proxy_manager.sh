@@ -422,18 +422,34 @@ awg_apply_config() {
 
     if ! ip link show "$AWG_INTERFACE" >/dev/null 2>&1; then
         _sync_log "iface=$AWG_INTERFACE absent, bringing it up (reason=$reason)"
-        awg-quick up "$AWG_INTERFACE" 2>/dev/null || return 1
+        local _up_err
+        if ! _up_err=$(awg-quick up "$AWG_INTERFACE" 2>&1); then
+            _sync_log "iface=$AWG_INTERFACE UPFAILED (reason=$reason): $_up_err"
+            return 1
+        fi
         return 0
     fi
 
     if [ "$AWG_SYNC_MODE" = "bounce" ]; then
         _sync_log "iface=$AWG_INTERFACE bounce (reason=$reason)"
         awg-quick down "$AWG_INTERFACE" 2>/dev/null || true
-        awg-quick up "$AWG_INTERFACE" 2>/dev/null || {
-            _sync_log "iface=$AWG_INTERFACE BOUNCEFAILED (reason=$reason)"
-            return 1
-        }
-        return 0
+        # down is asynchronous: wait for the link to disappear before
+        # recreating it. Without this, up can race the delete and fail with
+        # "device exists" — which is how adding a panel user once left the
+        # interface down (the failure was also hidden by 2>/dev/null).
+        local _i _up_err
+        for _i in $(seq 1 20); do
+            ip link show "$AWG_INTERFACE" >/dev/null 2>&1 || break
+            sleep 0.1
+        done
+        for _i in 1 2 3 4 5; do
+            if _up_err=$(awg-quick up "$AWG_INTERFACE" 2>&1); then
+                return 0
+            fi
+            sleep 0.5
+        done
+        _sync_log "iface=$AWG_INTERFACE BOUNCEFAILED (reason=$reason): $_up_err"
+        return 1
     fi
 
     # Sanity check. Per-peer set never sends the interface key, so pointing at
