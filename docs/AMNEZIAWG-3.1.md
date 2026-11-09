@@ -203,6 +203,10 @@ awg showconf awg0 | sed -E 's/(PrivateKey|PresharedKey|HeaderProtectionKey) = .*
 on`, `disable cookies: on` и диапазоны таймингов — это значит, что 3.1
 включён на уровне интерфейса.
 
+> После обновления ядра модуль может не собраться под новое ядро, и
+> `awg0` не поднимется. Диагностика и исправление — в
+> [`AMNEZIAWG-DKMS.md`](AMNEZIAWG-DKMS.md).
+
 ---
 
 ## 5. Связь с панелью
