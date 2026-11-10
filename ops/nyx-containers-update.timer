@@ -1,0 +1,13 @@
+[Unit]
+Description=Quarterly container image update window (2nd Tuesday of Jan/Apr/Jul/Oct 03:00 UTC)
+
+[Timer]
+OnCalendar=
+OnCalendar=Tue *-01,04,07,10-08..14 03:00:00 UTC
+RandomizedDelaySec=0
+AccuracySec=1min
+Persistent=false
+Unit=nyx-containers-update.service
+
+[Install]
+WantedBy=timers.target

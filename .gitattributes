@@ -1,0 +1,8 @@
+# Shell-скрипты и systemd-юниты всегда с LF: их запускают на Linux,
+# а core.autocrlf=true на Windows иначе положит в репозиторий CRLF.
+*.sh            text eol=lf
+*.service       text eol=lf
+*.timer         text eol=lf
+*.override.conf text eol=lf
+
+* text=auto

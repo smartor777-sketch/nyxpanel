@@ -1,0 +1,13 @@
+[Unit]
+Description=Monthly Docker Engine update window (1st Tuesday 03:00 UTC)
+
+[Timer]
+OnCalendar=
+OnCalendar=Tue *-*-01..07 03:00:00 UTC
+RandomizedDelaySec=0
+AccuracySec=1min
+Persistent=false
+Unit=nyx-docker-engine-update.service
+
+[Install]
+WantedBy=timers.target
