@@ -76,7 +76,8 @@ last reboot -n 3
 
 - делает `apt-get update` и проверяет только docker-пакеты (`docker-ce`, `docker-ce-cli`,
   `docker-ce-rootless-extras`, `containerd.io`, `docker-buildx-plugin`, `docker-compose-plugin`);
-- сохраняет версии, образы и список контейнеров в `/root/backups/docker-engine/<stamp>/`;
+- сохраняет версии, образы и список контейнеров в `/root/backups/docker-engine/<stamp>/`
+  (хранятся последние 6 запусков);
 - обновляет пакеты, ждёт готовности `dockerd` (до 60 с);
 - проверяет, что все ранее запущенные контейнеры снова `Running`, а цепочка `DOCKER-USER` не пуста;
 - пишет лог в `/var/log/nyx-updates/docker-engine.log` и письмо на `furi_wave@mail.ru`
@@ -136,7 +137,7 @@ systemctl restart docker
 - находит все **запущенные** compose-стеки по label `com.docker.compose.project.working_dir`;
 - пропускает стек, где хоть один образ на `:latest` (защита от мажорных скачков);
 - тегирует текущие образы `<repo>:rollback-<stamp>`, сохраняет compose и `rollback-map.txt`
-  в `/root/backups/containers/<stack>-<stamp>/`;
+  в `/root/backups/containers/<stack>-<stamp>/` (последние 4 на стек; rollback-тегов — 2 на образ);
 - делает `docker compose pull` + `up -d --remove-orphans`;
 - проверяет, что все сервисы стека `Running` и ничего не в `restarting`; при провале
   **автоматически откатывает** стек на `:rollback-<stamp>` и пишет письмо;
@@ -285,6 +286,7 @@ CVE, их можно совместить, но тогда: отдельные �
 | 2026-11-10 | security-обновления перенесены на 02:00 UTC (prod и dev), drop-in'ы таймеров | включено |
 | 2026-11-10 | таймеры: Engine — 1-й вторник 03:00 UTC, образы — 2-й вторник квартала 03:00 UTC | enabled, dry-run проверен |
 | 2026-11-10 | Bot API запинен `latest` → `10.3`; Docker 29.9.2 → 29.9.3 в очереди | окна: 01.12.2026 и 12.01.2027 |
+| 2026-11-10 | retention: Engine 6 запусков, стеки 4, rollback-тегов 2 на образ | включено, логика проверена |
 
 При каждом ручном обновлении добавлять строку: дата, что, версии «до → после», кто делал.
 
@@ -341,3 +343,26 @@ systemctl show nyx-containers-update.timer -p OnCalendar
 
 Логи: `/var/log/nyx-updates/docker-engine.log`, `/var/log/nyx-updates/containers.log`.
 Письма — на `furi_wave@mail.ru` через тот же `sendmail`-шим, что и у `unattended-upgrades`.
+
+### Retention (сколько хранится)
+
+Ротация встроена в скрипты, настраивается переменными окружения (в юните не заданы — работают значения по умолчанию):
+
+| Что | По умолчанию | Где менять |
+|---|---|---|
+| Бэкапы Engine (`/root/backups/docker-engine/<stamp>/`) | **6** последних запусков (~полгода) | `RETAIN_BACKUPS` в `nyx-docker-engine-update.sh` |
+| Бэкапы стеков (`/root/backups/containers/<stack>-<stamp>/`) | **4** на стек (~год при квартальном окне) | `RETAIN_BACKUPS` в `nyx-containers-update.sh` и `update-containers.sh` |
+| Теги образов `:rollback-<stamp>` | **2** на каждый repo | `RETAIN_TAGS` в `nyx-containers-update.sh` |
+| Compose-бэкапы ручных правок (`/root/backups/*.yml`) | не чистятся автоматически | вручную |
+
+Важно: сами каталоги бэкапов весят килобайты — место занимают **старые образы**, на которые ссылаются
+`:rollback-` теги. Поэтому лимит на теги важнее лимита на каталоги: 2 тега на образ = максимум два
+предыдущих слоя (~20–100 МБ на сервис).
+
+Проверить занятое место:
+
+```bash
+du -sh /root/backups/docker-engine /root/backups/containers
+docker images --format '{{.Repository}}:{{.Tag}} {{.Size}}' | grep rollback
+docker system df
+```

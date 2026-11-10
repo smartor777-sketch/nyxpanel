@@ -43,6 +43,15 @@ echo "== compose: $DIR/$COMPOSE"
 echo "== backup:  $BACKUP"
 mkdir -p "$BACKUP"
 
+# retention: держим последние 4 бэкапа этого стека (совпадает с таймером, см. docs/UPDATE_PLAN.md §10)
+KEEP=${KEEP:-4}
+mapfile -t old < <(find /root/backups/containers -mindepth 1 -maxdepth 1 -type d -name "${NAME}-*" \
+      -printf '%T@ %p\n' 2>/dev/null | sort -rn | tail -n +$((KEEP + 1)) | cut -d' ' -f2-)
+if ((${#old[@]} > 0)); then
+  rm -rf "${old[@]}"
+  echo "   pruned ${#old[@]} old backup(s), keep=$KEEP"
+fi
+
 docker compose config > "$BACKUP/compose.resolved.yml"
 docker compose config --images > "$BACKUP/images.txt"
 docker ps -a --format '{{.Names}}\t{{.Image}}\t{{.Status}}' > "$BACKUP/containers.before.txt"

@@ -13,6 +13,7 @@ LOG_DIR=/var/log/nyx-updates
 LOG="$LOG_DIR/docker-engine.log"
 MAIL_TO=${MAIL_TO:-furi_wave@mail.ru}
 HOST=$(hostname -f 2>/dev/null || hostname)
+RETAIN_BACKUPS=${RETAIN_BACKUPS:-6}
 PKGS=(docker-ce docker-ce-cli docker-ce-rootless-extras containerd.io docker-buildx-plugin docker-compose-plugin)
 DRY_RUN=0
 [[ ${1:-} == --dry-run ]] && DRY_RUN=1
@@ -20,6 +21,15 @@ DRY_RUN=0
 mkdir -p "$LOG_DIR"
 
 log() { printf '%s %s\n' "$(date -u '+%F %T UTC')" "$*" | tee -a "$LOG"; }
+
+prune_backups() {
+  local dir=$1 keep=$2
+  local -a old=()
+  mapfile -t old < <(find "$dir" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' 2>/dev/null | sort -rn | tail -n +$((keep + 1)) | cut -d' ' -f2-)
+  ((${#old[@]} == 0)) && return 0
+  rm -rf "${old[@]}"
+  log "retention: removed ${#old[@]} old backup(s), keep=$keep"
+}
 
 notify() {
   local subject=$1 body=$2
@@ -60,6 +70,7 @@ docker images --digests >"$BK/images.before" 2>/dev/null || true
 mapfile -t running_before < <(docker ps --format '{{.Names}}')
 printf '%s\n' "${running_before[@]}" >"$BK/containers.before"
 log "backup: $BK"
+prune_backups /root/backups/docker-engine "$RETAIN_BACKUPS"
 
 export DEBIAN_FRONTEND=noninteractive
 if ! apt-get -y --only-upgrade install "${PKGS[@]}" >>"$LOG" 2>&1; then

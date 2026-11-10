@@ -14,12 +14,42 @@ LOG_DIR=/var/log/nyx-updates
 LOG="$LOG_DIR/containers.log"
 MAIL_TO=${MAIL_TO:-furi_wave@mail.ru}
 HOST=$(hostname -f 2>/dev/null || hostname)
+RETAIN_BACKUPS=${RETAIN_BACKUPS:-4}
+RETAIN_TAGS=${RETAIN_TAGS:-2}
 STAMP=$(date -u +%Y%m%d-%H%M%S)
 DRY_RUN=0
 [[ ${1:-} == --dry-run ]] && DRY_RUN=1
 
 mkdir -p "$LOG_DIR"
 log() { printf '%s %s\n' "$(date -u '+%F %T UTC')" "$*" | tee -a "$LOG"; }
+
+# оставить <keep> последних каталогов бэкапов стека
+prune_stack_backups() {
+  local stack=$1 keep=$2
+  local -a old=()
+  mapfile -t old < <(find /root/backups/containers -mindepth 1 -maxdepth 1 -type d -name "${stack}-*" \
+        -printf '%T@ %p\n' 2>/dev/null | sort -rn | tail -n +$((keep + 1)) | cut -d' ' -f2-)
+  ((${#old[@]} == 0)) && return 0
+  rm -rf "${old[@]}"
+  log "retention: removed ${#old[@]} old backup(s) for $stack, keep=$keep"
+}
+
+# оставить <keep> последних rollback-тегов на каждый repo
+prune_rollback_tags() {
+  local repo keep=$1
+  local -a repos=() tags=()
+  mapfile -t repos < <(docker images --format '{{.Repository}}:{{.Tag}}' | grep ':rollback-' | sed 's/:rollback-.*//' | sort -u)
+  for repo in "${repos[@]}"; do
+    mapfile -t tags < <(docker images --format '{{.Repository}}:{{.Tag}}' | grep -F "${repo}:rollback-" | sort)
+    local n=${#tags[@]}
+    if ((n > keep)); then
+      local t
+      for t in "${tags[@]:0:n-keep}"; do
+        if docker rmi "$t" >/dev/null 2>&1; then log "retention: removed image tag $t"; fi
+      done
+    fi
+  done
+}
 
 notify() {
   local subject=$1 body=$2
@@ -96,6 +126,7 @@ for dir in "${dirs[@]}"; do
 
   BK="/root/backups/containers/$(basename "$dir")-$STAMP"
   mkdir -p "$BK"
+  prune_stack_backups "$(basename "$dir")" "$RETAIN_BACKUPS"
   cp -a "$COMPOSE" "$BK/"
   docker compose config >"$BK/compose.resolved.yml"
   mapfile -t before_names < <(docker compose ps --status running --format '{{.Name}}')
@@ -151,6 +182,8 @@ for dir in "${dirs[@]}"; do
   updated_stacks+=("$dir")
   log "OK $dir: ${expected} services running"
 done
+
+((DRY_RUN == 0)) && prune_rollback_tags "$RETAIN_TAGS"
 
 if ((${#updated_stacks[@]} > 0)); then
   notify "nyx: container images updated on $HOST" "Обновлены стеки:
