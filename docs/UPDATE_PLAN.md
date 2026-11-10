@@ -2,12 +2,16 @@
 
 > Дата актуализации: 2026-11-10
 > Хост: `DE-LC-Production` (`ssh prod`, 87.120.186.100), Debian 13 trixie, KVM, TZ = UTC
-> Состояние на момент записи: ядро 6.12.116, Docker 29.9.2, Compose 5.6.1, Bot API 10.3
+> Состояние на момент записи: ядро 6.12.116, Docker 29.9.3, Compose 5.7.0, Bot API 10.3
 > Расписание: security Debian — 02:00 UTC; Docker Engine — 1-й вторник 03:00 UTC; образы — 2-й вторник квартала 03:00 UTC
 
+> **Это регламент, а не снимок.** Что фактически развёрнуто на хостах сейчас (юниты, версии,
+> контрольные суммы, следующий запуск, бэкапы) — в [`UPDATE_STATE.md`](UPDATE_STATE.md).
+> Если документы расходятся, верен сервер; снимок переснимается по §9 `UPDATE_STATE.md`.
+
 Документ описывает, что обновляется само, что — руками, в каком порядке и как проверить/откатить.
-Отдельно фиксируются два ручных трека, которые раньше нигде не были учтены: **Docker Engine** и **образ
-`aiogram/telegram-bot-api`**.
+Автоматизированы три слоя: **security Debian**, **Docker Engine** и **образы запущенных стеков**;
+`trixie-updates` (не-security) остаётся ручным.
 
 ---
 
@@ -69,7 +73,8 @@ last reboot -n 3
 
 ## 3. Docker Engine — автоматически, 1-й вторник 03:00 UTC
 
-Сейчас: `docker-ce` **29.9.2**, `docker-compose-plugin` **5.6.1**. В очереди: **29.9.3** и **5.7.0**.
+Сейчас: `docker-ce` **29.9.3**, `docker-compose-plugin` **5.7.0** (обновлено вручную 10.11.2026,
+окно 29.9.2 → 29.9.3 отработано). Следующее штатное окно — 2026-12-01 03:00 UTC.
 
 Обновляется таймером `nyx-docker-engine-update.timer` → `nyx-docker-engine-update.service` →
 `/usr/local/sbin/nyx-docker-engine-update.sh`. Скрипт:
@@ -133,9 +138,9 @@ systemctl restart docker
 
 ## 4. Образ `aiogram/telegram-bot-api` — автоматически, 2-й вторник квартала
 
-Сейчас: тег **`10.3`** (запинен 10.11.2026), образ от **2026-09-26**, внутри Bot API **10.3**.
-`10.3` на Docker Hub пересобран 2026-11-09 (тот же Bot API, свежие Alpine-патчи) — его подтянет
-ближайшее окно.
+Сейчас: тег **`10.3`** (запинен 10.11.2026), активный образ — сборка от **2026-11-09**
+(подтянута вручную 10.11.2026, внутри Bot API **10.3**). Тег `:latest` снят с хоста.
+Следующее штатное окно — 2027-01-12 03:00 UTC.
 
 Обновляется таймером `nyx-containers-update.timer` (2-й вторник янв/апр/июл/окт, 03:00 UTC) →
 `nyx-containers-update.service` → `/usr/local/sbin/nyx-containers-update.sh`. Скрипт:
@@ -349,8 +354,11 @@ ssh prod 'bash /tmp/nyx-ops/install-update-schedule.sh /tmp/nyx-ops'
 ```bash
 systemctl list-timers apt-daily.timer apt-daily-upgrade.timer \
   nyx-docker-engine-update.timer nyx-containers-update.timer --no-pager
-systemctl show nyx-containers-update.timer -p OnCalendar
+systemctl cat nyx-containers-update.timer | grep OnCalendar
 ```
+
+> `systemctl show -p OnCalendar` на systemd 257 пуст: значение отдаётся как `TimersCalendar`.
+> Надёжнее смотреть `list-timers` (следующий запуск) или `systemctl cat` (что записано в файле).
 
 Логи: `/var/log/nyx-updates/docker-engine.log`, `/var/log/nyx-updates/containers.log`.
 Письма — на `furi_wave@mail.ru` через тот же `sendmail`-шим, что и у `unattended-upgrades`.
@@ -377,3 +385,14 @@ du -sh /root/backups/docker-engine /root/backups/containers
 docker images --format '{{.Repository}}:{{.Tag}} {{.Size}}' | grep rollback
 docker system df
 ```
+
+---
+
+## 11. Связанные документы
+
+| Документ | Про что |
+|---|---|
+| [`UPDATE_STATE.md`](UPDATE_STATE.md) | **снимок**: что реально развёрнуто на Prod и Dev (юниты, хэши, версии, следующий запуск) |
+| [`AMNEZIAWG-DKMS.md`](AMNEZIAWG-DKMS.md) | `amneziawg` после обновления ядра: симптомы, лечение, проверка |
+| [`DOCKER_FIREWALL.md`](DOCKER_FIREWALL.md) | `DOCKER-USER` guard, который проверяет engine-скрипт |
+| `ops/ENVIRONMENT.md` | различия окружений dev-стенда: порты, пути, секреты |
