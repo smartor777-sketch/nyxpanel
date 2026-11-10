@@ -40,6 +40,7 @@ Docker-таймеры (`nyx-*`) существуют **только на Prod**.
 | Docker Engine | `nyx-docker-engine-update.timer` | `Tue *-*-01..07 03:00:00 UTC` | **2026-12-01 03:00** | — | enabled, ни разу не срабатывал |
 | Образы контейнеров | `nyx-containers-update.timer` | `Tue *-01,04,07,10-08..14 03:00:00 UTC` | **2027-01-12 03:00** | — | enabled, ни разу не срабатывал |
 | Авторебут | `unattended-upgrades.service` | по событию, `04:00 UTC` | — | — | enabled, active |
+| Инвентарь нативных приложений | `nyx-apps-inventory.timer` | `Tue *-*-01..07 03:30:00 UTC` | **2026-12-01 03:30** | — | enabled, never fired |
 
 > «Последний» у apt-таймеров — от **старого** расписания (`RandomizedDelaySec=60m`, ~03:00).
 > Первое точное срабатывание нового — 11.11 в 01:30 и 02:00 UTC.
@@ -52,6 +53,10 @@ Docker-таймеры (`nyx-*`) существуют **только на Prod**.
 | `apt-daily-upgrade.timer` | `*-*-* 02:00:00 UTC` | 2026-11-11 03:00 CET | 02:00 | 2026-11-10 03:02:41 |
 
 Авторебут на Dev — те же `04:00 UTC` (05:00 CET).
+
+Инвентарь нативных приложений стоял и на Dev (таймер включён, `python3` в PATH): окно `03:30 UTC` =
+`04:30 CET`, следующий запуск — 2026-12-01 04:30 CET. Dev отчитывается в свой же инвентарь; docker-таймеры
+(`nyx-docker-engine`, `nyx-containers`) на Dev не ставятся, они не нужны (Docker там отсутствует).
 
 > `Persistent=false` у docker-таймеров: если хост лежит в момент окна, запуск **не** догоняется,
 > а ждёт следующего окна. Для apt-таймеров `Persistent=true` — пропущенный security-апдейт догоняется.
@@ -74,6 +79,10 @@ Docker-таймеры (`nyx-*`) существуют **только на Prod**.
 | `/etc/systemd/system/nyx-containers-update.timer` | `38011d236d736de0` |
 | `/etc/systemd/system/apt-daily.timer.d/override.conf` | `2827143739112853` |
 | `/etc/systemd/system/apt-daily-upgrade.timer.d/override.conf` | `2797922ffea2fa85` |
+| `/usr/local/sbin/nyx-apps-inventory.py` | `bc3aa381af49416` |
+| `/etc/systemd/system/nyx-apps-inventory.service` | `7ed475b6aea4b698` |
+| `/etc/systemd/system/nyx-apps-inventory.timer` | `56245d44383fdc19` |
+| `/etc/nyx-updates/apps-inventory.tsv` | `501958547389f0a09` |
 
 ### Dev
 
@@ -96,6 +105,23 @@ ExecStart=/usr/local/sbin/nyx-<...>.sh
 `Requires=docker.service` **нет** намеренно: рестарт `dockerd` при обновлении `docker-ce`
 убивал бы юнит вместе с дочерним `dpkg` (инцидент 2026-11-10, см. `UPDATE_PLAN.md` §3).
 `Environment=` в юнитах не задан — работают дефолты retention, зашитые в скрипты.
+
+### `nyx-apps-inventory.service`
+
+Без зависимости от docker — для нативного слоя это и правильно.
+
+```
+[Unit]
+Description=Inventory of native applications (versions, sha256, upstream releases)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/sbin/nyx-apps-inventory.py
+Nice=10
+```
+
 
 ---
 
@@ -168,12 +194,14 @@ ExecStart=/usr/local/sbin/nyx-<...>.sh
 | 2026-11-10 14:05 | ручной прогон Engine | **сбой**: `Requires=` убил юнит на `dpkg`, `docker-ce` остался `iF` |
 | 2026-11-10 14:07 | починка: `dpkg --configure -a`, `Wants=`, self-heal | все пакеты `ii`, повторный прогон чистый |
 | 2026-11-10 15:19 | ручной прогон образов | контейнер пересоздан на `10.3`, письмо отправлено, `:latest` снят |
+| 2026-11-10 17:08 / 18:09 | включён инвентарь нативных приложений (`nyx-apps-inventory.timer`, 03:30 UTC) | prod: WDTT 1.5.73, xray 26.3.27, sing-box 1.12.4, hysteria 2.10.0, caddy 2.11.4, mita 3.34.0, panel 1.15; обновления: xray, sing-box, hysteria, caddy, mita, wdtt. dev: те же, где есть | письма sent |
 
 Следующее, что случится **без участия человека**:
 
 1. 2026-11-11 01:30 / 02:00 UTC — первые точные security-окна на Prod и Dev;
 2. 2026-12-01 03:00 UTC — первое автоматическое окно Docker Engine;
-3. 2027-01-12 03:00 UTC — первое автоматическое окно образов.
+3. 2026-12-01 03:30 UTC — первое автоматическое окно инвентаря нативных приложений;
+4. 2027-01-12 03:00 UTC — первое автоматическое окно образов.
 
 ---
 
@@ -184,7 +212,7 @@ ExecStart=/usr/local/sbin/nyx-<...>.sh
 | `/root/backups` | 1,1 МБ | — |
 | `.../docker-engine/` | `20261110-140542` (1 шт.) | — |
 | `.../containers/` | `telegram-bot-api-20261110-044311`, `-151901` (2 шт.) | — |
-| Логи обновлений | `/var/log/nyx-updates/{docker-engine,containers}.log` | нет (только UU) |
+| Логи обновлений | `/var/log/nyx-updates/{docker-engine,containers,apps}.log` | нет (только UU) |
 | Лог UU | `/var/log/unattended-upgrades/unattended-upgrades.log` | тот же |
 | Почта | `/usr/sbin/sendmail` → `uu-mailer.py` → `furi_wave@mail.ru` | так же |
 | Последнее письмо | 2026-11-10 15:19 «container images updated» | — |
@@ -255,6 +283,7 @@ ssh dev '
 | Docker-таймеры ещё не срабатывали | `LAST = —`, включены 10.11.2026 | первое окно 01.12.2026 / 12.01.2027 |
 | `docker builder` cache | лимита нет, растёт от сборок | при необходимости добавить prune в engine-скрипт |
 | `nyx-qeli-tunnel.service` | чужой проект из общего каталога юнитов | не трогать |
+| Слой 4 (нативные приложения) | автообновление не включено, есть инвентарь | WDTT/xray/sing-box/hysteria/caddy/mita/panel — снимок собирает, обновления ручные |
 
 ---
 

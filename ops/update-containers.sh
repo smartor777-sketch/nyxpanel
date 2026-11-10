@@ -43,7 +43,7 @@ echo "== compose: $DIR/$COMPOSE"
 echo "== backup:  $BACKUP"
 mkdir -p "$BACKUP"
 
-# retention: держим последние 4 бэкапа этого стека (совпадает с таймером, см. docs/UPDATE_PLAN.md §10)
+# retention: держим последние 4 бэкапа этого стека (совпадает с таймером, см. docs/UPDATE_PLAN.md §11)
 KEEP=${KEEP:-4}
 mapfile -t old < <(find /root/backups/containers -mindepth 1 -maxdepth 1 -type d -name "${NAME}-*" \
       -printf '%T@ %p\n' 2>/dev/null | sort -rn | tail -n +$((KEEP + 1)) | cut -d' ' -f2-)

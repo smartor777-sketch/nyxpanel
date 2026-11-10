@@ -1,0 +1,29 @@
+# apps-inventory — какие нативные приложения отслеживать.
+#
+# Формат: name|kind|unit|path|check_cmd|github_repo
+#   name       короткое имя для отчёта
+#   kind       bin  — бинарник/файл, версия вытаскивается регуляркой из вывода check_cmd
+#              venv — python-venv, версия = pyX.Y deps=<sha8> n=<пакетов>
+#   unit       systemd-юнит (для колонки состояния), может быть пустым
+#   path       файл, по которому считается sha256/mtime; на хосте может отсутствовать
+#   check_cmd  команда печати версии (для kind=venv не используется)
+#   repo       GitHub owner/repo для сравнения с последним релизом, может быть пустым
+#
+# Пустое поле — допустимо. Приложения, которых нет на хосте, пропускаются.
+
+xray|bin|xray.service|/usr/local/bin/xray|xray --version|XTLS/Xray-core
+sing-box|bin|sing-box-naive.service|/usr/local/bin/sing-box|sing-box version|SagerNet/sing-box
+hysteria|bin|hysteria2.service|/usr/local/bin/hysteria|hysteria version|apernet/hysteria
+caddy|bin|caddy.service|/usr/local/bin/caddy|caddy version|caddyserver/caddy
+mita|bin|mita.service|/usr/bin/mita|mita version|enfein/mieru
+olcrtc|bin|olcrtc.service|/usr/local/bin/olcrtc||smartor777-sketch/olcrtc-users
+wdtt|bin|wdtt-server.service|/usr/local/bin/wdtt-server|wdtt-server --version|michaillepichow/proxy-turn-vk-android-server-fix
+tproxy|bin|tproxy-server.service|/usr/local/bin/tproxy-server||
+mtproxy|bin|mtproxy.service|/opt/MTProxy/objs/bin/mtproto-proxy||telegrammessenger/MTProxy
+qeli|bin|qeli.service|/usr/bin/qeli|qeli --version|
+panel|bin|panel.service|/opt/nyxpanel/panel/app.py|grep -m1 PANEL_VERSION /opt/nyxpanel/panel/app.py|smartor777-sketch/nyxpanel
+yt-bot|venv|yt-bot.service|/opt/yt-bot/.venv/bin/python||
+arq-worker|venv|arq-worker.service|/srv/sleep-prod/backend/backend/.venv/bin/python||
+innercore|venv|innercore-prod.service|/srv/sleep-prod/backend/backend/.venv/bin/uvicorn||
+audio|venv|audio-service.service|/opt/audio-service/.venv/bin/uvicorn||
+tg-proxy-bot|venv|tg-proxy-bot.service|/opt/nyxpanel/bot-venv/bin/python||

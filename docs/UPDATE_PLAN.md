@@ -132,7 +132,7 @@ apt-get install -y --allow-downgrades \
 systemctl restart docker
 ```
 
-Точные версии «до» всегда лежат в `/var/log/apt/history.log` и в нашем журнале §8.
+Точные версии «до» всегда лежат в `/var/log/apt/history.log` и в нашем журнале §9.
 
 ---
 
@@ -219,7 +219,52 @@ docker compose up -d
 
 ---
 
-## 5. Остальные контейнеры
+## 5. Нативные приложения (слой 4) — инвентарь без автообновления
+
+Два из трёх «хостовых» слоёв покрыты автоматикой: Debian security (§2) и Docker Engine/образы (§3–§4).
+Третий — **нативные приложения**: бинарники под systemd (`xray`, `sing-box`, `hysteria2`, `caddy`,
+`mita`, `olcrtc`, `wdtt`, `tproxy`, `mtproxy`, `qeli`, `panel`) и python-venv (`yt-bot`, `arq-worker`,
+`innercore`, `audio`, `tg-proxy-bot`).
+
+Для слоя 4 не пишут «добавить origin в unattended-upgrades» — им не положено. Правильно: инвентарь,
+потом решение.
+
+| Слой | Что обновляется | Кто | Статус |
+|---|---|---|---|
+| 1 | ОС и ядро | `unattended-upgrades` + авторебут 04:00 | автоматически |
+| 2 | Docker Engine | таймер 1-й вторник, 03:00 UTC | автоматически |
+| 3 | Образы контейнеров | таймер 2-й вторник квартала, 03:00 UTC | автоматически |
+| 4 | Нативные приложения | инвентарь `nyx-apps-inventory` + ручной трек | проверка/отчёт, нет автоустановки |
+
+### Инвентарь нативных приложений (`nyx-apps-inventory`)
+
+| Файл | Назначение |
+|---|---|
+| `ops/apps-inventory.tsv` | список: `name\|kind\|unit\|path\|check_cmd\|repo` |
+| `ops/nyx-apps-inventory.py` | сборка версии/sha256/состояния, запрос GitHub Release, сравнение с снимком |
+| `ops/nyx-apps-inventory.service` / `ops/nyx-apps-inventory.timer` | юнит / таймер (1-й вторник, **03:30 UTC**) |
+| `ops/install-update-schedule.sh` | ставит и включает инвентарь (`python3` должен быть в PATH) |
+
+Хранение и выдача:
+
+- снимок: `/var/lib/nyx-updates/apps.json`;
+- лог: `/var/log/nyx-updates/apps.log`;
+- письма: на `furi_wave@mail.ru` через тот же sendmail-шим (`subject: nyx: apps inventory on <host> (...)`).
+
+```
+/usr/local/sbin/nyx-apps-inventory.py --dry-run      # отчёт без записи
+/usr/local/sbin/nyx-apps-inventory.py --no-mail    # запись без письма
+systemctl start nyx-apps-inventory.service          # выполнить
+systemctl list-timers nyx-apps-inventory.timer     # расписание
+```
+
+Первый запуск (2026-11-10) увидел: WDTT `1.5.73`, xray `26.3.27`, sing-box `1.12.4`, hysteria `2.10.0`,
+caddy `2.11.4`, mita `3.34.0`, panel `1.15`; до сравнения с upstream дошли xray, sing-box, hysteria, caddy,
+mita, wdtt. `olcrtc`/`wdtt`/`mtproxy` — теги не версионные, сравнение невозможно.
+
+---
+
+## 6. Остальные контейнеры
 
 На 10.11.2026 в Docker один контейнер — `telegram-bot-api`. Cobalt удалён (бэкап конфига:
 `/root/backups/cobalt-20261110-043743.tar.gz`).
@@ -229,7 +274,7 @@ docker compose up -d
 1. Пиновать версию в `image:` — не `latest` (исключение: сервис, у которого нет версионных тегов).
 2. `restart: unless-stopped`.
 3. Публиковать порты только как `127.0.0.1:PORT:PORT` — см. `docs/DOCKER_FIREWALL.md`.
-4. Внести контейнер в таблицу §1 и в журнал §8.
+4. Внести контейнер в таблицу §1 и в журнал §9.
 5. Обновление — по процедуре §4 (pull → up -d → проверка → откат при необходимости).
 
 Автоматическое обновление стеков делает `nyx-containers-update.timer` (§4): только пинованные теги,
@@ -238,18 +283,20 @@ docker compose up -d
 
 ---
 
-## 6. Календарь
+## 7. Календарь
 
 | Когда | Что | Время |
 |---|---|---|
 | ежедневно | security-обновления Debian + ребут при необходимости | 01:30 / **02:00** / 04:00 UTC |
-| ежемесячно, 1-й вторник | Docker Engine (таймер) + `trixie-updates` вручную | **03:00 UTC** |
+| ежемесячно, 1-й вторник | Docker Engine (таймер) | **03:00 UTC** |
+| ежемесячно, 1-й вторник | инвентарь нативных приложений (`nyx-apps-inventory`) | **03:30 UTC** |
+| ежемесячно, 1-й вторник | `trixie-updates` (не-security) — ручной трек | окно оператора |
 | ежеквартально, 2-й вторник (янв/апр/июл/окт) | образы запущенных стеков (таймер) | **03:00 UTC** |
 | по событию | новый Bot API (10.x → 11.x), CVE в базовом образе | окно обслуживания |
 | раз в месяц | проверка логов UU и `/var/log/nyx-updates/`, `reboot-required`, `last reboot` | 5 минут |
 
-Автоматические окна — 02:00 (Debian) и 03:00 UTC (Docker). Ручные работы планируются на тот же час,
-кроме 04:00 — это время авторебута, его не занимаем.
+Автоматические окна — 02:00 (Debian), 03:00 (Docker) и 03:30 (инвентарь приложений) UTC. Ручные работы
+планируются на те же часы, кроме 04:00 — это время авторебута, его не занимаем.
 
 ### Почему Engine и образы — в разные окна
 
@@ -270,11 +317,11 @@ docker compose up -d
 Практическое правило: **сначала Engine (1-й вторник), минимум сутки наблюдения, образы — не раньше
 следующего окна** (у нас — 2-й вторник квартального месяца). Если оба обновления нужны срочно из-за
 CVE, их можно совместить, но тогда: отдельные бэкапы, откат по шагам (сначала образ, потом Engine)
-и запись обоих шагов в журнал §8.
+и запись обоих шагов в журнал §9.
 
 ---
 
-## 7. Почему отдельный таймер, а не `unattended-upgrades`
+## 8. Почему отдельный таймер, а не `unattended-upgrades`
 
 `unattended-upgrades` намеренно ограничен security-архивом Debian. Docker CE приходит из
 `download.docker.com` — это другой origin, и добавлять его в UU пришлось бы через `Origins-Pattern`,
@@ -289,7 +336,7 @@ CVE, их можно совместить, но тогда: отдельные �
 
 ---
 
-## 8. Журнал
+## 9. Журнал
 
 | Дата | Что | Результат |
 |---|---|---|
@@ -308,7 +355,7 @@ CVE, их можно совместить, но тогда: отдельные �
 
 ---
 
-## 9. Чек-лист после автоматических окон
+## 10. Чек-лист после автоматических окон
 
 ```
 [ ] 02:05–02:20 UTC: tail /var/log/unattended-upgrades/unattended-upgrades.log — установка без ошибок
@@ -320,13 +367,15 @@ CVE, их можно совместить, но тогда: отдельные �
       iptables -S DOCKER-USER, письмо "Docker Engine updated"
 [ ] 2-й вторник квартала ~03:10: docker ps, docker exec ... telegram-bot-api --version,
       тестовый файл через yt-bot, письмо "container images updated"
+[ ] 1-й вторник ~03:30: `nyx-apps-inventory.py --dry-run` (или просто список обновлений из отчёта),
+      письмо "apps inventory"
 [ ] /var/log/nyx-updates/docker-engine.log и containers.log — без ERROR
-[ ] при ERROR: откат по §3 / §4, запись в журнал §8
+[ ] при ERROR: откат по §3 / §4, запись в журнал §9
 ```
 
 ---
 
-## 10. Файлы расписания и установка
+## 11. Файлы расписания и установка
 
 Всё версионировано в `ops/` и ставится одним идемпотентным скриптом:
 
@@ -338,6 +387,9 @@ CVE, их можно совместить, но тогда: отдельные �
 | `ops/nyx-containers-update.sh` | `/usr/local/sbin/` |
 | `ops/nyx-docker-engine-update.{service,timer}` | `/etc/systemd/system/` |
 | `ops/nyx-containers-update.{service,timer}` | `/etc/systemd/system/` |
+| `ops/apps-inventory.py` | `/usr/local/sbin/` |
+| `ops/apps-inventory.{service,timer}` | `/etc/systemd/system/` |
+| `ops/apps-inventory.tsv` | `/etc/nyx-updates/apps-inventory.tsv` |
 | `ops/install-update-schedule.sh` | не ставится, запускается из каталога `ops/` |
 | `ops/update-containers.sh` | ручной помощник для одного стека |
 
@@ -388,7 +440,7 @@ docker system df
 
 ---
 
-## 11. Связанные документы
+## 12. Связанные документы
 
 | Документ | Про что |
 |---|---|

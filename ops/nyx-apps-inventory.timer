@@ -1,0 +1,13 @@
+[Unit]
+Description=Monthly inventory of native applications (1st Tuesday 03:30 UTC)
+
+[Timer]
+OnCalendar=
+OnCalendar=Tue *-*-01..07 03:30:00 UTC
+RandomizedDelaySec=0
+AccuracySec=1min
+Persistent=false
+Unit=nyx-apps-inventory.service
+
+[Install]
+WantedBy=timers.target
