@@ -46,6 +46,11 @@ Docker Engine. Это разные треки с разными рисками.
 На **dev** (`Dev.play2go.cloud`, TZ Europe/Berlin) стоят те же drop-in'ы: 01:30 и 02:00 UTC — это
 02:30 и 03:00 по местному времени зимой. Docker на dev не установлен, docker-таймеры там не нужны.
 
+> **Ядро и DKMS.** После обновления ядра авторебут в 04:00 поднимет новое ядро, а модуль `amneziawg`
+> должен быть собран под него DKMS. На prod и dev стоит `linux-headers-amd64`, поэтому сборка идёт
+> автоматически при установке headers. Но если сборка упала, `awg0` не поднимется и VPN умрёт молча —
+> проверка после ребута обязательна. Диагностика и лечение: [`AMNEZIAWG-DKMS.md`](AMNEZIAWG-DKMS.md) §5.
+
 **Проверка (раз в месяц, 1 минута):**
 
 ```bash
@@ -291,6 +296,8 @@ CVE, их можно совместить, но тогда: отдельные �
 [ ] 02:05–02:20 UTC: tail /var/log/unattended-upgrades/unattended-upgrades.log — установка без ошибок
 [ ] test -f /var/run/reboot-required; если есть — в 04:00 будет ребут
 [ ] после 04:00 (если ребут был): uptime, uname -r, docker ps, systemctl --failed
+[ ] после 04:00: dkms status | grep "$(uname -r)", lsmod | grep amneziawg,
+      systemctl is-active awg-quick@awg0, ip -br link show awg0
 [ ] 1-й вторник ~03:10: docker version, docker compose version, docker ps,
       iptables -S DOCKER-USER, письмо "Docker Engine updated"
 [ ] 2-й вторник квартала ~03:10: docker ps, docker exec ... telegram-bot-api --version,
