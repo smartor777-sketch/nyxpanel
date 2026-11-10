@@ -45,6 +45,16 @@ notify() {
 
 log "=== start (dry_run=$DRY_RUN) ==="
 
+# страховка: если предыдущий запуск оборвался на dpkg, долечить состояние
+if [[ -n $(dpkg --audit 2>/dev/null) ]]; then
+  log "WARN: dpkg audit is not empty, running dpkg --configure -a"
+  if ! dpkg --configure -a >>"$LOG" 2>&1; then
+    log "ERROR: dpkg --configure -a failed"
+    notify "nyx: dpkg is broken on $HOST" "dpkg --audit непустой, configure -a упал. См. $LOG"
+    exit 1
+  fi
+fi
+
 apt-get update -qq >>"$LOG" 2>&1 || { log "ERROR: apt-get update failed"; notify "nyx: apt update failed on $HOST" "apt-get update завершился ошибкой, см. $LOG"; exit 1; }
 
 mapfile -t pending < <(apt-get -s --only-upgrade install "${PKGS[@]}" 2>/dev/null | awk '/^Inst /{print $2}')

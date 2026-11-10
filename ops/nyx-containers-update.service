@@ -1,9 +1,9 @@
 [Unit]
 Description=Update container images for running compose stacks
 Documentation=file:///usr/local/sbin/nyx-containers-update.sh
-Wants=network-online.target
+Wants=network-online.target docker.service
 After=network-online.target docker.service
-Requires=docker.service
+# Wants, не Requires: рестарт docker.service не должен убивать pull/up.
 
 [Service]
 Type=oneshot

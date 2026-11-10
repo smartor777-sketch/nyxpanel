@@ -1,9 +1,10 @@
 [Unit]
 Description=Update Docker Engine from Docker CE repository
 Documentation=file:///usr/local/sbin/nyx-docker-engine-update.sh
-Wants=network-online.target
+Wants=network-online.target docker.service
 After=network-online.target docker.service
-Requires=docker.service
+# Не Requires: обновление docker-ce перезапускает docker.service, а Requires
+# остановил бы наш юнит и убил dpkg посреди настройки (проверено 10.11.2026).
 
 [Service]
 Type=oneshot
