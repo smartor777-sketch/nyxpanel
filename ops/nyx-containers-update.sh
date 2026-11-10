@@ -134,8 +134,22 @@ for dir in "${dirs[@]}"; do
 
   : >"$BK/rollback-map.txt"
   for img in "${images[@]}"; do
+    id=""
     if docker image inspect "$img" >/dev/null 2>&1; then
       id=$(docker image inspect --format '{{.Id}}' "$img")
+    else
+      # тега ещё нет локально (сменили пин) — берём образ запущенного контейнера того же repo
+      repo=$(repo_of "$img")
+      for cid in $(docker compose ps -q 2>/dev/null); do
+        cur=$(docker inspect --format '{{.Config.Image}}' "$cid" 2>/dev/null || true)
+        [[ -z "$cur" ]] && continue
+        if [[ $(repo_of "$cur") == "$repo" ]]; then
+          id=$(docker inspect --format '{{.Image}}' "$cid")
+          break
+        fi
+      done
+    fi
+    if [[ -n "$id" ]]; then
       ref="$(repo_of "$img"):rollback-$STAMP"
       docker tag "$id" "$ref"
       printf '%s\t%s\n' "$ref" "$img" >>"$BK/rollback-map.txt"
