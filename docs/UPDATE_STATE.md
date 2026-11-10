@@ -275,7 +275,7 @@ ssh dev '
 
 | Что | Состояние | План |
 |---|---|---|
-| `docker-wdtt-wdtt:latest` | 175 МБ, контейнер не запущен | удалить по согласованию |
+| `docker-wdtt-wdtt:latest` | 175 МБ, контейнер не запущен — **удалён** 2026-11-10 | — (не запускался, источник в `/opt/proxy-turn-vk-android-server-fix/docker-wdtt/` оставлен) |
 | build cache | ~175 МБ, 9 записей | `docker builder prune` по согласованию |
 | Два rollback-тега на один ID | дублируют друг друга, лишнего места не занимают | уйдут сами по `RETAIN_TAGS=2` |
 | `/opt/telegram-bot-api/docker-compose.yml` | режим `644`, `TELEGRAM_API_HASH` в открытом виде | `chmod 600` + вынос в env-файл |
